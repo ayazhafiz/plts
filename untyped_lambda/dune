@@ -1,0 +1,8 @@
+(ocamllex lexer)
+(menhir
+  (flags --explain)
+  (modules parser))
+
+(executable
+  (name untyped_lambda)
+  (libraries zoo menhirLib))

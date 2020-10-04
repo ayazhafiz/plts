@@ -1,0 +1,8 @@
+(ocamllex lexer)
+(menhir
+  (flags --explain)
+  (modules parser))
+
+(executable
+  (name calc_var)
+  (libraries zoo menhirLib))
