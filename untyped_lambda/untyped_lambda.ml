@@ -37,8 +37,8 @@ module UntypedLambda = Zoo.Main (struct
     match cmd with
     | Input.Expr e ->
         let e = Desugar.expr ctx.Context.names e in
-        let e = Norm.norm ~eager:!eager ~deep:!deep ctx.Context.decls e in
-        Format.printf "%t@." (Print.expr ctx.Context.names e) j;
+        let e = Eval.eval ~eager:!eager ~deep:!deep ctx.Context.decls e in
+        Format.printf "%t@." (Print.expr ctx.Context.names e);
         ctx
     | Input.Context ->
         ignore
@@ -48,7 +48,7 @@ module UntypedLambda = Zoo.Main (struct
                | None -> Format.printf "#constant @[%s@];@." x
                | Some e ->
                    Format.printf "@[%s := %t@];@." x
-                     (Printer.expr ctx.Context.names e) );
+                     (Print.expr ctx.Context.names e) );
                k - 1)
              ctx.Context.names
              (List.length ctx.Context.names - 1));
