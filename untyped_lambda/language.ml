@@ -7,14 +7,24 @@ type term =
   | TmAbs of info * string (* name hint *) * term
   | TmApp of info * term * term
 
+(** Get term info *)
+let tmInfo t =
+  match t with
+  | TmVar (info, _, _) -> info
+  | TmAbs (info, _, _) -> info
+  | TmApp (info, _, _) -> info
+
 type binding = NameBinding
+
+(*** Commands ***)
+type command = Eval of info * term | Bind of info * string * binding
 
 (*** Context ***)
 type context = (string * binding) list
 
 let emptycontext = []
 
-let ctxlength ctx = list.length ctx
+let ctxlength ctx = List.length ctx
 
 let addbinding ctx x bind = (x, bind) :: ctx
 
@@ -28,8 +38,8 @@ let rec isNameBound ctx name =
 (** Picks the first variable name derived from [name] that is not already bound
     in [context ctx]. *)
 let rec freshname ctx name =
-  if isNameBound ctx name then freshname ctx (x ^ "'")
-  else ((x, NameBinding) :: ctx, x)
+  if isNameBound ctx name then freshname ctx (name ^ "'")
+  else ((name, NameBinding) :: ctx, name)
 
 let index2name info ctx x =
   try
@@ -44,7 +54,17 @@ let index2name info ctx x =
 let rec name2index info ctx x =
   match ctx with
   | [] -> error info ("Identifier " ^ x ^ " is unbound")
-  | (cand, _) :: rest -> if y = x then 0 else 1 + name2index fi rest x
+  | (cand, _) :: rest -> if cand = x then 0 else 1 + name2index info rest x
+
+let getbinding info ctx i =
+  try
+    let _, binding = List.nth ctx i in
+    binding
+  with Failure _ ->
+    let msg =
+      Printf.sprintf "Variable lookup failure: offset: %d, ctx size: %d"
+    in
+    error info (msg i (List.length ctx))
 
 (*** Shifting ***)
 
@@ -77,10 +97,11 @@ let termShift d term =
   let rec walk c term =
     match term with
     | TmVar (info, x, n) ->
-        if x < c then (* Under cutoff <=> bound variable, no shift. *)
-          x
+        if x < c then
+          (* Under cutoff <=> bound variable, no shift. *)
+          TmVar (info, x, n + d)
         else (* Otherwise, apply the shift. *)
-          k + d
+          TmVar (info, x + d, n + d)
     | TmAbs (info, name, term) -> TmAbs (info, name, walk (c + 1) term)
     | TmApp (info, t1, t2) -> TmApp (info, walk c t1, walk c t2)
   in
@@ -88,13 +109,24 @@ let termShift d term =
 
 (** Applies the substitution [j->s]term *)
 let termSubst j s term =
-  match term with
-  | TmVar (info, x, n) ->
-      if x = j then (* Term indices match, apply substitution *) s
-      else (* Do not apply substitution *) k
-  | TmAbs (info, name, term) ->
-      TmAbs (info, name, termSubst (j + 1) (termShift 1 s) term)
-  | TmApp (info, t1, t2) -> TmApp (info, termSubst j s t1, termSubst j s t2)
+  let rec walk c term =
+    match term with
+    | TmVar (info, x, n) ->
+        if x = j + c then
+          (* Term indices match, apply substitution *)
+          termShift c s
+        else (* Do not apply substitution *) TmVar (info, x, n)
+    | TmAbs (info, name, term) ->
+        (* Entered an abstraction, so we need to shift up the term before substitution *)
+        TmAbs (info, name, walk (c + 1) term)
+    | TmApp (info, t1, t2) -> TmApp (info, walk c t1, walk c t2)
+  in
+  walk 0 term
+
+(** Substitutes a term on a "top level" bound variable. Shift up replacement
+    term by 1, perform the substitution with the bound variable, and then
+    shift everything down by 1 to account for the used up bound variable. *)
+let termSubstTop s term = termShift (-1) (termSubst 0 (termShift 1 s) term)
 
 (*** Printing ***)
 let rec printtm ctx t =
@@ -102,16 +134,18 @@ let rec printtm ctx t =
   | TmVar (info, x, n) ->
       if ctxlength ctx = n then pr (index2name info ctx x)
       else pr "[bad index - evaluation is incorrect!]"
-  | TmAbs (info, name, term) ->
+  | TmAbs (_, name, term) ->
       let ctx', name' = freshname ctx name in
       pr "(λ ";
       pr name';
       pr ". ";
       printtm ctx' term;
       pr ")"
-  | TmApp (info, t1, t2) ->
+  | TmApp (_, t1, t2) ->
       pr "(";
       printtm ctx t1;
       pr " ";
       printtm ctx t2;
       pr ")"
+
+let printbinding _ctx b = match b with NameBinding -> ()

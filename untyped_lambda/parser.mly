@@ -1,7 +1,6 @@
 %{
-open Support.Error
-open Support.Pervasive
-open Syntax
+open Util.Error
+open Language
 %}
 
 /* ---------------------------------------------------------------------- */
@@ -17,61 +16,61 @@ open Syntax
  */
 
 /* Keyword tokens */
-%token <Support.Error.info> LAMBDA
+%token <Util.Error.info> LAMBDA
 
 /* Identifier and constant value tokens */
-%token <string Support.Error.withinfo> UCID  /* uppercase-initial */
-%token <string Support.Error.withinfo> LCID  /* lowercase/symbolic-initial */
-%token <int Support.Error.withinfo> INTV
-%token <float Support.Error.withinfo> FLOATV
-%token <string Support.Error.withinfo> STRINGV
+%token <string Util.Error.withinfo> UCID  /* uppercase-initial */
+%token <string Util.Error.withinfo> LCID  /* lowercase/symbolic-initial */
+%token <int Util.Error.withinfo> INTV
+%token <float Util.Error.withinfo> FLOATV
+%token <string Util.Error.withinfo> STRINGV
 
 /* Symbolic tokens */
-%token <Support.Error.info> APOSTROPHE
-%token <Support.Error.info> DQUOTE
-%token <Support.Error.info> ARROW
-%token <Support.Error.info> BANG
-%token <Support.Error.info> BARGT
-%token <Support.Error.info> BARRCURLY
-%token <Support.Error.info> BARRSQUARE
-%token <Support.Error.info> COLON
-%token <Support.Error.info> COLONCOLON
-%token <Support.Error.info> COLONEQ
-%token <Support.Error.info> COLONHASH
-%token <Support.Error.info> COMMA
-%token <Support.Error.info> DARROW
-%token <Support.Error.info> DDARROW
-%token <Support.Error.info> DOT
-%token <Support.Error.info> EOF
-%token <Support.Error.info> EQ
-%token <Support.Error.info> EQEQ
-%token <Support.Error.info> EXISTS
-%token <Support.Error.info> GT
-%token <Support.Error.info> HASH
-%token <Support.Error.info> LCURLY
-%token <Support.Error.info> LCURLYBAR
-%token <Support.Error.info> LEFTARROW
-%token <Support.Error.info> LPAREN
-%token <Support.Error.info> LSQUARE
-%token <Support.Error.info> LSQUAREBAR
-%token <Support.Error.info> LT
-%token <Support.Error.info> RCURLY
-%token <Support.Error.info> RPAREN
-%token <Support.Error.info> RSQUARE
-%token <Support.Error.info> SEMI
-%token <Support.Error.info> SLASH
-%token <Support.Error.info> STAR
-%token <Support.Error.info> TRIANGLE
-%token <Support.Error.info> USCORE
-%token <Support.Error.info> VBAR
+%token <Util.Error.info> APOSTROPHE
+%token <Util.Error.info> DQUOTE
+%token <Util.Error.info> ARROW
+%token <Util.Error.info> BANG
+%token <Util.Error.info> BARGT
+%token <Util.Error.info> BARRCURLY
+%token <Util.Error.info> BARRSQUARE
+%token <Util.Error.info> COLON
+%token <Util.Error.info> COLONCOLON
+%token <Util.Error.info> COLONEQ
+%token <Util.Error.info> COLONHASH
+%token <Util.Error.info> COMMA
+%token <Util.Error.info> DARROW
+%token <Util.Error.info> DDARROW
+%token <Util.Error.info> DOT
+%token <Util.Error.info> EOF
+%token <Util.Error.info> EQ
+%token <Util.Error.info> EQEQ
+%token <Util.Error.info> EXISTS
+%token <Util.Error.info> GT
+%token <Util.Error.info> HASH
+%token <Util.Error.info> LCURLY
+%token <Util.Error.info> LCURLYBAR
+%token <Util.Error.info> LEFTARROW
+%token <Util.Error.info> LPAREN
+%token <Util.Error.info> LSQUARE
+%token <Util.Error.info> LSQUAREBAR
+%token <Util.Error.info> LT
+%token <Util.Error.info> RCURLY
+%token <Util.Error.info> RPAREN
+%token <Util.Error.info> RSQUARE
+%token <Util.Error.info> SEMI
+%token <Util.Error.info> SLASH
+%token <Util.Error.info> STAR
+%token <Util.Error.info> TRIANGLE
+%token <Util.Error.info> USCORE
+%token <Util.Error.info> VBAR
 
 /* ---------------------------------------------------------------------- */
 /* The starting production of the generated parser is the syntactic class
    toplevel.  The type that is returned when a toplevel is recognized is
-     Syntax.context -> (Syntax.command list * Syntax.context) 
+     Language.context -> (Language.command list * Language.context) 
    that is, the parser returns to the user program a function that,
    when given a naming context, returns a fully parsed list of
-   Syntax.commands and the new naming context that results when
+   Language.commands and the new naming context that results when
    all the names bound in these commands are defined.
 
    All of the syntactic productions in the parser follow the same pattern:
@@ -82,7 +81,7 @@ open Syntax
 */
 
 %start toplevel
-%type < Syntax.context -> (Syntax.command list * Syntax.context) > toplevel
+%type < Language.context -> (Language.command list * Language.context) > toplevel
 %%
 
 /* ---------------------------------------------------------------------- */
@@ -109,7 +108,7 @@ Command :
 /* Right-hand sides of top-level bindings */
 Binder :
     SLASH
-      { fun ctx -> NameBind }
+      { fun _ -> NameBinding }
 
 Term :
     AppTerm

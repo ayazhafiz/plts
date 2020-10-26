@@ -4,5 +4,4 @@
   (modules parser))
 
 (executable
-  (name rich_untyped_lambda)
-  (libraries zoo menhirLib))
+  (name untyped_lambda))

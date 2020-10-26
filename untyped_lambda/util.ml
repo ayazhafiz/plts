@@ -1,9 +1,5 @@
 open Format
 
-let info = Error.info
-
-let pr = Format.print_string
-
 module Error = struct
   exception Exit of int
 
@@ -21,16 +17,17 @@ module Error = struct
     | File (f, l, c) ->
         print_string f;
         print_string "@";
-        print_string l;
+        print_int l;
         print_string ":";
-        print_string c;
+        print_int c;
         print_string ":"
     | Unknown -> print_string "<unknown>:"
 
   let errAt info f =
     printInfo info;
     print_space ();
-    f ()
+    f ();
+    raise (Exit 1)
 
   let error info s =
     errAt info (fun () ->
@@ -43,3 +40,7 @@ module Error = struct
     print_string s;
     print_newline ()
 end
+
+type info = Error.info
+
+let pr = Format.print_string

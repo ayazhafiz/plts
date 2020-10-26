@@ -1,5 +1,5 @@
-module UntypedLambda = Zoo.Main (struct
-  let name = "untyped_lambda"
+module RichUntypedLambda = Zoo.Main (struct
+  let name = "rich_untyped_lambda"
 
   type command = Input.toplevel
 
@@ -77,4 +77,4 @@ module UntypedLambda = Zoo.Main (struct
 end)
 
 ;;
-UntypedLambda.main ()
+RichUntypedLambda.main ()
