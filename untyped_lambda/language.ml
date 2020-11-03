@@ -133,7 +133,11 @@ let rec printtm ctx t =
   match t with
   | TmVar (info, x, n) ->
       if ctxlength ctx = n then pr (index2name info ctx x)
-      else pr "[bad index - evaluation is incorrect!]"
+      else
+        pr
+          ( "[bad index: " ^ string_of_int x ^ "/" ^ string_of_int n ^ " in {"
+          ^ List.fold_left (fun s (x, _) -> s ^ " " ^ x) "" ctx
+          ^ " }]" )
   | TmAbs (_, name, term) ->
       let ctx', name' = freshname ctx name in
       pr "(λ ";
