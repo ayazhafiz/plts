@@ -1,0 +1,4 @@
+/* Examples for testing */
+
+ lambda x:Bool. x;
+   (lambda x:Bool. if x then false else true) (false);
