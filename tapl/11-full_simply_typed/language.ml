@@ -31,13 +31,27 @@ type term =
   | TmApp of info * term * term
   (* A condition/then/else expression *)
   | TmIf of info * term * term * term
-  (* case <term> (| <str str> ==> <term>)* *)
+  (* case <term> (| <str = str> ==> <term>)* *)
   | TmCase of info * term * (string * (string * term)) list
-  (* <str = term> as ty *)
+  (* A tag of variant type. For example "<cat = catTerm> as Animal" is a tag,
+     where "Animal" is defined as "<cat: Cat, dog: Dog>".*)
   | TmTag of info * string * term * ty
   (* let <name> = t1 in <t2> *)
   | TmLet of info * string * term * term
-  (* fix term *)
+  (* Applying "fix" on a term returns a fixed point on that term.
+     More specifically, fix is a combinator that provides its input back to
+     itself.
+     For example if we have a function
+       [ fact := λfact: Nat->Nat. λn:Nat. fact(pred n) ]
+     "fix(fact)" would give to us a function that "feeds fact back to itself",
+     providing "fact" as fixed point. Therefore "fact" can now be evaluated on a
+     fixed point, and so while "fact" is "(Nat -> Nat) -> Nat -> Nat",
+     "fix(fact)" is just "Nat -> Nat".
+     Another intuitive way to think about this is that "fix(fact)" has
+     "everything it needs" for the recursive definition of "fact" to work; that
+     is, a user of "fix(fact)" no longer needs to supply the definition of
+     "fact", and can just use it as a definition of factorial directly! That is
+     the meaning behind a fixed point -- it is provided, and thus fixed. *)
   | TmFix of info * term
   (* term as ty *)
   | TmAscribe of info * term * ty
@@ -103,61 +117,6 @@ let tmInfo t =
 
 (*** Commands ***)
 type command = Eval of info * term | Bind of info * string * binding
-
-(*** Context ***)
-type context = (string * binding) list
-
-let emptycontext = []
-
-let ctxlength ctx = List.length ctx
-
-let addbinding ctx x bind = (x, bind) :: ctx
-
-let addname ctx name = addbinding ctx name NameBinding
-
-let rec isNameBound ctx name =
-  match ctx with
-  | [] -> false
-  | (cand, _) :: rest -> if cand = name then true else isNameBound rest name
-
-(** Picks the first variable name derived from [name] that is not already bound
-    in [context ctx]. *)
-let rec freshname ctx name =
-  if isNameBound ctx name then freshname ctx (name ^ "'")
-  else ((name, NameBinding) :: ctx, name)
-
-let index2name info ctx x =
-  try
-    let xn, _ = List.nth ctx x in
-    xn
-  with Failure _ ->
-    let msg =
-      Printf.sprintf "Variable lookup failure: offset %d, ctx size: %d"
-    in
-    error info (msg x (List.length ctx))
-
-let rec name2index info ctx x =
-  match ctx with
-  | [] -> error info ("Identifier " ^ x ^ " is unbound")
-  | (cand, _) :: rest -> if cand = x then 0 else 1 + name2index info rest x
-
-let getbinding info ctx i =
-  try
-    let _, binding = List.nth ctx i in
-    binding
-  with Failure _ ->
-    let msg =
-      Printf.sprintf "Variable lookup failure: offset: %d, ctx size: %d"
-    in
-    error info (msg i (List.length ctx))
-
-let gettype info ctx i =
-  match getbinding info ctx i with
-  | VarBinding tyT -> tyT
-  | _ ->
-      error info
-        ( "gettype: Variable " ^ index2name info ctx i
-        ^ " does not have a type binding." )
 
 (*** Shifting and Substitution ***)
 
@@ -361,6 +320,82 @@ let typeSubst j s tyTerm =
 (** "Top level" beta reduction of a type, [0->s](ty).
     See [ termSubstTop ] for the logic used here. *)
 let typeSubstTop s tyTerm = typeShift (-1) (typeSubst 0 (typeShift 1 s) tyTerm)
+
+(*** Context ***)
+type context = (string * binding) list
+
+let emptycontext = []
+
+let ctxlength ctx = List.length ctx
+
+let addbinding ctx x bind = (x, bind) :: ctx
+
+let addname ctx name = addbinding ctx name NameBinding
+
+let rec isNameBound ctx name =
+  match ctx with
+  | [] -> false
+  | (cand, _) :: rest -> if cand = name then true else isNameBound rest name
+
+(** Picks the first variable name derived from [name] that is not already bound
+    in [context ctx]. *)
+let rec freshname ctx name =
+  if isNameBound ctx name then freshname ctx (name ^ "'")
+  else ((name, NameBinding) :: ctx, name)
+
+let index2name info ctx x =
+  try
+    let xn, _ = List.nth ctx x in
+    xn
+  with Failure _ ->
+    let msg =
+      Printf.sprintf "Variable lookup failure: offset %d, ctx size: %d"
+    in
+    error info (msg x (List.length ctx))
+
+let rec name2index info ctx x =
+  match ctx with
+  | [] -> error info ("Identifier " ^ x ^ " is unbound")
+  | (cand, _) :: rest -> if cand = x then 0 else 1 + name2index info rest x
+
+let getbinding info ctx i =
+  try
+    let _, binding = List.nth ctx i in
+    (* Before we added a binding to the context, its reference to other items in
+       the context were those of when the binding was not yet in the context!
+       This means that our references to items in the context are now stale, and
+       we should update them by shifting up the number of spots the binding we
+       are interested in is in the context currently, and an extra spot to
+       account for the fact that the binding was created referencing the context
+       without its presence. *)
+    bindingShift (i + 1) binding
+  with Failure _ ->
+    let msg =
+      Printf.sprintf "Variable lookup failure: offset: %d, ctx size: %d"
+    in
+    error info (msg i (List.length ctx))
+
+(** Returns the bound type of a variable. *)
+let getTermType info ctx i =
+  match getbinding info ctx i with
+  | VarBinding ty | TmAbbBinding (_, Some ty) -> ty
+  | TmAbbBinding (_, None) ->
+      error info
+        (index2name info ctx i ^ " has an abstraction binding but no known type")
+  | _ ->
+      error info
+        ( "getTermType: untyped or wrong kind of binding for term "
+        ^ index2name info ctx i )
+
+(** Returns the bound name of a type variable, or [ None ] otherwise. *)
+let getBoundNameOfTypeVar info ctx i =
+  match getbinding info ctx i with
+  | TyVarBinding -> None
+  | TyAbbBinding ty -> Some ty
+  | _ ->
+      error info
+        ( "getBoundNameOfTypeVar: Wrong kind of binding for type "
+        ^ index2name info ctx i )
 
 (*** Printing ***)
 let prIndexName info ctx name ctxlen =

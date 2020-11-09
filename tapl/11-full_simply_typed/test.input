@@ -1,0 +1,62 @@
+"hello";
+unit;
+
+timesfloat 2.0 3.14159;
+
+succ (succ 0);
+succ (pred 0);
+pred (succ 0);
+
+{x=true, y=false}; 
+{x=true, y=false}.x;
+{true, false}; 
+{true, false}.1; 
+
+lambda x:<a:Bool,b:Bool>. x;
+lambda x:A. x;
+
+lambda x:Nat. succ x;
+(lambda x:Nat. succ (succ x)) (succ 0); 
+
+s: Bool;
+((lambda x: Bool->Bool.
+   (lambda y: Bool. (x)(y))) (lambda z: Bool. s)) (true);
+
+y = inert[F];
+(lambda x: F. x)(y);
+
+T = Nat->Nat;
+lambda f:T. lambda x:Nat. f (f x);
+
+let x=true in x;
+
+letrec plus: Nat->Nat->Nat = lambda m:Nat. lambda n:Nat.
+  if iszero m then n else succ (plus (pred m) n)
+  in plus 5 10;
+
+let plus = fix (lambda plus: Nat->Nat->Nat. lambda m:Nat. lambda n:Nat.
+  if iszero m then n else succ (plus (pred m) n))
+  in plus 5 10;
+
+Cat = {noise: String};
+Dog = {noise: String};
+Animal = <dog: Dog, cat: Cat>;
+let myAnimal = (<cat = {noise="meow"}> as Animal) in
+case myAnimal of
+    <cat=kitty> ==> kitty.noise
+  | <dog=puppy> ==> puppy.noise;
+
+/* let diverge = (lambda _:Unit. fix (lambda x: Nat. x)) in diverge unit; */
+
+numeric = letrec ieio: { iseven: Nat->Bool, isodd: Nat->Bool } =
+  { iseven = lambda x: Nat.
+      if (iszero x) then true
+      else ieio.isodd (pred x),
+
+    isodd = lambda x: Nat.
+      if (iszero x) then false
+      else ieio.iseven (pred x) }
+  in ieio;
+
+numeric.iseven 182;
+numeric.isodd 183;

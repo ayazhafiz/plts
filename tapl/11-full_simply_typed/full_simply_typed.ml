@@ -1,6 +1,3 @@
-(* The main program.  Deals with processing the command line,
-   reading files, building and connecting lexers and parsers, etc. *)
-
 open Format
 open Util
 open Util.Error
@@ -52,12 +49,33 @@ let parseFile inFile =
 
 let alreadyImported = ref ([] : string list)
 
-let prbindingty _ b =
+let checkbinding fi ctx b =
+  match b with
+  | NameBinding -> NameBinding
+  | VarBinding tyT -> VarBinding tyT
+  | TmAbbBinding (t, None) -> TmAbbBinding (t, Some (typeof ctx t))
+  | TmAbbBinding (t, Some tyT) ->
+      let tyT' = typeof ctx t in
+      if tyeq ctx tyT' tyT then TmAbbBinding (t, Some tyT)
+      else error fi "Type of binding does not match declared type"
+  | TyVarBinding -> TyVarBinding
+  | TyAbbBinding tyT -> TyAbbBinding tyT
+
+let prbindingty ctx b =
   match b with
   | NameBinding -> ()
   | VarBinding tyT ->
       pr ": ";
-      printty tyT
+      printty ctx tyT
+  | TmAbbBinding (t, tyT_opt) -> (
+      pr ": ";
+      match tyT_opt with
+      | None -> printty ctx (typeof ctx t)
+      | Some tyT -> printty ctx tyT )
+  | TyVarBinding -> ()
+  | TyAbbBinding ty ->
+      pr ":: ";
+      printty ctx ty
 
 let process_command ctx cmd =
   match cmd with
@@ -65,17 +83,18 @@ let process_command ctx cmd =
       let tyT = typeof ctx t in
       let t' = eval ctx t in
       printtm ctx t';
-      print_break 1 2;
       pr ": ";
-      printty tyT;
+      printty ctx tyT;
       force_newline ();
       ctx
-  | Bind (_, x, bind) ->
+  | Bind (fi, x, bind) ->
+      let bind = checkbinding fi ctx bind in
+      let bind' = evalbinding ctx bind in
       pr x;
       pr " ";
-      prbindingty ctx bind;
+      prbindingty ctx bind';
       force_newline ();
-      addbinding ctx x bind
+      addbinding ctx x bind'
 
 let process_file f ctx =
   alreadyImported := f :: !alreadyImported;
