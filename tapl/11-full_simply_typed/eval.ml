@@ -14,6 +14,8 @@ let rec isval ctx t =
   | TmAbs (_, _, _, _) -> true
   | TmRecord (_, fields) ->
       List.for_all (fun (_, term) -> isval ctx term) fields
+  | TmNil _ -> true
+  | TmCons (_, t1, t2) when isval ctx t1 && isval ctx t2 -> true
   | _ -> false
 
 exception NoRuleApplies
@@ -66,6 +68,12 @@ let rec eval' ctx t =
   | TmTimesfloat (info, (TmFloat (_, _) as f1), f2) ->
       TmTimesfloat (info, f1, eval' ctx f2)
   | TmTimesfloat (info, f1, f2) -> TmTimesfloat (info, eval' ctx f1, f2)
+  | TmPlusfloat (info, TmFloat (_, f1), TmFloat (_, f2)) ->
+      TmFloat (info, f1 +. f2)
+  (* One step at a time: first lower f1 to a float, then f2. *)
+  | TmPlusfloat (info, (TmFloat (_, _) as f1), f2) ->
+      TmPlusfloat (info, f1, eval' ctx f2)
+  | TmPlusfloat (info, f1, f2) -> TmPlusfloat (info, eval' ctx f1, f2)
   | TmSucc (_, TmPred (_, term)) when isnumeric term -> term
   | TmSucc (info, term) -> TmSucc (info, eval' ctx term)
   | TmPred (_, TmSucc (_, term)) when isnumeric term -> term
@@ -74,6 +82,15 @@ let rec eval' ctx t =
   | TmIsZero (info, TmZero _) -> TmTrue info
   | TmIsZero (info, TmSucc (_, term)) when isnumeric term -> TmFalse info
   | TmIsZero (info, term) -> TmIsZero (info, eval' ctx term)
+  | TmCons (info, t1, t2) when isval ctx t1 -> TmCons (info, t1, eval' ctx t2)
+  | TmCons (info, t1, t2) -> TmCons (info, eval' ctx t1, t2)
+  | TmIsNil (info, TmNil _) -> TmTrue info
+  | TmIsNil (info, TmCons (_, _, _)) -> TmFalse info
+  | TmIsNil (info, term) -> TmIsNil (info, eval' ctx term)
+  | TmHead (_, TmCons (_, t1, _rest)) -> t1
+  | TmHead (info, term) -> TmHead (info, eval' ctx term)
+  | TmTail (_, TmCons (_, _t1, rest)) -> rest
+  | TmTail (info, term) -> TmTail (info, eval' ctx term)
   | _ -> raise NoRuleApplies
 
 let rec eval ctx t =

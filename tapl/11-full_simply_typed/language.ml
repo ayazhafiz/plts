@@ -15,6 +15,7 @@ type ty =
   | TyRecord of (string * ty) list
   (* A variant type like <a: Nat, b: String>. Contains either a or b. *)
   | TyVariant of (string * ty) list
+  | TyList of ty
   | TyString
   | TyUnit
   | TyBool
@@ -69,10 +70,16 @@ type term =
   | TmUnit of info
   | TmFloat of info * float
   | TmTimesfloat of info * term * term
+  | TmPlusfloat of info * term * term
   | TmZero of info
   | TmSucc of info * term
   | TmPred of info * term
   | TmIsZero of info * term
+  | TmNil of info * ty
+  | TmCons of info * term * term
+  | TmIsNil of info * term
+  | TmHead of info * term
+  | TmTail of info * term
 
 type binding =
   (* A named, but untyped variable. *)
@@ -110,10 +117,16 @@ let tmInfo t =
   | TmUnit info -> info
   | TmFloat (info, _) -> info
   | TmTimesfloat (info, _, _) -> info
+  | TmPlusfloat (info, _, _) -> info
   | TmZero info -> info
   | TmSucc (info, _) -> info
   | TmPred (info, _) -> info
   | TmIsZero (info, _) -> info
+  | TmNil (info, _) -> info
+  | TmCons (info, _, _) -> info
+  | TmIsNil (info, _) -> info
+  | TmHead (info, _) -> info
+  | TmTail (info, _) -> info
 
 (*** Commands ***)
 type command = Eval of info * term | Bind of info * string * binding
@@ -127,6 +140,7 @@ let tyMap ontype cutoff ty =
     match ty with
     | TyVar (name, ctxlen) -> ontype cutoff name ctxlen
     | TyId _ as t -> t
+    | TyList ty -> TyList (walk cutoff ty)
     | TyRecord fields ->
         TyRecord (List.map (fun (name, ty) -> (name, walk cutoff ty)) fields)
     | TyVariant opts ->
@@ -196,10 +210,17 @@ let tmMap onvar ontype cutoff term =
     | TmFloat _ as t -> t
     | TmTimesfloat (info, t1, t2) ->
         TmTimesfloat (info, walk cutoff t1, walk cutoff t2)
+    | TmPlusfloat (info, t1, t2) ->
+        TmPlusfloat (info, walk cutoff t1, walk cutoff t2)
     | TmZero _ as t -> t
     | TmSucc (info, term) -> TmSucc (info, walk cutoff term)
     | TmPred (info, term) -> TmPred (info, walk cutoff term)
     | TmIsZero (info, term) -> TmIsZero (info, walk cutoff term)
+    | TmNil (info, ty) -> TmNil (info, ontype cutoff ty)
+    | TmCons (info, t1, t2) -> TmCons (info, walk cutoff t1, walk cutoff t2)
+    | TmIsNil (info, term) -> TmIsNil (info, walk cutoff term)
+    | TmHead (info, term) -> TmHead (info, walk cutoff term)
+    | TmTail (info, term) -> TmTail (info, walk cutoff term)
   in
   walk cutoff term
 
@@ -440,6 +461,10 @@ let rec printty ctx ty =
       pr "<";
       prfields fields;
       pr ">"
+  | TyList ty ->
+      pr "[";
+      printty ctx ty;
+      pr "]"
   | TyString -> pr "String"
   | TyUnit -> pr "Unit"
   | TyBool -> pr "bool"
@@ -554,8 +579,15 @@ let rec printtm ctx t =
   | TmTimesfloat (_, f1, f2) ->
       pr "(timesfloat ";
       printtm ctx f1;
-      pr ")";
-      printtm ctx f2
+      pr " ";
+      printtm ctx f2;
+      pr ")"
+  | TmPlusfloat (_, f1, f2) ->
+      pr "(plusfloat ";
+      printtm ctx f1;
+      pr " ";
+      printtm ctx f2;
+      pr ")"
   | TmZero _ -> pr "0"
   | TmSucc (_, term) ->
       let rec acc n term =
@@ -574,6 +606,27 @@ let rec printtm ctx t =
       pr ")"
   | TmIsZero (_, term) ->
       pr "(iszero ";
+      printtm ctx term;
+      pr ")"
+  | TmNil (_, ty) ->
+      pr "nil";
+      printty ctx ty
+  | TmCons (_, t1, t2) ->
+      pr "(cons ";
+      printtm ctx t1;
+      pr " ";
+      printtm ctx t2;
+      pr ")"
+  | TmIsNil (_, term) ->
+      pr "(isnil ";
+      printtm ctx term;
+      pr ")"
+  | TmHead (_, term) ->
+      pr "(head ";
+      printtm ctx term;
+      pr ")"
+  | TmTail (_, term) ->
+      pr "(tail ";
       printtm ctx term;
       pr ")"
 

@@ -60,3 +60,35 @@ numeric = letrec ieio: { iseven: Nat->Bool, isodd: Nat->Bool } =
 
 numeric.iseven 182;
 numeric.isodd 183;
+
+nil[Nat];
+isnil (cons "a" (cons "b" nil[String]));
+isnil (tail (cons "b" nil[String]));
+let lst = (cons "a" (cons "b" nil[String]))
+  in {hd=(head lst), tl=(tail lst)};
+
+FloatMap = Float -> Float;
+FloatList = [Float];
+
+mapFloat = letrec recur: FloatMap -> FloatList -> FloatList =
+  lambda map: FloatMap.
+  lambda lst: FloatList.
+    if (isnil lst) then nil[Float]
+    else cons (map (head lst)) (recur map (tail lst))
+  in recur;
+
+/* reduceFloat f(accumulator, current) -> Float, initial, list */
+reduceFloat = letrec reduce: (Float -> Float -> Float) -> Float -> FloatList -> Float =
+  lambda acc: Float -> Float -> Float.
+  lambda init: Float.
+  lambda lst: FloatList.
+    if (isnil lst) then init
+    else acc (reduce acc init (tail lst)) (head lst)
+  in reduce;
+
+double = mapFloat (lambda f: Float. timesfloat f 2.0);
+sum = reduceFloat (lambda acc: Float. lambda cur: Float. plusfloat acc cur) 0.0;
+
+doubled = double (cons 4.0 (cons 3.0 (cons 2.0 (cons 1.0 nil[Float]))));
+doubled;
+sum doubled;

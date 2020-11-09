@@ -36,11 +36,17 @@ open Language
 %token <Util.Error.info> UNIT
 %token <Util.Error.info> UUNIT
 %token <Util.Error.info> TIMESFLOAT
+%token <Util.Error.info> PLUSFLOAT
 %token <Util.Error.info> UFLOAT
 %token <Util.Error.info> SUCC
 %token <Util.Error.info> PRED
 %token <Util.Error.info> ISZERO
 %token <Util.Error.info> NAT
+%token <Util.Error.info> NIL
+%token <Util.Error.info> CONS
+%token <Util.Error.info> ISNIL
+%token <Util.Error.info> HEAD
+%token <Util.Error.info> TAIL
 
 /* Identifier and constant value tokens */
 %token <string Util.Error.withinfo> UCID  /* uppercase-initial */
@@ -159,6 +165,8 @@ AType :
       { fun ctx -> TyVariant($2 ctx 1) }
   | LCURLY FieldTypes RCURLY
       { fun ctx -> TyRecord($2 ctx 1) }
+  | ListType
+      { $1 }
   | BOOL
       { fun _ -> TyBool }
   | USTRING
@@ -169,6 +177,10 @@ AType :
       { fun _ -> TyFloat }
   | NAT
       { fun _ -> TyNat }
+
+ListType :
+  | LSQUARE Type RSQUARE
+      { fun ctx -> TyList($2 ctx) }
  
 TyBinder:
     /* empty */
@@ -239,12 +251,22 @@ AppTerm :
       { fun ctx -> TmFix($1, $2 ctx) }
   | TIMESFLOAT PathTerm PathTerm
       { fun ctx -> TmTimesfloat($1, $2 ctx, $3 ctx) }
+  | PLUSFLOAT PathTerm PathTerm
+      { fun ctx -> TmPlusfloat($1, $2 ctx, $3 ctx) }
   | SUCC PathTerm
       { fun ctx -> TmSucc($1, $2 ctx) }
   | PRED PathTerm
       { fun ctx -> TmPred($1, $2 ctx) }
   | ISZERO PathTerm
       { fun ctx -> TmIsZero($1, $2 ctx) }
+  | CONS PathTerm PathTerm
+      { fun ctx -> TmCons($1, $2 ctx, $3 ctx) }
+  | ISNIL PathTerm
+      { fun ctx -> TmIsNil($1, $2 ctx) }
+  | HEAD PathTerm
+      { fun ctx -> TmHead($1, $2 ctx) }
+  | TAIL PathTerm
+      { fun ctx -> TmTail($1, $2 ctx) }
 
 AscribeTerm:
     ATerm AS Type
@@ -283,6 +305,10 @@ ATerm :
       { fun ctx -> TmVar($1.i, name2index $1.i ctx $1.v, ctxlength ctx) }
   | LCURLY Fields RCURLY 
       { fun ctx -> TmRecord($1, $2 ctx 1) }
+  | NIL ListType
+      { fun ctx -> TmNil($1, $2 ctx) }
+  /* | LSQUARE ListTerms RSQUARE
+         { fun ctx -> TmList($1, $2 ctx) } */
   | STRINGV 
       { fun _ -> TmString($1.i, $1.v) }
   | FLOATV 
@@ -326,3 +352,16 @@ Field:
   /* Tuple: no field name */
   | Term
       { fun ctx i -> (string_of_int i, $1 ctx) }
+
+/*
+ListTerms:
+      { fun _ _ -> [] }
+  | NETerms
+      { $1 }
+
+NETerms:
+    Term
+      { fun ctx -> [$1 ctx] }
+  | Term COMMA NEFields
+      { fun ctx -> ($1 ctx) :: ($3 ctx) }
+*/

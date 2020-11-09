@@ -40,6 +40,7 @@ let rec tyeq ctx ty1 ty2 =
       && List.for_all2
            (fun (_, ty1) (_, ty2) -> tyeq ctx ty1 ty2)
            fields1 fields2
+  | TyList ty1, TyList ty2 -> tyeq ctx ty1 ty2
   | _ -> false
 
 let rec typeof ctx t =
@@ -58,7 +59,12 @@ let rec typeof ctx t =
       match simplifyTy ctx tyAbs with
       | TyArrow (tyIn, tyOut) ->
           if tyeq ctx tyIn tyParam then tyOut
-          else error info "parameter type mismatch!"
+          else
+            errAt info (fun _ ->
+                pr "parameter type mismatch: found ";
+                printty ctx tyIn;
+                pr " expected ";
+                printty ctx tyParam)
       | ty ->
           errAt info (fun _ ->
               pr "arrow type expected; got ";
@@ -163,6 +169,30 @@ let rec typeof ctx t =
         if tyeq ctx (typeof ctx t2) TyFloat then TyFloat
         else error info "second term to timesfloat is not a float!"
       else error info "first term to timesfloat is not a float!"
+  | TmPlusfloat (info, t1, t2) ->
+      if tyeq ctx (typeof ctx t1) TyFloat then
+        if tyeq ctx (typeof ctx t2) TyFloat then TyFloat
+        else error info "second term to plusfloat is not a float!"
+      else error info "first term to plusfloat is not a float!"
+  | TmCons (info, head, tail) -> (
+      match simplifyTy ctx (typeof ctx tail) with
+      | TyList elemTy as listTy ->
+          if tyeq ctx elemTy (typeof ctx head) then listTy
+          else error info "list type and element type differ!"
+      | _ -> error info "expected second argument to cons to be a list!" )
+  | TmIsNil (info, term) -> (
+      match simplifyTy ctx (typeof ctx term) with
+      | TyList _ -> TyBool
+      | _ -> error info "expected first argument to isnil to be a list!" )
+  | TmHead (info, term) -> (
+      match simplifyTy ctx (typeof ctx term) with
+      | TyList elemTy -> elemTy
+      | _ -> error info "argument to head must be a list!" )
+  | TmTail (info, term) -> (
+      match simplifyTy ctx (typeof ctx term) with
+      | TyList _ as listTy -> listTy
+      | _ -> error info "argument to tail must be a list!" )
+  | TmNil (_, ty) -> ty
   | TmInert (_, ty) -> ty
   | TmTrue _ -> TyBool
   | TmFalse _ -> TyBool
