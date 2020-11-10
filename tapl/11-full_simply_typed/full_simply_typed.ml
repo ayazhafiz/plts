@@ -34,19 +34,18 @@ let openfile infile =
   in
   trynext !searchpath
 
-let parse lexbuf =
+let parse lexbuf ctx =
   let result =
-    try Some (Parser.toplevel Lexer.main lexbuf)
-    with Parsing.Parse_error -> None
+    try Some ((Parser.toplevel Lexer.main lexbuf) ctx) with _ -> None
   in
   Parsing.clear_parser ();
   result
 
-let parseFile inFile =
+let parseFile inFile ctx =
   let pi = openfile inFile in
   let lexbuf = Lexer.create inFile pi in
   let result =
-    match parse lexbuf with
+    match parse lexbuf ctx with
     | Some res -> res
     | _ -> error (Lexer.info lexbuf) "Parse error"
   in
@@ -116,7 +115,7 @@ let process_file f ctx =
 let readin buf =
   try
     while true do
-      buf := read_line () :: !buf
+      buf := !buf @ [ read_line () ]
     done
   with End_of_file -> pr "\n"
 
@@ -125,10 +124,11 @@ let rec repl ctx =
   let buf = ref [] in
   readin buf;
   let input = String.concat "\n" !buf in
-  match parse (Lexing.from_string input) with
-  | Some res ->
-      let cmds, _ = res ctx in
-      let newctx = List.fold_left do_command ctx cmds in
+  match parse (Lexing.from_string input) ctx with
+  | Some (cmds, _) ->
+      let newctx =
+        try List.fold_left do_command ctx cmds with Exit _ -> ctx
+      in
       pr "\n";
       repl newctx
   | _ ->
