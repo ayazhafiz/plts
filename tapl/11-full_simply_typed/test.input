@@ -67,6 +67,8 @@ isnil (tail (cons "b" nil[String]));
 let lst = (cons "a" (cons "b" nil[String]))
   in {hd=(head lst), tl=(tail lst)};
 
+let a = 1.0 in let b = 2.0 in plusfloat a b;
+
 FloatMap = Float -> Float;
 FloatList = [Float];
 
@@ -86,32 +88,8 @@ reduceFloat = letrec reduce: (Float -> Float -> Float) -> Float -> FloatList -> 
     else acc (reduce acc init (tail lst)) (head lst)
   in reduce;
 
-double = mapFloat (lambda f: Float. timesfloat f 2.0);
-sum = reduceFloat (lambda acc: Float. lambda cur: Float. plusfloat acc cur) 0.0;
+"Sum of double([4, 3, 2, 1]) = Sum([8, 6, 4, 2]) =";
 
-doubled = double (cons 4.0 (cons 3.0 (cons 2.0 (cons 1.0 nil[Float]))));
-doubled;
-sum doubled;
-
-let a = 1.0 in let b = 2.0 in plusfloat a b;
-
-/*
-mapNat = letrec recur: (Nat -> Nat) -> Nat -> Nat =
-  lambda map: Nat -> Nat.
-  lambda lst: Nat.
-    if (iszero lst) then 0
-    else succ (map lst)
-  in recur;
-
-reduceNat = letrec reduce: (Nat -> Nat -> Nat) -> Nat -> Nat -> Nat =
-  lambda acc: Nat -> Nat -> Nat.
-  lambda init: Nat.
-  lambda lst: Nat.
-    if (iszero lst) then init
-    else acc (reduce acc init (pred lst)) lst
-  in reduce;
-
-let addOne = mapNat (lambda n: Nat. n) in
-let sum = reduceNat (lambda acc: Nat. lambda cur: Nat. succ acc) 0 in
-  sum (addOne 5);
-*/
+let double = mapFloat (lambda f: Float. timesfloat f 2.0) in
+let sum = reduceFloat (lambda acc: Float. lambda cur: Float. plusfloat acc cur) 0.0 in
+  sum (double (cons 4.0 (cons 3.0 (cons 2.0 (cons 1.0 nil[Float])))));

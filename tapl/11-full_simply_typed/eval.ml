@@ -43,7 +43,10 @@ let rec eval' ctx t =
       termSubstTop varVal branch
   | TmCase (info, cond, cases) -> TmCase (info, eval' ctx cond, cases)
   | TmTag (info, name, term, ty) -> TmTag (info, name, eval' ctx term, ty)
-  | TmLet (_, _, nameVal, body) -> termSubstTop nameVal body
+  | TmLet (_, _, nameVal, body) when isval ctx nameVal ->
+      termSubstTop nameVal body
+  | TmLet (info, name, nameVal, body) ->
+      TmLet (info, name, eval' ctx nameVal, body)
   | TmFix (_, (TmAbs (_, _, _, body) as term)) as fixedPoint when isval ctx term
     ->
       termSubstTop fixedPoint body
