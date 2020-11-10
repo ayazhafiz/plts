@@ -28,3 +28,17 @@ meow: String
 numeric : {iseven:Nat -> bool, isodd:Nat -> bool}
 true: bool
 true: bool
+nil[Nat]: [Nat]
+false: bool
+true: bool
+{hd=a, tl=(cons b nil[String])}: {hd:String, tl:[String]}
+FloatMap :: Float -> Float
+FloatList :: [Float]
+mapFloat : FloatMap -> FloatList -> [Float]
+reduceFloat : Float -> Float -> Float -> Float -> FloatList -> Float
+double : FloatList -> [Float]
+sum : FloatList -> Float
+doubled : [Float]
+(cons 8. (cons 6. (cons 4. (cons 2. nil[Float])))): [Float]
+20.: Float
+3.: Float
