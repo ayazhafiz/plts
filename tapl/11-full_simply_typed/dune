@@ -1,6 +1,6 @@
 (ocamllex lexer)
 (menhir
-  (flags --explain)
+  (flags --explain --fixed-exception)
   (modules parser))
 
 (executable

@@ -19,12 +19,10 @@ let parseArgs () =
   Arg.parse argDefs
     (fun s ->
       match !inFile with
-      | Some _ -> error Unknown "You must specify exactly one input file"
+      | Some _ -> error Unknown "You must specify at most one input file"
       | None -> inFile := Some s)
     "";
-  match !inFile with
-  | None -> error Unknown "You must specify an input file"
-  | Some s -> s
+  !inFile
 
 let openfile infile =
   let rec trynext l =
@@ -36,14 +34,22 @@ let openfile infile =
   in
   trynext !searchpath
 
+let parse lexbuf =
+  let result =
+    try Some (Parser.toplevel Lexer.main lexbuf)
+    with Parsing.Parse_error -> None
+  in
+  Parsing.clear_parser ();
+  result
+
 let parseFile inFile =
   let pi = openfile inFile in
   let lexbuf = Lexer.create inFile pi in
   let result =
-    try Parser.toplevel Lexer.main lexbuf
-    with Parsing.Parse_error -> error (Lexer.info lexbuf) "Parse error"
+    match parse lexbuf with
+    | Some res -> res
+    | _ -> error (Lexer.info lexbuf) "Parse error"
   in
-  Parsing.clear_parser ();
   close_in pi;
   result
 
@@ -96,21 +102,45 @@ let process_command ctx cmd =
       force_newline ();
       addbinding ctx x bind'
 
+let do_command ctx c =
+  open_hvbox 0;
+  let newctx = process_command ctx c in
+  print_flush ();
+  newctx
+
 let process_file f ctx =
   alreadyImported := f :: !alreadyImported;
   let cmds, _ = parseFile f ctx in
-  let g ctx c =
-    open_hvbox 0;
-    let results = process_command ctx c in
-    print_flush ();
-    results
-  in
-  List.fold_left g ctx cmds
+  List.fold_left do_command ctx cmds
+
+let readin buf =
+  try
+    while true do
+      buf := read_line () :: !buf
+    done
+  with End_of_file -> pr "\n"
+
+let rec repl ctx =
+  pr "> ";
+  let buf = ref [] in
+  readin buf;
+  let input = String.concat "\n" !buf in
+  match parse (Lexing.from_string input) with
+  | Some res ->
+      let cmds, _ = res ctx in
+      let newctx = List.fold_left do_command ctx cmds in
+      pr "\n";
+      repl newctx
+  | _ ->
+      pr "@@@ Could not parse input! @@@\n";
+      repl ctx
 
 let main () =
-  let inFile = parseArgs () in
-  let _ = process_file inFile emptycontext in
-  ()
+  match parseArgs () with
+  | Some inFile ->
+      let _ = process_file inFile emptycontext in
+      ()
+  | None -> repl emptycontext
 
 let () = set_max_boxes 1000
 

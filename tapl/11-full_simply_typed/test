@@ -5,12 +5,8 @@ EXE="full_simply_typed"
 INPUT="$(pwd)/test.input"
 GOLDEN="$(pwd)/test.golden"
 REAL="$(pwd)/test.real"
-ROOT="$(git rev-parse --show-toplevel)"
-EXEC_PATH="$(realpath --relative-to="$ROOT" $(pwd))/$EXE.exe"
 
-dune build >/dev/null 2>&1
-cd "$ROOT"
-dune exec "$EXEC_PATH" "$INPUT" > "$REAL"
+./run "$INPUT" > "$REAL"
 
 if [ "$1" = "-u" ]; then
   cp "$REAL" "$GOLDEN"

@@ -43,4 +43,6 @@ end
 
 type info = Error.info
 
-let pr = Format.print_string
+let pr a =
+  Format.print_string a;
+  Format.print_flush ()
