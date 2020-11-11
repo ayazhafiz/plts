@@ -1,0 +1,41 @@
+hello: String
+unit: Unit
+6.28318: Float
+2: Nat
+0: Nat
+0: Nat
+{x=true, y=false}: {x:bool, y:bool}
+true: bool
+{1=true, 2=false}: {1:bool, 2:bool}
+true: bool
+(λ x: <a:bool, b:bool>. x): <a:bool, b:bool> -> <a:bool, b:bool>
+(λ x: A. x): A -> A
+(λ x: Nat. (succ x)): Nat -> Nat
+3: Nat
+s : bool
+s: bool
+y : F
+inert[F]: F
+T :: Nat -> Nat
+(λ f: T. (λ x: Nat. (f <- (f <- x)))): T -> Nat -> Nat
+true: bool
+15: Nat
+15: Nat
+Cat :: {noise:String}
+Dog :: {noise:String}
+Animal :: <dog:Dog, cat:Cat>
+meow: String
+numeric : {iseven:Nat -> bool, isodd:Nat -> bool}
+true: bool
+true: bool
+nil[Nat]: [Nat]
+false: bool
+true: bool
+{hd=a, tl=(cons b nil[String])}: {hd:String, tl:[String]}
+3.: Float
+FloatMap :: Float -> Float
+FloatList :: [Float]
+mapFloat : FloatMap -> FloatList -> [Float]
+reduceFloat : Float -> Float -> Float -> Float -> FloatList -> Float
+Sum of double([4, 3, 2, 1]) = Sum([8, 6, 4, 2]) =: String
+20.: Float
