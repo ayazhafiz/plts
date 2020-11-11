@@ -111,5 +111,17 @@ cell_fact = ref (lambda n: Nat. 0);
 cell_fact := (lambda n: Nat. if iszero n then 1 else times n ((!cell_fact)(pred n)));
 fact = !cell_fact;
 
-fact 5;
-fact 10;
+fact 6;
+
+/* Recursive fibonacci implemented with reference cells (!) */
+
+cell_fib = ref (lambda n: Nat. 0);
+cell_fib := (
+  lambda n: Nat.
+    if iszero n then 0
+    else if iszero (pred n) then n
+    else plus ((!cell_fib) (pred n)) ((!cell_fib) (pred (pred n)))
+);
+fib = !cell_fib;
+
+fib 8;

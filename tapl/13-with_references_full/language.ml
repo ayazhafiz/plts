@@ -179,7 +179,7 @@ let tmMap onvar ontype cutoff term =
     | TmApp (info, t1, t2) ->
         let t1' = walk cutoff t1 in
         let t2' = walk cutoff t2 in
-        TmApp (info, t1', walk cutoff t2')
+        TmApp (info, t1', t2')
     | TmIf (info, cond, thn, els) ->
         let cond' = walk cutoff cond in
         let thn' = walk cutoff thn in
