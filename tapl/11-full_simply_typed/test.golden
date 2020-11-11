@@ -19,8 +19,10 @@ inert[F]: F
 T :: Nat -> Nat
 (λ f: T. (λ x: Nat. (f <- (f <- x)))): T -> Nat -> Nat
 true: bool
-15: Nat
-15: Nat
+plus : Nat -> Nat -> Nat
+times : Nat -> Nat -> Nat
+13: Nat
+40: Nat
 Cat :: {noise:String}
 Dog :: {noise:String}
 Animal :: <dog:Dog, cat:Cat>

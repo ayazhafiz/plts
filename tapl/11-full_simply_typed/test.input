@@ -30,13 +30,20 @@ lambda f:T. lambda x:Nat. f (f x);
 
 let x=true in x;
 
-letrec plus: Nat->Nat->Nat = lambda m:Nat. lambda n:Nat.
-  if iszero m then n else succ (plus (pred m) n)
-  in plus 5 10;
+plus = letrec plus: Nat->Nat->Nat =
+  lambda m:Nat.
+  lambda n:Nat.
+    if iszero m then n else succ (plus (pred m) n)
+  in plus;
 
-let plus = fix (lambda plus: Nat->Nat->Nat. lambda m:Nat. lambda n:Nat.
-  if iszero m then n else succ (plus (pred m) n))
-  in plus 5 10;
+times = letrec times: Nat -> Nat -> Nat =
+  lambda m: Nat.
+  lambda n: Nat.
+    if iszero m then 0 else plus n (times (pred m) n)
+  in times;
+
+plus 8 5;
+times 8 5;
 
 Cat = {noise: String};
 Dog = {noise: String};
