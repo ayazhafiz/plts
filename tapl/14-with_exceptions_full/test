@@ -1,0 +1,13 @@
+#!/bin/bash
+
+INPUT="$(pwd)/test.input"
+GOLDEN="$(pwd)/test.golden"
+REAL="$(pwd)/test.real"
+
+./run "$INPUT" > "$REAL"
+
+if [ "$1" = "-u" ]; then
+  cp "$REAL" "$GOLDEN"
+else
+  diff --color "$GOLDEN" "$REAL"
+fi
