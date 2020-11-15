@@ -221,3 +221,12 @@ let rec typeof ctx t =
   | TmString _ -> TyString
   | TmFloat _ -> TyFloat
   | TmZero _ -> TyNat
+  | TmError _ -> TyError
+  | TmTry (info, tTry, tExcept) -> (
+      match
+        (simplifyTy ctx (typeof ctx tTry), simplifyTy ctx (typeof ctx tExcept))
+      with
+      | TyError, tyExcept -> tyExcept
+      | tyTerm, TyError -> tyTerm
+      | ty1, ty2 when tyeq ctx ty1 ty2 -> ty1
+      | _, _ -> error info "types of try/except branches differ!" )

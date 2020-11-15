@@ -173,6 +173,11 @@ let rec eval' ctx store t =
   | TmRefAssign (info, refLoc, refVal) ->
       let refLoc', store' = eval' ctx store refLoc in
       (TmRefAssign (info, refLoc', refVal), store')
+  | TmTry (_, tTry, _) when isval ctx tTry -> (tTry, store)
+  | TmTry (_, TmError _, tExcept) -> (tExcept, store)
+  | TmTry (info, tTry, tExcept) ->
+      let tTry', store' = eval' ctx store tTry in
+      (TmTry (info, tTry', tExcept), store')
   | _ -> raise NoRuleApplies
 
 let rec eval ctx store t =

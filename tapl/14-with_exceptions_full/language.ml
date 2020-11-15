@@ -22,6 +22,9 @@ type ty =
   | TyBool
   | TyFloat
   | TyNat
+  (* Really this should be a custom or bottom type, but we only have one error
+     kind and no subtyping currently. *)
+  | TyError
 
 (** A lambda term, using de Bruijn indeces. *)
 type term =
@@ -167,6 +170,7 @@ let tyMap ontype cutoff ty =
     | TyFloat -> TyFloat
     | TyNat -> TyNat
     | TyBool -> TyBool
+    | TyError -> TyError
   in
   walk cutoff ty
 
@@ -497,6 +501,7 @@ let rec printty ctx ty =
   | TyBool -> pr "bool"
   | TyFloat -> pr "Float"
   | TyNat -> pr "Nat"
+  | TyError -> pr "Error"
 
 (** Prints a term *)
 let rec printtm ctx t =

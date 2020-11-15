@@ -125,3 +125,7 @@ cell_fib := (
 fib = !cell_fib;
 
 fib 8;
+
+/* Errors */
+try (if iszero (fact 3) then "WRONGPATH" else error) except "yes, got out!";
+try (if iszero 0 then "yes, got in!" else error) except "WRONGPATH";
