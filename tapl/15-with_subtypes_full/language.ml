@@ -3,8 +3,12 @@ open Util.Error
 
 (** Types *)
 type ty =
-  (* The top type: a supertype of all other types. *)
-  | TyTop
+  (* The top type "unknown": a supertype of all other types. Every value may be
+     of type unknown. *)
+  | TyUnknown
+  (* The bottom type "never": a subtype of all other types. No value may be of
+     type never. *)
+  | TyNever
   (* A type variable present in the context. First parameter is the index of the
      type name in the context, second parameter is the length of the context at
      the time of variable addition, checked during printing for validation. *)
@@ -37,9 +41,8 @@ type term =
   | TmIf of info * term * term * term
   (* case <term> (| <str = str> ==> <term>)* *)
   | TmCase of info * term * (string * (string * term)) list
-  (* A tag of variant type. For example "<cat = catTerm> as Animal" is a tag,
-     where "Animal" is defined as "<cat: Cat, dog: Dog>".*)
-  | TmTag of info * string * term * ty
+  (* An element of a variant type, for example <cat = catTerm>.*)
+  | TmVariant of info * string * term
   (* let <name> = t1 in <t2> *)
   | TmLet of info * string * term * term
   (* Applying "fix" on a term returns a fixed point on that term.
@@ -113,7 +116,7 @@ let tmInfo t =
   | TmApp (info, _, _) -> info
   | TmIf (info, _, _, _) -> info
   | TmCase (info, _, _) -> info
-  | TmTag (info, _, _, _) -> info
+  | TmVariant (info, _, _) -> info
   | TmLet (info, _, _, _) -> info
   | TmFix (info, _) -> info
   | TmAscribe (info, _, _) -> info
@@ -160,6 +163,8 @@ let tyMap ontype cutoff ty =
         TyVariant (List.map (fun (name, ty) -> (name, walk cutoff ty)) opts)
     | TyArrow (ty1, ty2) -> TyArrow (walk cutoff ty1, walk cutoff ty2)
     | TyRef ty -> TyRef (walk cutoff ty)
+    | TyUnknown -> TyUnknown
+    | TyNever -> TyNever
     | TyString -> TyString
     | TyUnit -> TyUnit
     | TyFloat -> TyFloat
@@ -198,10 +203,9 @@ let tmMap onvar ontype cutoff term =
             cases
         in
         TmCase (info, cond', cases')
-    | TmTag (info, name, value, ty) ->
+    | TmVariant (info, name, value) ->
         let value' = walk cutoff value in
-        let ty' = ontype cutoff ty in
-        TmTag (info, name, value', ty')
+        TmVariant (info, name, value')
     | TmLet (info, name, lhs, rhs) ->
         let lhs' = walk cutoff lhs in
         (* New name induced by lhs, so increase cutoff *)
@@ -487,6 +491,8 @@ let rec printty ctx ty =
   | TyRef ty ->
       pr "Ref ";
       printty ctx ty
+  | TyUnknown -> pr "Unknown"
+  | TyNever -> pr "Never"
   | TyString -> pr "String"
   | TyUnit -> pr "Unit"
   | TyBool -> pr "bool"
@@ -557,14 +563,12 @@ let rec printtm ctx t =
             printcases rest
       in
       printcases cases
-  | TmTag (_, name, term, ty) ->
+  | TmVariant (_, name, term) ->
       pr "<";
       pr name;
       pr "=";
       printtm ctx term;
-      pr ">";
-      pr " as ";
-      printty ctx ty
+      pr ">"
   | TmLet (_, name, expr, inTerm) ->
       pr "let ";
       pr name;

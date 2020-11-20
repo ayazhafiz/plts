@@ -307,8 +307,8 @@ ATerm :
       { fun _ -> TmTrue($1) }
   | FALSE
       { fun _ -> TmFalse($1) }
-  | LT LCID EQ Term GT AS Type
-      { fun ctx -> TmTag($1, $2.v, $4 ctx, $7 ctx) }
+  | LT LCID EQ Term GT
+      { fun ctx -> TmVariant($1, $2.v, $4 ctx) }
   | LCID 
       { fun ctx -> TmVar($1.i, name2index $1.i ctx $1.v, ctxlength ctx) }
   | LCURLY Fields RCURLY 

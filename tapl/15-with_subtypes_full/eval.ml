@@ -30,7 +30,7 @@ let rec isval ctx t =
   | TmTrue _ | TmFalse _ | TmUnit _ | TmString _ | TmFloat _ | TmInert _
   | TmLoc _ ->
       true
-  | TmTag (_, _, term, _) -> isval ctx term
+  | TmVariant (_, _, term) -> isval ctx term
   | TmAbs (_, _, _, _) -> true
   | TmRecord (_, fields) ->
       List.for_all (fun (_, term) -> isval ctx term) fields
@@ -59,15 +59,15 @@ let rec eval' ctx store t =
   | TmIf (info, cond, thn, els) ->
       let cond', store' = eval' ctx store cond in
       (TmIf (info, cond', thn, els), store')
-  | TmCase (_, TmTag (_, varName, varVal, _), cases) ->
+  | TmCase (_, TmVariant (_, varName, varVal), cases) ->
       let _, branch = List.assoc varName cases in
       (termSubstTop varVal branch, store)
   | TmCase (info, cond, cases) ->
       let cond', store' = eval' ctx store cond in
       (TmCase (info, cond', cases), store')
-  | TmTag (info, name, term, ty) ->
+  | TmVariant (info, name, term) ->
       let term', store' = eval' ctx store term in
-      (TmTag (info, name, term', ty), store')
+      (TmVariant (info, name, term'), store')
   | TmLet (_, _, nameVal, body) when isval ctx nameVal ->
       (termSubstTop nameVal body, store)
   | TmLet (info, name, nameVal, body) ->

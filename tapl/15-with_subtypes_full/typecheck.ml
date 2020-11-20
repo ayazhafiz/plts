@@ -16,6 +16,8 @@ let rec tyeq ctx ty1 ty2 =
   let ty1 = simplifyTy ctx ty1 in
   let ty2 = simplifyTy ctx ty2 in
   match (ty1, ty2) with
+  | TyUnknown, TyUnknown
+  | TyNever, TyNever
   | TyNat, TyNat
   | TyFloat, TyFloat
   | TyString, TyString
@@ -49,8 +51,11 @@ let rec tyeq ctx ty1 ty2 =
 let rec subtype ctx tyS tyT =
   tyeq ctx tyS tyT
   ||
+  let tyS = simplifyTy ctx tyS in
+  let tyT = simplifyTy ctx tyT in
   match (tyS, tyT) with
-  | _, TyTop -> true
+  | _, TyUnknown -> true
+  | TyNever, _ -> true
   (* The subtyping relationship between a function is contravariant on the
      paramter and covariant on the return type.
      For example, [ (Animal) -> Cat ] is a subtype of [ (Cat) -> Animal ],
@@ -58,7 +63,7 @@ let rec subtype ctx tyS tyT =
      an animal, and anywhere we expect to be returned an Animal we can accept a
      Cat. *)
   | TyArrow (tyS1, tyS2), TyArrow (tyT1, tyT2) ->
-      subtype ctx tyT1 tyS1 && subtype tyS2 tyT2
+      subtype ctx tyT1 tyS1 && subtype ctx tyS2 tyT2
   | TyList tyS, TyList tyT -> subtype ctx tyS tyT
   | TyRecord tyS, TyRecord tyT ->
       List.for_all
@@ -69,7 +74,7 @@ let rec subtype ctx tyS tyT =
           with Not_found -> false)
         tyT
   (* <BigCat> <: <Cat|Dog>, but <Cat|Dog> <: <Cat> does not hold. *)
-  | TyVariant tyS, TyRecord tyT ->
+  | TyVariant tyS, TyVariant tyT ->
       List.for_all
         (fun (name, tyS_i) ->
           try
@@ -88,6 +93,73 @@ let rec subtype ctx tyS tyT =
   | TyRef tyS, TyRef tyT -> subtype ctx tyS tyT && subtype ctx tyT tyS
   | _, _ -> false
 
+let findUnion t1 t2 cmp_fn =
+  let labels1 = List.map (fun (l, _) -> l) t1 in
+  let labels2 = List.map (fun (l, _) -> l) t2 in
+  let common = List.filter (fun l -> List.mem l labels2) labels1 in
+  List.map
+    (fun l ->
+      let ty = cmp_fn (List.assoc l t1) (List.assoc l t2) in
+      (l, ty))
+    common
+
+let findIntersect t1 t2 cmp_fn =
+  let labels1 = List.map (fun (l, _) -> l) t1 in
+  let labels2 = List.map (fun (l, _) -> l) t2 in
+  let all =
+    List.append labels1
+      (List.filter (fun l -> not (List.mem l labels1)) labels2)
+  in
+  List.map
+    (fun l ->
+      let ty =
+        try
+          let tl_1 = List.assoc l t1 in
+          try
+            let tl_2 = List.assoc l t2 in
+            cmp_fn tl_1 tl_2
+          with Not_found -> tl_1
+        with Not_found -> List.assoc l t2
+      in
+      (l, ty))
+    all
+
+(* Finds the least upper bound (supertype) of two types. *)
+let rec join ctx t1 t2 =
+  if subtype ctx t1 t2 then t2
+  else if subtype ctx t2 t1 then t1
+  else
+    let t1 = simplifyTy ctx t1 in
+    let t2 = simplifyTy ctx t2 in
+    match (t1, t2) with
+    | TyArrow (ty11, ty12), TyArrow (ty21, ty22) ->
+        (* [(BigCat)->Cat] join [(Cat)->Animal] yields [(BigCat)->Animal]. *)
+        let tyIn = meet ctx ty11 ty21 in
+        let tyOut = join ctx ty12 ty22 in
+        TyArrow (tyIn, tyOut)
+    | TyList t1, TyList t2 -> TyList (join ctx t1 t2)
+    | TyRecord f1, TyRecord f2 -> TyRecord (findUnion f1 f2 (join ctx))
+    | TyVariant f1, TyVariant f2 -> TyVariant (findIntersect f1 f2 (join ctx))
+    | _, _ -> TyUnknown
+
+(* Finds the greatest lower bound (subtype) of two types. *)
+and meet ctx t1 t2 =
+  if subtype ctx t1 t2 then t1
+  else if subtype ctx t2 t1 then t2
+  else
+    let t1 = simplifyTy ctx t1 in
+    let t2 = simplifyTy ctx t2 in
+    match (t1, t2) with
+    | TyArrow (ty11, ty12), TyArrow (ty21, ty22) ->
+        (* [(BigCat)->Cat] meet [(Cat)->Animal] yields [(Cat)->Cat]. *)
+        let tyIn = join ctx ty11 ty21 in
+        let tyOut = meet ctx ty12 ty22 in
+        TyArrow (tyIn, tyOut)
+    | TyList t1, TyList t2 -> TyList (meet ctx t1 t2)
+    | TyRecord f1, TyRecord f2 -> TyRecord (findIntersect f1 f2 (meet ctx))
+    | TyVariant f1, TyVariant f2 -> TyVariant (findUnion f1 f2 (meet ctx))
+    | _, _ -> TyNever
+
 let rec typeof ctx t =
   match t with
   | TmVar (info, i, _) -> getTermType info ctx i
@@ -103,23 +175,20 @@ let rec typeof ctx t =
       let tyParam = typeof ctx t2 in
       match simplifyTy ctx tyAbs with
       | TyArrow (tyIn, tyOut) ->
-          if tyeq ctx tyIn tyParam then tyOut
+          if subtype ctx tyParam tyIn then tyOut
           else
             errAt info (fun _ ->
                 pr "parameter type mismatch: found ";
                 printty ctx tyIn;
-                pr " expected ";
+                pr "; expected a subtype of ";
                 printty ctx tyParam)
       | ty ->
           errAt info (fun _ ->
               pr "arrow type expected; got ";
               printty ctx ty) )
   | TmIf (info, cond, thn, els) ->
-      if tyeq ctx (typeof ctx cond) TyBool then
-        let tyThn = typeof ctx thn in
-        let tyEls = typeof ctx els in
-        if tyeq ctx tyThn tyEls then tyThn
-        else error info "\"if\" branches have different types!"
+      if subtype ctx (typeof ctx cond) TyBool then
+        join ctx (typeof ctx thn) (typeof ctx els)
       else error info "\"if\" condition not a boolean!"
   | TmCase (info, condTerm, cases) -> (
       match simplifyTy ctx (typeof ctx condTerm) with
@@ -145,26 +214,28 @@ let rec typeof ctx t =
                    the variant name. *)
                 let ctx' = addbinding ctx nameInBody (VarBinding variantTy) in
                 let bodyTy = typeShift (-1) (typeof ctx' body) in
-                (variantName, bodyTy))
+                bodyTy)
               cases
           in
-          let firstCase, expectedBodyTy = List.hd caseBodyTys in
-          List.iter
-            (fun (name, ty) ->
-              if not (tyeq ctx ty expectedBodyTy) then
-                error info
-                  ( name ^ " case does not match type introduced by "
-                  ^ firstCase ^ "!" ))
-            caseBodyTys;
-          expectedBodyTy
+          let firstBodyTy = List.hd caseBodyTys in
+          List.fold_left
+            (fun commonTy curBodyTy -> join ctx commonTy curBodyTy)
+            firstBodyTy caseBodyTys
       | ty ->
           errAt info (fun _ ->
               pr "expected variant type in case condition, got ";
               printty ctx ty;
               pr "\n") )
-  | TmAscribe (info, term, ty) ->
-      if tyeq ctx (typeof ctx term) ty then ty
-      else error info "term and ascription type differ!"
+  | TmAscribe (info, term, asTy) ->
+      let termTy = typeof ctx term in
+      if subtype ctx termTy asTy then asTy
+      else
+        errAt info (fun _ ->
+            pr "term type ";
+            printty ctx termTy;
+            pr " is not a subtype of ";
+            printty ctx asTy;
+            pr "\n")
   | TmLet (_, name, boundTerm, inTerm) ->
       let boundTy = typeof ctx boundTerm in
       let ctx' = addbinding ctx name (VarBinding boundTy) in
@@ -173,16 +244,8 @@ let rec typeof ctx t =
          its resulting type is in the context outside that including "name"
          since "name" gets destroyed after the application. *)
       typeShift (-1) (typeof ctx' inTerm)
-  | TmTag (info, variantName, term, variantTy) -> (
-      match simplifyTy ctx variantTy with
-      | TyVariant fields -> (
-          try
-            let expectedTy = List.assoc variantName fields in
-            if tyeq ctx expectedTy (typeof ctx term) then variantTy
-            else error info "variant does not have type expected by tag!"
-          with Not_found ->
-            error info (variantName ^ "does not exist in tag type!") )
-      | _ -> error info "tag is not a variant type!" )
+  | TmVariant (_, variantName, term) ->
+      TyVariant [ (variantName, typeof ctx term) ]
   | TmFix (info, term) -> (
       match simplifyTy ctx (typeof ctx term) with
       | TyArrow (tyFrom, tyTo) ->
@@ -204,26 +267,26 @@ let rec typeof ctx t =
           with Not_found -> error info (field ^ " not found in field types!") )
       | _ -> error info "Projection is not on a record type!" )
   | TmIsZero (info, term) ->
-      if tyeq ctx (typeof ctx term) TyNat then TyBool
+      if subtype ctx (typeof ctx term) TyNat then TyBool
       else error info "term of iszero is not a natural number!"
   | TmSucc (info, term) | TmPred (info, term) ->
-      if tyeq ctx (typeof ctx term) TyNat then TyNat
+      if subtype ctx (typeof ctx term) TyNat then TyNat
       else error info "term of natural function is not a natural number!"
   | TmTimesfloat (info, t1, t2) ->
-      if tyeq ctx (typeof ctx t1) TyFloat then
-        if tyeq ctx (typeof ctx t2) TyFloat then TyFloat
+      if subtype ctx (typeof ctx t1) TyFloat then
+        if subtype ctx (typeof ctx t2) TyFloat then TyFloat
         else error info "second term to timesfloat is not a float!"
       else error info "first term to timesfloat is not a float!"
   | TmPlusfloat (info, t1, t2) ->
-      if tyeq ctx (typeof ctx t1) TyFloat then
-        if tyeq ctx (typeof ctx t2) TyFloat then TyFloat
+      if subtype ctx (typeof ctx t1) TyFloat then
+        if subtype ctx (typeof ctx t2) TyFloat then TyFloat
         else error info "second term to plusfloat is not a float!"
       else error info "first term to plusfloat is not a float!"
   | TmCons (info, head, tail) -> (
       match simplifyTy ctx (typeof ctx tail) with
       | TyList elemTy as listTy ->
-          if tyeq ctx elemTy (typeof ctx head) then listTy
-          else error info "list type and element type differ!"
+          if subtype ctx (typeof ctx head) elemTy then listTy
+          else error info "argument to cons is not a list element subtype!"
       | _ -> error info "expected second argument to cons to be a list!" )
   | TmIsNil (info, term) -> (
       match simplifyTy ctx (typeof ctx term) with
@@ -248,10 +311,10 @@ let rec typeof ctx t =
   | TmRefAssign (info, t1, t2) -> (
       match simplifyTy ctx (typeof ctx t1) with
       | TyRef ty ->
-          if tyeq ctx ty (typeof ctx t2) then TyUnit
+          if subtype ctx (typeof ctx t2) ty then TyUnit
           else
             error info
-              "value assigned to reference differs from reference type!"
+              "value assigned to reference is not a subtype of the inner type!"
       | ty ->
           errAt info (fun _ ->
               pr "non-reference types cannot be assigned via := ; found ";

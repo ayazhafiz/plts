@@ -125,3 +125,25 @@ cell_fib := (
 fib = !cell_fib;
 
 fib 8;
+
+/* Subtyping */
+
+(lambda obj: {a: Nat}. obj.a)({a=1,b=2});
+
+(lambda getObj: {a:Nat,b:Nat} -> {a:Nat}. getObj({a=1,b=2}))
+  (lambda obj: {a:Nat}. {a=obj.a,b=5});
+
+if true then {a=1,b=2} else {b=2,c=3};
+if true then 1 else {b=2};
+
+b = ref {a=1};
+b := {a=1,b=2};
+
+cons {a=1,b=2} nil[{a:Nat}];
+
+let getNoise = (lambda a: Animal. case a of
+    <cat=c> ==> c.noise
+  | <dog=d> ==> d.noise)
+in getNoise(<dog={noise="bark"}>);
+
+if true then (lambda a: Nat. a) else (lambda s: String. 1); /* (Never) -> Nat */
