@@ -1,0 +1,43 @@
+Counter :: {get:Unit -> Nat, inc:Unit -> Unit}
+newCounter : Unit -> {get:Unit -> Nat, inc:Unit -> Unit}
+2: Nat
+ResetCounter :: {get:Unit -> Nat, inc:Unit -> Unit, reset:Unit -> Unit}
+CounterRepr :: {x:Ref Nat}
+counterClass : CounterRepr -> {get:Unit -> Nat, inc:Unit -> Unit}
+newCounter : Unit -> {get:Unit -> Nat, inc:Unit -> Unit}
+resetCounterClass : CounterRepr -> {get:Unit -> Nat, inc:Unit -> Unit, reset:Unit -> Unit}
+newResetCounter : Unit -> {get:Unit -> Nat, inc:Unit -> Unit, reset:Unit -> Unit}
+decrResetCounterClass : CounterRepr -> {decr:Unit -> Unit, get:Unit -> Nat, inc:Unit -> Unit, reset:Unit -> Unit}
+newDecrResetCounter : Unit -> {decr:Unit -> Unit, get:Unit -> Nat, inc:Unit -> Unit, reset:Unit -> Unit}
+DecrResetCounter: go to 0: String
+0: Nat
+BackupCounterRepr :: {x:Ref Nat, b:Ref Nat}
+backupCounterClass : BackupCounterRepr -> {reset:Unit -> Unit, backup:Unit -> Unit, get:Unit -> Nat, inc:Unit -> Unit}
+newBackupCounter : Unit -> {reset:Unit -> Unit, backup:Unit -> Unit, get:Unit -> Nat, inc:Unit -> Unit}
+BackupCounter: reset to 3: String
+3: Nat
+funnyBackupCounterClass : BackupCounterRepr -> {inc:Unit -> Unit, reset:Unit -> Unit, backup:Unit -> Unit, get:Unit -> Nat}
+2: Nat
+SetCounter :: {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+setCounterClass : CounterRepr -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+3: Nat
+setCounterClass : CounterRepr -> SetCounter -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+newSetCounter : Unit -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+InstrCounter :: {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit, set_writes:Unit -> Nat}
+InstrCounterRepr :: {x:Ref Nat, sw:Ref Nat}
+setCounterClass : CounterRepr -> Unit -> SetCounter -> Unit -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+newSetCounter : Unit -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+instrCounterClass : InstrCounterRepr -> Unit -> InstrCounter -> Unit -> {set:Nat -> Unit, set_writes:Unit -> Nat, get:Unit -> Nat, inc:Unit -> Unit}
+newInstrCounter : Unit -> {set:Nat -> Unit, set_writes:Unit -> Nat, get:Unit -> Nat, inc:Unit -> Unit}
+Thunk-based counter: String
+2: Nat
+setCounterClass : CounterRepr -> Source SetCounter -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+newSetCounter : Unit -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit}
+instrCounterClass : InstrCounterRepr -> Source InstrCounter -> {set:Nat -> Unit, set_writes:Unit -> Nat, get:Unit -> Nat, inc:Unit -> Unit}
+newInstrCounter : Unit -> {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit, set_writes:Unit -> Nat}
+Reference-based counter: String
+ic : {get:Unit -> Nat, set:Nat -> Unit, inc:Unit -> Unit, set_writes:Unit -> Nat}
+2: Nat
+11: Nat
+3: Nat
+5: Nat

@@ -173,6 +173,18 @@ let rec eval' ctx store t =
   | TmRefAssign (info, refLoc, refVal) ->
       let refLoc', store' = eval' ctx store refLoc in
       (TmRefAssign (info, refLoc', refVal), store')
+  (* One step at a time: first lower base, then the extra fields. *)
+  | TmWith (info, TmRecord (_, fBase), TmRecord (_, fExtra)) ->
+      let fNeededFromBase =
+        List.filter (fun (fName, _) -> not (List.mem_assoc fName fExtra)) fBase
+      in
+      (TmRecord (info, List.append fNeededFromBase fExtra), store)
+  | TmWith (info, (TmRecord _ as t1), t2) ->
+      let t2', store' = eval' ctx store t2 in
+      (TmWith (info, t1, t2'), store')
+  | TmWith (info, t1, t2) ->
+      let t1', store' = eval' ctx store t1 in
+      (TmWith (info, t1', t2), store')
   | _ -> raise NoRuleApplies
 
 let rec eval ctx store t =

@@ -22,6 +22,9 @@ type ty =
   (* A variant type like <a: Nat, b: String>. Contains either a or b. *)
   | TyVariant of (string * ty) list
   | TyList of ty
+  (* A readable source. A reference can be thought of as a Source (read from) +
+     Sink (write to). *)
+  | TySource of ty
   | TyRef of ty
   | TyString
   | TyUnit
@@ -92,6 +95,9 @@ type term =
   | TmRefAssign of info * term * term
   (* A location of a reference in a store. *)
   | TmLoc of info * int
+  (* A derived record "with" the fields of some base record, like
+     [ super with { do_something_extra = lambda _: Unit. ... } ] *)
+  | TmWith of info * (* base *) term * (* extensions *) term
 
 type binding =
   (* A named, but untyped variable. *)
@@ -143,6 +149,7 @@ let tmInfo t =
   | TmDeref (info, _) -> info
   | TmRefAssign (info, _, _) -> info
   | TmLoc (info, _) -> info
+  | TmWith (info, _, _) -> info
 
 (*** Commands ***)
 type command = Eval of info * term | Bind of info * string * binding
@@ -162,6 +169,7 @@ let tyMap ontype cutoff ty =
     | TyVariant opts ->
         TyVariant (List.map (fun (name, ty) -> (name, walk cutoff ty)) opts)
     | TyArrow (ty1, ty2) -> TyArrow (walk cutoff ty1, walk cutoff ty2)
+    | TySource ty -> TySource (walk cutoff ty)
     | TyRef ty -> TyRef (walk cutoff ty)
     | TyUnknown -> TyUnknown
     | TyNever -> TyNever
@@ -244,6 +252,7 @@ let tmMap onvar ontype cutoff term =
     | TmRefAssign (info, t1, t2) ->
         TmRefAssign (info, walk cutoff t1, walk cutoff t2)
     | TmLoc (info, where) -> TmLoc (info, where)
+    | TmWith (info, t1, t2) -> TmWith (info, walk cutoff t1, walk cutoff t2)
   in
   walk cutoff term
 
@@ -488,6 +497,9 @@ let rec printty ctx ty =
       pr "[";
       printty ctx ty;
       pr "]"
+  | TySource ty ->
+      pr "Source ";
+      printty ctx ty
   | TyRef ty ->
       pr "Ref ";
       printty ctx ty
@@ -669,6 +681,10 @@ let rec printtm ctx t =
       pr "<loc # ";
       pr (string_of_int where);
       pr ">"
+  | TmWith (_, t1, t2) ->
+      printtm ctx t1;
+      pr " with ";
+      printtm ctx t2
 
 let printbinding ctx b =
   match b with

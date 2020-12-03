@@ -39,6 +39,9 @@ let reservedWords = [
   ("Nat", fun i -> Parser.NAT i);
   ("ref", fun i -> Parser.REF i);
   ("Ref", fun i -> Parser.RREF i);
+  ("Source", fun i -> Parser.SOURCE i);
+
+  ("with", fun i -> Parser.WITH i);
   
   ("nil", fun i -> Parser.NIL i);
   ("cons", fun i -> Parser.CONS i);

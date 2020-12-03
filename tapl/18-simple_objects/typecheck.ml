@@ -43,6 +43,7 @@ let rec tyeq ctx ty1 ty2 =
            (fun (_, ty1) (_, ty2) -> tyeq ctx ty1 ty2)
            fields1 fields2
   | TyList ty1, TyList ty2 -> tyeq ctx ty1 ty2
+  | TySource ty1, TySource ty2 -> tyeq ctx ty1 ty2
   | TyRef ty1, TyRef ty2 -> tyeq ctx ty1 ty2
   | _ -> false
 
@@ -82,6 +83,11 @@ let rec subtype ctx tyS tyT =
             subtype ctx tyS_i tyT_i
           with Not_found -> false)
         tyS
+  (* Source types are covariant. That is, I can read a Source BigCat wherever I
+     can read a Source Cat (Source BigCat <: Source Cat)*)
+  | TySource tyS, TySource tyT -> subtype ctx tyS tyT
+  (* Ref BigCat <: Source Cat *)
+  | TyRef tyS, TySource tyT -> subtype ctx tyS tyT
   (* Reference types are invariant; that is, their parameters must be subtypes
      of each other.
      For example, if I have [ c = ref {Cat} : Ref Cat ], [ !c ] implies Ref Cat
@@ -304,6 +310,7 @@ let rec typeof ctx t =
   | TmDeref (info, term) -> (
       match simplifyTy ctx (typeof ctx term) with
       | TyRef ty -> ty
+      | TySource ty -> ty
       | ty ->
           errAt info (fun _ ->
               pr "non-reference types cannot be dereferenced; found ";
@@ -328,3 +335,16 @@ let rec typeof ctx t =
   | TmString _ -> TyString
   | TmFloat _ -> TyFloat
   | TmZero _ -> TyNat
+  | TmWith (info, t1, t2) -> (
+      let tyBase = typeof ctx t1 in
+      let tyExtra = typeof ctx t2 in
+      match (simplifyTy ctx tyBase, simplifyTy ctx tyExtra) with
+      | TyRecord fBase, TyRecord fExtra ->
+          let fDerived =
+            List.append fExtra
+              (List.filter
+                 (fun (fName, _) -> not (List.mem_assoc fName fExtra))
+                 fBase)
+          in
+          TyRecord fDerived
+      | _ -> error info "\"with\" terms must both be records!" )

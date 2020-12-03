@@ -49,6 +49,8 @@ open Language
 %token <Util.Error.info> TAIL
 %token <Util.Error.info> REF
 %token <Util.Error.info> RREF
+%token <Util.Error.info> WITH
+%token <Util.Error.info> SOURCE
 
 /* Identifier and constant value tokens */
 %token <string Util.Error.withinfo> UCID  /* uppercase-initial */
@@ -167,6 +169,10 @@ AType :
       { fun ctx -> TyVariant($2 ctx 1) }
   | LCURLY FieldTypes RCURLY
       { fun ctx -> TyRecord($2 ctx 1) }
+  | SOURCE Type
+      { fun ctx -> TySource($2 ctx) }
+  | RREF Type
+      { fun ctx -> TyRef($2 ctx) }
   | ListType
       { $1 }
   | BOOL
@@ -242,6 +248,8 @@ Term :
           TmLet($1, $2.v, TmFix($1, TmAbs($1, $2.v, $4 ctx, $6 ctx')), $8 ctx') }
   | AppTerm COLONEQ AppTerm
       { fun ctx -> TmRefAssign($2, $1 ctx, $3 ctx) }
+  | AppTerm WITH LCURLY Fields RCURLY 
+      { fun ctx -> TmWith($2, $1 ctx, TmRecord($3, $4 ctx 1)) }
 
 AppTerm :
     PathTerm

@@ -1,0 +1,218 @@
+/*** Simple objects: 18.2 - 18.4 ***/
+Counter = { get: Unit->Nat, inc: Unit->Unit };
+newCounter = lambda _: Unit.
+  let x = ref 1 in
+  { get = lambda _: Unit. !x, 
+    inc = lambda _: Unit. x := succ(!x) };
+let c = newCounter unit in (c.inc unit; c.get unit);
+
+ResetCounter = { get: Unit->Nat, inc: Unit->Unit, reset: Unit->Unit }; 
+/* newResetCounter follows similarly, uninteresting. */
+
+/*** Simple classes: 18.5 - 18.8 ***/
+CounterRepr = { x: Ref Nat };
+counterClass = lambda r: CounterRepr.
+  { get = lambda _: Unit. !(r.x),
+    inc = lambda _: Unit. r.x := succ(!(r.x)) };
+newCounter = lambda _: Unit.
+  let r = { x = ref 1 } in counterClass r;
+
+resetCounterClass = lambda r: CounterRepr.
+  let super = counterClass r in
+    { get = super.get,
+      inc = super.inc,
+      reset = lambda _: Unit. r.x := 1 };
+newResetCounter = lambda _: Unit.
+  let r = { x = ref 1 } in resetCounterClass r;
+
+/* "with" syntax */
+decrResetCounterClass = lambda r: CounterRepr.
+  let super = resetCounterClass r in
+    super with {
+      decr = lambda _: Unit. r.x := pred(!(r.x))
+    };
+newDecrResetCounter = lambda _: Unit.
+  let r = { x = ref 1 } in decrResetCounterClass r;
+
+"DecrResetCounter: go to 0";
+let c = newDecrResetCounter unit in
+  (c.inc unit; c.inc unit; c.reset unit; c.decr unit; c.get unit);
+
+BackupCounterRepr = { x: Ref Nat, b: Ref Nat };
+backupCounterClass = lambda r: BackupCounterRepr.
+  let super = resetCounterClass r in
+    super with {
+      /* reset from backup */
+      reset = lambda _: Unit. r.x := !(r.b),
+      backup = lambda _: Unit. r.b := !(r.x)
+    };
+newBackupCounter = lambda _: Unit.
+  let r = { x = ref 1, b = ref 1 } in backupCounterClass r;
+
+"BackupCounter: reset to 3";
+let c = newBackupCounter unit in
+  (c.inc unit; c.inc unit; c.backup unit; c.inc unit; c.reset unit; c.get unit);
+
+funnyBackupCounterClass = lambda r: BackupCounterRepr.
+  let super = backupCounterClass r in
+    super with {
+      inc = lambda _: Unit. (super.backup unit; super.inc unit)
+    };
+let c = funnyBackupCounterClass { x = ref 1, b = ref 1 } in
+  (c.inc unit; c.inc unit; c.reset unit; c.get unit);
+
+/***** Classes with "self" *****/
+/*** Mutual recursion within a class: 18.9 ***/
+
+SetCounter = { get: Unit->Nat, set: Nat->Unit, inc: Unit->Unit };
+setCounterClass = lambda r: CounterRepr.
+  fix (lambda self: SetCounter.
+    { get = lambda _: Unit. !(r.x),
+      set = lambda n: Nat. r.x := n,
+      inc = lambda _: Unit. self.set (succ (self.get unit)) }
+  );
+let newSetCounter = (lambda _: Unit. let r = { x = ref 1 } in setCounterClass r) in
+  let c = newSetCounter unit in
+    (c.inc unit; c.inc unit; c.get unit);
+
+/*** Open recursion: 18.10 - 18.12
+     Open recursion involves late binding of the "self" variable. What this
+     means is that the class definition relies on the class value itself (see below).
+     
+     This permits base class methods to have access to derived class methods, as
+     the base class itself can be created from the derived class (again, b/c it
+     is late bound). This is what makes the class "open": methods are not closed
+     off only within the class. 
+
+     Notice that this is impossible to do with the fixed-point model of self we
+     defined previously. That is because if we create a super class from a fixed
+     point, we can never "inject" a derived class into there.
+***/
+
+setCounterClass = lambda r: CounterRepr.
+  lambda self: SetCounter.
+    { get = lambda _: Unit. !(r.x),
+      set = lambda n: Nat. r.x := n,
+      inc = lambda _: Unit. self.set (succ (self.get unit)) };
+newSetCounter = lambda _: Unit.
+  let r = { x = ref 1 } in
+    fix (setCounterClass r);
+
+InstrCounter = { get: Unit->Nat, set: Nat->Unit, inc: Unit->Unit, set_writes: Unit->Nat };
+InstrCounterRepr = { x: Ref Nat, sw: Ref Nat };
+
+/* Unsound approach:
+  instrCounterClass = lambda r: InstrCounterRepr.
+    lambda self: InstrCounter.
+      let super = setCounterClass r self in
+        super with {
+          set = lambda n: Nat. (r.sw := succ(!(r.sw)); super.set n),
+          set_writes = lambda _: Unit. !(r.sw)
+        };
+  This does not work, because if we now try to do `fix (instrCounterClass {x=ref 1,sw=ref 0})`
+  to create a new InstrCounter instance, we end up instantiating `super` with
+  the fixed point (via `let super = setCounterClass r self`) immediately, and
+  clearly this diverges because we have to evaluate "self" to a value before we
+  can do the application to figure out what "super" is. But remember, "self" is
+  the fixed point of `instrCounterClass`, so to evaluate "self", we again need
+  to evaluate "super = setCounterClass r self", which requires another fixed
+  point expansion, and we just descend in the same circle.
+*/
+
+/* Sound approach 1: delay evaluation of self until it is needed. */ 
+
+setCounterClass = lambda r: CounterRepr.
+  lambda self: Unit->SetCounter.
+  lambda _: Unit.
+    { get = lambda _: Unit. !(r.x),
+      set = lambda n: Nat. r.x := n,
+      inc = lambda _: Unit. (self unit).set (succ ((self unit).get unit)) };
+newSetCounter = lambda _: Unit.
+  let r = { x = ref 1 } in
+    fix (setCounterClass r) unit;
+
+instrCounterClass = lambda r: InstrCounterRepr.
+  lambda self: Unit->InstrCounter.
+  lambda _: Unit.
+    /* Now this works because even though I am still handing off "self", self
+     * being "fix (instrCounterClass r)" now has the type "Unit->InstrCounter"
+     * and can only be "unwrapped" when it is called with a unit. So,
+     * effectively I am giving doing
+     * let super = (setCounterClass r self=(
+     *                lambda _: Unit. let super = (setCounterClass r self) ...)
+     *             )
+     * and so now, self being an abstraction **is already** a value, and I can
+     * proceed without having to know the return vaue of that abstraction until
+     * I need it!
+     * Futhermore, "(setCounterClass r self) unit" gives me back a SetCounter
+     * with the abstraction of "self" being an InstrCounter pushed back behind
+     * the methods of the SetCounter. That is, "(setCounterClass r self) unit"
+     * looks like
+     * { get = ..., set = ...,
+     *   inc = lambda _: Unit.
+     *           (self=(lambda_: Unit. let super = (setCounterClass r self) /* InstrCounter def */) unit).set
+     *           (succ (self=(lambda_: Unit. let super = (setCounterClass r self) /* InstrCounter def */) unit).get unit)) };
+     * And this is totally fine, because again when I go to evaluate "self" inside
+     * one of these methods I don't need to unwrap the inner use of "self"
+     * entirely since it's an abstraction.
+     *
+     * Note that what is happening is that we're always postponing the
+     * evaluation of the method tables of classes until we need them, and
+     * furthermore, we re-evaluate the method tables of classes everytime we
+     * need the "self" class. This can be avoided by using references, described
+     * in approach 2.
+     */
+    let super = (setCounterClass r self) unit in
+      super with {
+        set = lambda n: Nat. (r.sw := succ(!(r.sw)); super.set n),
+        set_writes = lambda _: Unit. !(r.sw)
+      };
+newInstrCounter = lambda _: Unit.
+  let r = { x = ref 1, sw = ref 0 } in
+    fix (instrCounterClass r) unit;
+
+"Thunk-based counter";
+let ic = newInstrCounter unit in
+  (ic.set 10; ic.inc unit; ic.set_writes unit);
+
+/* Sound approach 2: use late-patched reference cells.
+   The idea is to pre-allocate cells for the methods, then back-patch the cells
+   with real implementations. That way, at runtime the cells contain real values
+   to be used in evaluation, but we don't have to have real values to begin
+   with (the latter is what leads to the fixed-point problems). */
+
+setCounterClass = lambda r: CounterRepr.
+  /* We only need to **read** from self, not write from it, so a whole reference
+     type is not required! */
+  lambda self: Source SetCounter.
+    { get = lambda _: Unit. !(r.x),
+      set = lambda n: Nat. r.x := n,
+      inc = lambda _: Unit. (!self).set (succ ((!self).get unit)) };
+newSetCounter = lambda _: Unit.
+  let r = { x = ref 1 } in
+  let counter = ref { get = lambda _: Unit. 0, set = lambda n: Nat. unit, inc = lambda _: Unit. unit } in
+  (counter := (setCounterClass r counter); !counter);
+
+instrCounterClass = lambda r: InstrCounterRepr.
+  lambda self: Source InstrCounter.
+    let super = setCounterClass r self in
+      super with {
+        set = lambda n: Nat. (r.sw := succ(!(r.sw)); super.set n),
+        set_writes = lambda _: Unit. !(r.sw)
+      };
+newInstrCounter = lambda _: Unit.
+  let r = { x = ref 1, sw = ref 0 } in
+  let counter = ref {
+    get = lambda _: Unit. 0,
+    set = lambda _: Nat. unit,
+    inc = lambda _: Unit. unit,
+    set_writes = lambda _: Unit. 0
+  } in
+  (counter := instrCounterClass r counter; !counter);
+
+"Reference-based counter";
+ic = newInstrCounter unit;
+(ic.set 10; ic.inc unit; ic.set_writes unit);
+ic.get unit;
+(ic.set 5; ic.set_writes unit);
+ic.get unit;
