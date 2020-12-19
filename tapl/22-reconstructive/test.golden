@@ -1,0 +1,16 @@
+(λ x. x): ??T0 -> ??T0
+(λ z. (z <- 1)): Nat -> ??T2 -> ??T2
+plus : Nat -> Nat -> Nat
+not : Bool -> Bool
+3: Nat
+adder : Ref Nat -> Nat
+51: Nat
+abcdef: String
+getNoise : <dog:{noise:??T39}, cat:{noise:??T39}, whale:{noise:??T39}> -> ??T39
+bark: String
+getNoise : <dog:{noise:String}, cat:{noise:String}, whale:{noise:String}> -> String
+cell_fib : Ref ??T46 -> Nat
+unit: Unit
+fib : Nat -> Nat
+addOrTimes : Float -> Float -> Bool -> Float
+30.: Float
