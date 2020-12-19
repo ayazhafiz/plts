@@ -1,0 +1,54 @@
+lambda x. x;
+
+lambda z. z 1;
+
+plus = letrec plus =
+  lambda m.
+  lambda n.
+    if iszero m
+    then n
+    else succ (plus (pred m) n)
+  in plus;
+
+not = lambda b. if b then false else true;
+
+let twice = lambda f. lambda a. f(f(a)) in
+  let three = twice (plus 1) 1 in
+  let fls = twice (lambda n. n) false in
+  if (not fls) then three else 1;
+
+adder = let r = ref (lambda x. x)
+  in (r := (lambda x. succ x); r);
+(!adder)50;
+
+let read = lambda x. x.a in
+  let num = read {a=3, b=1} in
+  read {a="abcdef", n=num};
+
+getNoise = lambda animal.
+           case animal of
+               <dog=d> ==> d.noise
+             | <cat=c> ==> c.noise
+             | <whale=w> ==> w.noise;
+
+getNoise <dog={noise="bark"}>;
+/* NOTE :: this doesn't work because we're missing row variables! */
+/* getNoise (<cat={noise="meow"}> as <cat:{noise:String}, whale:{noise:String}>); */
+getNoise = getNoise; /* Notice the updated typings */
+
+cell_fib = ref (lambda n. 0);
+cell_fib := (
+  lambda n.
+    if iszero n then 0
+    else if iszero (pred n) then n
+    else plus ((!cell_fib) (pred n)) ((!cell_fib) (pred (pred n)))
+);
+fib = !cell_fib;
+
+/* Oh, and type annotations still work too. You can mix annotated/unannotated, if you like :p */
+addOrTimes = lambda m.
+             lambda n: Float.
+             lambda doAdd.
+               if doAdd then (plusfloat m n) else (timesfloat m n);
+
+addOrTimes 5.0 6.0 false;
