@@ -43,12 +43,6 @@ let reservedWords = [
 
   ("with", fun i -> Parser.WITH i);
   
-  ("nil", fun i -> Parser.NIL i);
-  ("cons", fun i -> Parser.CONS i);
-  ("isnil", fun i -> Parser.ISNIL i);
-  ("head", fun i -> Parser.HEAD i);
-  ("tail", fun i -> Parser.TAIL i);
-  
   (* Symbols *)
   ("_", fun i -> Parser.USCORE i);
   ("'", fun i -> Parser.APOSTROPHE i);

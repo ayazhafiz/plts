@@ -365,11 +365,11 @@ let rec tyRecon ctx nextuvar t =
             let (NextUniqTyVar (tyParamName, nextuvar)) = nextuvar () in
             (TyId tyParamName, nextuvar)
       in
-      (* FIXME: return type must be shifted back down after reconstruction,
-         because we evaluated in a context larger (with the parameter name)
-         than we are returning it from (without the parameter name). *)
       let ctx' = addbinding ctx param (VarBinding paramTy) in
       let retTy, nextuvar, constrBody = tyRecon ctx' nextuvar body in
+      (* Shift down because we evaluated the ty in a context larger (w/
+         parameter name) then we actually use it in (no param name) *)
+      let retTy = typeShift (-1) retTy in
       (TyArrow (paramTy, retTy), nextuvar, constrBody)
   | TmApp (_, fn, body) ->
       let tyFn, nextuvar, constrFn = tyRecon ctx nextuvar fn in
@@ -438,6 +438,7 @@ let rec tyRecon ctx nextuvar t =
         let tyDef, nextuvar, constrDef = tyRecon ctx nextuvar def in
         let ctx' = addbinding ctx name (VarBinding tyDef) in
         let tyInBody, nextuvar, constrInBody = tyRecon ctx' nextuvar inBody in
+        let tyInBody = typeShift (-1) tyInBody in
         (tyInBody, nextuvar, List.concat [ constrDef; constrInBody ])
   | TmAscribe (_, t1, ty) ->
       let tyT1, nextuvar, constrT1 = tyRecon ctx nextuvar t1 in
@@ -508,6 +509,7 @@ let rec tyRecon ctx nextuvar t =
             let variantFields = (variantName, variantTy) :: variantFields in
             let ctx' = addbinding ctx nameInBody (VarBinding variantTy) in
             let bodyTy, nextuvar, constrBody = tyRecon ctx' nextuvar body in
+            let bodyTy = typeShift (-1) bodyTy in
             let constrAll = List.concat [ constrBody; constrAll ] in
             (bodyTy :: bodyTys, variantFields, nextuvar, constrAll))
           cases ([], [], nextuvar, [])
@@ -523,7 +525,6 @@ let rec tyRecon ctx nextuvar t =
         List.concat
           [ caseCondConstrs; caseBodyConstrs; constrCond; constrAllBodiesInner ]
       )
-  (* TODO: implement other forms! (Not concerned with implementing `TmWith` though tbh.) *)
   | TmWith _ -> error dummyinfo "Not implemented"
 
 (* Represents type substitutions (from unknown IDs to real types) discovered during type unification. *)
@@ -568,77 +569,80 @@ let tyNameOccursIn tyId inTy =
 let tryTyEq ctx s t = try tyeq ctx s t with No_typeof _ -> false
 
 let unify info ctx msg constr =
-  let rec update constr =
-    match constr with
-    | [] -> []
-    | (s, t) :: rest when tryTyEq ctx s t -> update rest
-    | (TyArrow (s1, s2), TyArrow (t1, t2)) :: rest ->
-        update ((s1, t1) :: (s2, t2) :: rest)
-    | (TyRef t1, TyRef t2) :: rest -> update ((t1, t2) :: rest)
-    | ((TyRecord f1 as t1), (TyRecord f2 as t2)) :: rest ->
-        (* The second element in the tuple is the one we identify the field
-           constraints on (see case TmProj in tyRecon).
+  let unify permitRecursiveTypes info ctx msg constr =
+    let rec update constr =
+      match constr with
+      | [] -> []
+      | (s, t) :: rest when tryTyEq ctx s t -> update rest
+      | (TyArrow (s1, s2), TyArrow (t1, t2)) :: rest ->
+          update ((s1, t1) :: (s2, t2) :: rest)
+      | (TyRef t1, TyRef t2) :: rest -> update ((t1, t2) :: rest)
+      | ((TyRecord f1 as t1), (TyRecord f2 as t2)) :: rest ->
+          (* The second element in the tuple is the one we identify the field
+             constraints on (see case TmProj in tyRecon).
 
-           For example, Unify (rcd, {a:Nat,b:String}) means rcd needs to contain at
-           least the fields a, b.
+             For example, Unify (rcd, {a:Nat,b:String}) means rcd needs to contain at
+             least the fields a, b.
 
-           NOTE: this is not complete (?!), see tyRecon.
-        *)
-        let toUnify =
-          List.map
-            (fun (name, ty2) ->
-              try
-                let ty1 = List.assoc name f1 in
-                (ty1, ty2)
-              with Not_found ->
-                errAt info (fun _ ->
-                    print_string (msg ^ ": record ");
-                    printty ctx t1;
-                    print_string " missing fields from ";
-                    printty ctx t2))
-            f2
-        in
-        update (List.concat [ toUnify; rest ])
-    | (TyVariant f1, TyVariant f2) :: rest ->
-        (* The second element in the tuple is the one we identify the variant field
-           constraints on (see case TmCase in tyRecon).
+             NOTE: this is not complete (?!), see tyRecon.
+          *)
+          let toUnify =
+            List.map
+              (fun (name, ty2) ->
+                try
+                  let ty1 = List.assoc name f1 in
+                  (ty1, ty2)
+                with Not_found ->
+                  errAt info (fun _ ->
+                      print_string (msg ^ ": record ");
+                      printty ctx t1;
+                      print_string " missing fields from ";
+                      printty ctx t2))
+              f2
+          in
+          update (List.concat [ toUnify; rest ])
+      | (TyVariant f1, TyVariant f2) :: rest ->
+          (* The second element in the tuple is the one we identify the variant field
+             constraints on (see case TmCase in tyRecon).
 
-           For example, Unify (var, cmp@<a:Nat,b:String>) means the variant fields
-           in var must be in cmp as well; however, clearly not all variants in cmp need
-           to be in var.
-        *)
-        let toUnify =
-          List.map
-            (fun (name, ty1) ->
-              try
-                let ty2 = List.assoc name f2 in
-                (ty1, ty2)
-              with Not_found ->
-                error info (msg ^ ": variant type missing variants"))
-            f1
-        in
-        update (List.concat [ toUnify; rest ])
-    (* Substitute a dummy type ID for a "real" type. *)
-    | ((tyOther as t1), (TyId tyX as t2)) :: rest
-    | ((TyId tyX as t1), (tyOther as t2)) :: rest ->
-        if tyNameOccursIn tyX tyOther then
+             For example, Unify (var, cmp@<a:Nat,b:String>) means the variant fields
+             in var must be in cmp as well; however, clearly not all variants in cmp need
+             to be in var.
+          *)
+          let toUnify =
+            List.map
+              (fun (name, ty1) ->
+                try
+                  let ty2 = List.assoc name f2 in
+                  (ty1, ty2)
+                with Not_found ->
+                  error info (msg ^ ": variant type missing variants"))
+              f1
+          in
+          update (List.concat [ toUnify; rest ])
+      (* Substitute a dummy type ID for a "real" type. *)
+      | ((tyOther as t1), (TyId tyX as t2)) :: rest
+      | ((TyId tyX as t1), (tyOther as t2)) :: rest ->
+          if (not permitRecursiveTypes) && tyNameOccursIn tyX tyOther then
+            errAt info (fun _ ->
+                print_string (msg ^ ": circular constraints for ");
+                printty ctx t1;
+                print_string " and ";
+                printty ctx t2)
+          else
+            let subst = (tyX, tyOther) in
+            let updatedConstraints = substConstraints tyX tyOther rest in
+            List.append (update updatedConstraints) [ subst ]
+      | (t1, t2) :: _ ->
           errAt info (fun _ ->
-              print_string (msg ^ ": circular constraints for ");
+              print_string "Cannot solve for ";
               printty ctx t1;
               print_string " and ";
               printty ctx t2)
-        else
-          let subst = (tyX, tyOther) in
-          let updatedConstraints = substConstraints tyX tyOther rest in
-          List.append (update updatedConstraints) [ subst ]
-    | (t1, t2) :: _ ->
-        errAt info (fun _ ->
-            print_string "Cannot solve for ";
-            printty ctx t1;
-            print_string " and ";
-            printty ctx t2)
+    in
+    update constr
   in
-  update constr
+  unify true info ctx msg constr
 
 let applyTySubsts tySubsts ty =
   List.fold_left

@@ -54,15 +54,26 @@ addOrTimes = lambda m.
 
 addOrTimes 5.0 6.0 false;
 
-/*
+/* Recursive types, too */
+c50 = letrec counter =
+        lambda n.
+        lambda _: Unit.
+          {n, counter (succ n)}
+  in counter 50;
+
+(c50 unit).1;
+((c50 unit).2 unit).1;
+(((c50 unit).2 unit).2 unit).1;
+
+/* Watch this take forever to typecheck (why? too many constraints!)
 explode =
   let f0 = lambda x. {x, x} in
-    let f1 = lambda x. {f0(x), f0(x)} in
-      let f2 = lambda x. {f1(x), f1(x)} in
-        let f3 = lambda x. {f2(x), f2(x)} in
-          let f4 = lambda x. {f3(x), f3(x)} in
-            let f5 = lambda x. {f4(x), f4(x)} in
-              f5;
+    let f1 = lambda x. f0(f0(x)) in
+      let f2 = lambda x. f1(f1(x)) in
+        let f3 = lambda x. f2(f2(x)) in
+          let f4 = lambda x. f3(f3(x)) in
+            let f5 = lambda x. f4(f4(x)) in
+              f5 (lambda x. x);
 explode 0;
 explode; /* watch the types collapse! */
 */

@@ -42,11 +42,6 @@ open Language
 %token <Util.Error.info> PRED
 %token <Util.Error.info> ISZERO
 %token <Util.Error.info> NAT
-%token <Util.Error.info> NIL
-%token <Util.Error.info> CONS
-%token <Util.Error.info> ISNIL
-%token <Util.Error.info> HEAD
-%token <Util.Error.info> TAIL
 %token <Util.Error.info> REF
 %token <Util.Error.info> RREF
 %token <Util.Error.info> WITH
