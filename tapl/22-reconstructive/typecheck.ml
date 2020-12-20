@@ -365,6 +365,9 @@ let rec tyRecon ctx nextuvar t =
             let (NextUniqTyVar (tyParamName, nextuvar)) = nextuvar () in
             (TyId tyParamName, nextuvar)
       in
+      (* FIXME: return type must be shifted back down after reconstruction,
+         because we evaluated in a context larger (with the parameter name)
+         than we are returning it from (without the parameter name). *)
       let ctx' = addbinding ctx param (VarBinding paramTy) in
       let retTy, nextuvar, constrBody = tyRecon ctx' nextuvar body in
       (TyArrow (paramTy, retTy), nextuvar, constrBody)
@@ -572,7 +575,7 @@ let unify info ctx msg constr =
     | (TyArrow (s1, s2), TyArrow (t1, t2)) :: rest ->
         update ((s1, t1) :: (s2, t2) :: rest)
     | (TyRef t1, TyRef t2) :: rest -> update ((t1, t2) :: rest)
-    | (TyRecord f1, TyRecord f2) :: rest ->
+    | ((TyRecord f1 as t1), (TyRecord f2 as t2)) :: rest ->
         (* The second element in the tuple is the one we identify the field
            constraints on (see case TmProj in tyRecon).
 
@@ -587,7 +590,12 @@ let unify info ctx msg constr =
               try
                 let ty1 = List.assoc name f1 in
                 (ty1, ty2)
-              with Not_found -> error info (msg ^ ": record missing fields"))
+              with Not_found ->
+                errAt info (fun _ ->
+                    print_string (msg ^ ": record ");
+                    printty ctx t1;
+                    print_string " missing fields from ";
+                    printty ctx t2))
             f2
         in
         update (List.concat [ toUnify; rest ])
@@ -601,13 +609,13 @@ let unify info ctx msg constr =
         *)
         let toUnify =
           List.map
-            (fun (name, ty2) ->
+            (fun (name, ty1) ->
               try
-                let ty1 = List.assoc name f1 in
+                let ty2 = List.assoc name f2 in
                 (ty1, ty2)
               with Not_found ->
                 error info (msg ^ ": variant type missing variants"))
-            f2
+            f1
         in
         update (List.concat [ toUnify; rest ])
     (* Substitute a dummy type ID for a "real" type. *)

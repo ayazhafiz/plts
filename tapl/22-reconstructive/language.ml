@@ -146,7 +146,10 @@ let tmInfo t =
   | TmWith (info, _, _) -> info
 
 (*** Commands ***)
-type command = Eval of info * term | Bind of info * string * binding
+type command =
+  | Eval of info * term
+  | Bind of info * string * binding
+  | Load of info * string
 
 (*** Shifting and Substitution ***)
 

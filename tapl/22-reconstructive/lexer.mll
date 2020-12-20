@@ -103,6 +103,9 @@ let createID i str =
     else 
        Parser.LCID {i=i;v=str}
 
+let loadFile i str =
+  Parser.LOAD_FILE {i=i;v=str}
+
 let lineno   = ref 1
 and depth    = ref 0
 and start    = ref 0
@@ -147,8 +150,10 @@ in
 
 let getStr () = Bytes.sub_string (!stringBuffer) 0 (!stringEnd)
 
+let substr yytext offset = String.sub yytext offset (String.length yytext - offset)
+
 let extractLineno yytext offset =
-  int_of_string (String.sub yytext offset (String.length yytext - offset))
+  int_of_string (substr yytext offset)
 }
 
 
@@ -174,6 +179,9 @@ rule main = parse
 
 | ['0'-'9']+ '.' ['0'-'9']+
     { Parser.FLOATV{i=info lexbuf; v=float_of_string (text lexbuf)} }
+
+| ":load " ['A'-'Z' 'a'-'z' '_']+ '.' ['A'-'Z' 'a'-'z' '_']+ 
+    { loadFile (info lexbuf) (substr (text lexbuf) (String.length ":load ")) }
 
 | ['A'-'Z' 'a'-'z' '_']
   ['A'-'Z' 'a'-'z' '_' '0'-'9' '\'']*

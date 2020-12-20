@@ -53,6 +53,7 @@ open Language
 %token <Util.Error.info> SOURCE
 
 /* Identifier and constant value tokens */
+%token <string Util.Error.withinfo> LOAD_FILE
 %token <string Util.Error.withinfo> UCID  /* uppercase-initial */
 %token <string Util.Error.withinfo> LCID  /* lowercase/symbolic-initial */
 %token <int Util.Error.withinfo> INTV
@@ -142,6 +143,8 @@ Command :
   /* A name binding, like "x" */
   | LCID Binder
       { fun ctx -> ((Bind($1.i,$1.v,$2 ctx)), addname ctx $1.v) }
+  | LOAD_FILE
+      { fun ctx -> (Load($1.i, $1.v), ctx) }
 
 /* Right-hand sides of top-level bindings */
 Binder :

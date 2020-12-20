@@ -89,7 +89,7 @@ let prbindingty ctx b =
       pr ":: ";
       printty ctx ty
 
-let process_command (ctx, nextuvar, existingConstr, store) cmd =
+let rec process_command (ctx, nextuvar, existingConstr, store) cmd =
   match cmd with
   | Eval (info, t) ->
       let tyT, nextuvar, constrT = tyRecon ctx nextuvar t in
@@ -118,14 +118,15 @@ let process_command (ctx, nextuvar, existingConstr, store) cmd =
          arbitrary bind command. *)
       let store' = shift_store store' 1 in
       (ctx', nextuvar, allConstr, store')
+  | Load (_, file) -> process_file file (ctx, nextuvar, existingConstr, store)
 
-let do_command (ctx, nextuvar, constr, store) c =
+and do_command (ctx, nextuvar, constr, store) c =
   open_hvbox 0;
   let state = process_command (ctx, nextuvar, constr, store) c in
   print_flush ();
   state
 
-let process_file f (ctx, nextuvar, constr, store) =
+and process_file f (ctx, nextuvar, constr, store) =
   alreadyImported := f :: !alreadyImported;
   let cmds, _ = parseFile f ctx in
   List.fold_left do_command (ctx, nextuvar, constr, store) cmds
@@ -142,11 +143,13 @@ let rec repl (ctx, nextuvar, constr, store) =
   let buf = ref [] in
   readin buf;
   let input = String.concat "\n" !buf in
-  match parse (Lexing.from_string input) with
+  let parsed = try parse (Lexing.from_string input) with Exit _ -> None in
+  match parsed with
   | Some res ->
-      let cmds, _ = res ctx in
       let newstate =
-        try List.fold_left do_command (ctx, nextuvar, constr, store) cmds
+        try
+          let cmds, _ = res ctx in
+          List.fold_left do_command (ctx, nextuvar, constr, store) cmds
         with Exit _ -> (ctx, nextuvar, constr, store)
       in
       pr "\n";

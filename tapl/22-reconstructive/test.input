@@ -25,16 +25,17 @@ let read = lambda x. x.a in
   let num = read {a=3, b=1} in
   read {a="abcdef", n=num};
 
-getNoise = lambda animal.
-           case animal of
-               <dog=d> ==> d.noise
-             | <cat=c> ==> c.noise
-             | <whale=w> ==> w.noise;
+let r = lambda a. a.a in r ({a=1,b=2,c=3} as {a:Nat,b:Nat});
 
-getNoise <dog={noise="bark"}>;
-/* NOTE :: this doesn't work because we're missing row variables! */
-/* getNoise (<cat={noise="meow"}> as <cat:{noise:String}, whale:{noise:String}>); */
-getNoise = getNoise; /* Notice the updated typings */
+getNoise = lambda animal.
+             case animal of
+                 <dog=d> ==> d.noise
+               | <cat=c> ==> c.noise
+               | <whale=w> ==> w.noise;
+
+getNoise (<cat={noise="meow"}> as
+          <cat:{noise:String}, dog:{noise:String}, whale:{noise:String}>);
+getNoise;
 
 cell_fib = ref (lambda n. 0);
 cell_fib := (
@@ -52,3 +53,16 @@ addOrTimes = lambda m.
                if doAdd then (plusfloat m n) else (timesfloat m n);
 
 addOrTimes 5.0 6.0 false;
+
+/*
+explode =
+  let f0 = lambda x. {x, x} in
+    let f1 = lambda x. {f0(x), f0(x)} in
+      let f2 = lambda x. {f1(x), f1(x)} in
+        let f3 = lambda x. {f2(x), f2(x)} in
+          let f4 = lambda x. {f3(x), f3(x)} in
+            let f5 = lambda x. {f4(x), f4(x)} in
+              f5;
+explode 0;
+explode; /* watch the types collapse! */
+*/

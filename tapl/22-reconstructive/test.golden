@@ -6,10 +6,11 @@ not : Bool -> Bool
 adder : Ref Nat -> Nat
 51: Nat
 abcdef: String
-getNoise : <dog:{noise:??T39}, cat:{noise:??T39}, whale:{noise:??T39}> -> ??T39
-bark: String
-getNoise : <dog:{noise:String}, cat:{noise:String}, whale:{noise:String}> -> String
-cell_fib : Ref ??T46 -> Nat
+1: Nat
+getNoise : <dog:{noise:??T42}, cat:{noise:??T42}, whale:{noise:??T42}> -> ??T42
+meow: String
+(λ animal. case animal of | <dog=d> ==> d.noise| <cat=c> ==> c.noise| <whale=w> ==> w.noise): <dog:{noise:String}, cat:{noise:String}, whale:{noise:String}> -> String
+cell_fib : Ref ??T49 -> Nat
 unit: Unit
 fib : Nat -> Nat
 addOrTimes : Float -> Float -> Bool -> Float
