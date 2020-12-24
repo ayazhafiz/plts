@@ -1,0 +1,11 @@
+#!/bin/bash
+
+EXE="systemf"
+
+DIR="$(pwd)"
+ROOT="$(git rev-parse --show-toplevel)"
+EXEC_PATH="$(realpath --relative-to="$ROOT" $(pwd))/$EXE.exe"
+
+dune build >/dev/null 2>&1
+cd "$ROOT"
+dune exec "$EXEC_PATH" $@ -- -I "$DIR"

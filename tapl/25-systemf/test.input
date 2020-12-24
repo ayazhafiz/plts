@@ -1,0 +1,58 @@
+twice = lambda X. lambda f: X->X. lambda item: X. f (f item);
+
+inc2 = twice [Nat] (lambda n: Nat. succ n);
+inc2 0;
+
+idBool = twice [Bool] (lambda b: Bool. if b then false else true);
+idBool true;
+
+Counter =
+  { Some X
+  , { state: X
+    , methods:
+      { get: X -> Nat
+      , inc: X -> Unit
+      }
+    }
+  };
+
+counter =
+  { *(Ref Nat)
+  , { state = ref 0
+    , methods =
+      { get = lambda n: Ref Nat. !n
+      , inc = lambda n: Ref Nat. n := (succ (!n))
+      }
+    }
+  } as Counter;
+
+sendget = lambda c: Counter.
+            let {C, c} = c in
+            c.methods.get c.state;
+
+sendinc = lambda c: Counter.
+            let {C, c} = c in
+            let nc = (c.methods.inc c.state; c.state) in
+            {*C, {state = nc, methods = c.methods}} as Counter;
+
+sendget (sendinc (sendinc (sendinc counter)));
+
+CounterADT = 
+  { Some X
+  , { new: Unit -> X
+    , get: X -> Nat
+    , inc: X -> Unit
+    }
+  };
+
+counterADT =
+  { *(Ref Nat),
+    { new = lambda _: Unit. ref 1
+    , get = lambda c: Ref Nat. !c
+    , inc = lambda c: Ref Nat. c := (succ (!c))
+    }
+  } as CounterADT;
+
+let {Counter, c} = counterADT in
+  let counter = c.new unit in
+  (c.inc counter; c.inc counter; c.get counter);
