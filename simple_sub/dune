@@ -1,7 +1,3 @@
-(ocamllex lexer)
-(menhir
-  (flags --explain --fixed-exception)
-  (modules parser))
-
 (executable
-  (name main))
+ (name main)
+ (libraries SimpleSub))

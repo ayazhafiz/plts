@@ -14,16 +14,18 @@
 %token EOF
 
 %start program
-%type <toplevel list> program
+%type <Language.toplevel list> program
+%start term
+%type <Language.term> term
 %%
 
 program:
   | EOF                                        { [] }
-  | LET IDENT EQUAL Term; rest = program       { {is_rec=false; name=$2; body=$4}::rest }
-  | LET REC IDENT EQUAL Term; rest = program   { {is_rec=true; name=$3; body=$5}::rest }
+  | LET IDENT EQUAL term; rest = program       { {is_rec=false; name=$2; body=$4}::rest }
+  | LET REC IDENT EQUAL term; rest = program   { {is_rec=true; name=$3; body=$5}::rest }
  
 AtomicTerm:
-  | LPAREN Term RPAREN
+  | LPAREN term RPAREN
            { $2 }
   | INT    { Num $1 }
   | IDENT  { Var $1 }
@@ -41,16 +43,16 @@ AppTerm: /* terms that are applications. */
   | PathTerm { $1 }
   | AppTerm PathTerm { App($1, $2) }
 
-Term:
+term:
   | AppTerm { $1 }
-  | FN IDENT ARROW Term { Abs($2, $4) }
-  | LET IDENT EQUAL Term IN Term { Let{is_rec=false; name=$2; rhs=$4; body=$6} }
-  | LET REC IDENT EQUAL Term IN Term { Let{is_rec=true; name=$3; rhs=$5; body=$7} }
-  | IF Term THEN Term ELSE Term { App(App(App(Var "if", $2), $4), $6) }
+  | FN IDENT ARROW term { Abs($2, $4) }
+  | LET IDENT EQUAL term IN term { Let{is_rec=false; name=$2; rhs=$4; body=$6} }
+  | LET REC IDENT EQUAL term IN term { Let{is_rec=true; name=$3; rhs=$5; body=$7} }
+  | IF term THEN term ELSE term { App(App(App(Var "if", $2), $4), $6) }
 ;
 
 RcdList:
   | { [] }
-  | IDENT COLON Term { [($1, $3)] }
-  | IDENT COLON Term COMMA; rest = RcdList { ($1, $3)::rest }
+  | IDENT COLON term { [($1, $3)] }
+  | IDENT COLON term COMMA; rest = RcdList { ($1, $3)::rest }
 ;
