@@ -3,7 +3,7 @@ open Typecheck
 
 type compact_ty = {
   vars : var_state list;
-  prims : simple_ty list;
+  prims : string list;
   rcd : (string * compact_ty) list option;
   fn : (compact_ty * compact_ty) option;
 }
@@ -46,6 +46,16 @@ let close_over expander items =
   go [] items
 
 let reduce f = function x :: xs -> Some (List.fold_left f x xs) | [] -> None
+
+let get_or_update k default mp =
+  match List.assoc_opt k !mp with
+  | Some v -> v
+  | None ->
+      mp := (k, default) :: !mp;
+      default
+
+let get_or_empty_l k mp =
+  List.assoc_opt k !mp |> Option.map (fun v -> !v) |> Option.value ~default:[]
 
 let rec merge (isPos : bool) (lhs : compact_ty) (rhs : compact_ty) : compact_ty
     =
@@ -102,7 +112,7 @@ let compactSimpleTy ty =
       which do not correspond to actual recursive types. *)
   let ecty = empty_compact_ty in
   let rec go parents inProcess isPos = function
-    | STyInt as p -> { ecty with prims = [ p ] }
+    | STyPrim p -> { ecty with prims = [ p ] }
     | STyFn (p, r) ->
         let fn =
           Some (go [] inProcess (not isPos) p, go [] inProcess isPos r)
@@ -118,17 +128,10 @@ let compactSimpleTy ty =
     | STyVar vs -> (
         let polarV = if isPos then Positive vs else Negative vs in
         if List.mem polarV inProcess then
+          (* spurious cycle: ignore the bound *)
           if List.mem vs parents then ecty
-            (* spurious cycle: ignore the bound *)
           else
-            let v =
-              match List.assoc_opt polarV !recursives with
-              | Some recursive -> recursive
-              | None ->
-                  let freshTy = freshVar 0 in
-                  recursives := (polarV, freshTy) :: !recursives;
-                  freshTy
-            in
+            let v = get_or_update polarV (freshVar 0) recursives in
             { ecty with vars = [ v ] }
         else
           let inProcess = polarV :: inProcess in
@@ -178,7 +181,7 @@ let canonicalizeSimpleTy ty =
   (* Turns the outermost layer of a SimpleType into a CompactType, leaving type
      variables untransformed. *)
   let rec go0 isPos = function
-    | STyInt as p -> { ecty with prims = [ p ] }
+    | STyPrim p -> { ecty with prims = [ p ] }
     | STyFn (p, r) ->
         let fn = Some (go0 (not isPos) p, go0 isPos r) in
         { ecty with fn }
@@ -212,14 +215,7 @@ let canonicalizeSimpleTy ty =
     else
       let polarTy = (ty, isPos) in
       if List.mem polarTy inProcess then
-        let var =
-          match List.assoc_opt polarTy !recursives with
-          | Some recursive -> recursive
-          | None ->
-              let freshTy = freshVar 0 in
-              recursives := (polarTy, freshTy) :: !recursives;
-              freshTy
-        in
+        let var = get_or_update polarTy (freshVar 0) recursives in
         { ecty with vars = [ var ] }
       else
         let bounds =
@@ -258,3 +254,217 @@ let canonicalizeSimpleTy ty =
         | None -> adapted
   in
   { ty = go1 [] (go0 true ty) true; rec_vars = sort_vars !rec_vars }
+
+(** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L161
+    Simplifies a type scheme with the ideas described below.
+    See 4.3 of the paper for more details.
+    Idea: if a type var 'a always occurs positively (resp. neg) along with some 'b AND vice versa,
+         this means that the two are undistinguishable, and they can therefore be unified.
+       Ex: ('a & 'b) -> ('a, 'b) is the same as 'a -> ('a, 'a)
+       Ex: ('a & 'b) -> 'b -> ('a, 'b) is NOT the same as 'a -> 'a -> ('a, 'a)
+         there is no value of 'a that can make 'a -> 'a -> ('a, 'a) <: (a & b) -> b -> (a, b) work
+         we'd require 'a :> b | a & b <: a & b, which are NOT valid bounds!
+       Ex: 'a -> 'b -> 'a | 'b is the same as 'a -> 'a -> 'a
+       Justification: the other var 'b can always be taken to be 'a & 'b (resp. a | b)
+         without loss of gen. Indeed, on the pos side we'll have 'a <: 'a & 'b and 'b <: 'a & 'b
+         and on the neg side, we'll always have 'a and 'b together, i.e., 'a & 'b
+    
+    Additional idea: remove variables which always occur both positively AND negatively together
+         with some other type.
+       This would arise from constraints such as: 'a :> Int <: 'b and 'b <: Int
+         (contraints which basically say 'a =:= 'b =:= Int)
+       Ex: 'a ∧ Int -> 'a ∨ Int is the same as Int -> Int
+       Currently, we only do this for primitive types PrimType.
+       In principle it could be done for functions and records, too.
+       Note: conceptually, this idea subsumes the simplification that removes variables occurring
+           exclusively in positive or negative positions.
+         Indeed, if 'a never occurs positively, it's like it always occurs both positively AND
+         negatively along with the type Bot, so we can replace it with Bot. *)
+let simplifyTy cty =
+  (* State accumulated during the analysis phase*)
+  let allVars = ref (List.map fst cty.rec_vars) in
+  let recVars = ref [] in
+  let coOccurences = ref [] in
+  (* This will be filled up after the analysis phase, to influence the
+     reconstruction phase *)
+  let varSubst = ref [] in
+
+  (* Traverses the type, performing the analysis, and returns a thunk to
+     reconstruct it later *)
+  let rec go ty isPos =
+    List.iter
+      (fun var ->
+        allVars := var :: !allVars;
+        let newOccs =
+          List.map (fun s -> STyVar s) ty.vars
+          @ List.map (fun p -> STyPrim p) ty.prims
+        in
+        ( match List.assoc_opt (isPos, var) !coOccurences with
+        (* compute the intersection of co-occurence *)
+        | Some occurs ->
+            occurs := List.filter (fun t -> List.mem t newOccs) !occurs
+        | None -> coOccurences := ((isPos, var), ref newOccs) :: !coOccurences
+        );
+        match List.assoc_opt var cty.rec_vars with
+        | Some bound ->
+            (* if ty is recursive we need to process its bound *)
+            if not (List.mem_assoc var !recVars) then (
+              let goLater = ref (fun () -> empty_compact_ty) in
+              goLater :=
+                fun () ->
+                  (* we store the fact that we're descending into the bound to
+                      avoid infinite recursion *)
+                  recVars := (var, !goLater) :: !recVars;
+                  (go bound isPos) () )
+            else ()
+        | None -> ())
+      ty.vars;
+    let rcd1 = Option.map (List.map (fun (f, t) -> (f, go t isPos))) ty.rcd in
+    let fn1 = Option.map (fun (p, r) -> (go p (not isPos), go r isPos)) ty.fn in
+    fun () ->
+      let newVars =
+        List.concat_map
+          (fun v ->
+            match List.assoc_opt v !varSubst with
+            | Some (Some v2) -> [ v2 ]
+            | Some None -> []
+            | None -> [ v ])
+          ty.vars
+      in
+      {
+        vars = newVars;
+        prims = ty.prims;
+        rcd = Option.map (List.map (fun (f, t) -> (f, t ()))) rcd1;
+        fn = Option.map (fun (p, r) -> (p (), r ())) fn1;
+      }
+  in
+  let gone = go cty.ty true in
+  (* Simplify away those non-recursive variables that only occur in positive or
+     negative positions *)
+  List.iter
+    (fun var ->
+      if not (List.mem_assoc var !recVars) then
+        match
+          ( List.assoc_opt (true, var) !coOccurences,
+            List.assoc_opt (false, var) !coOccurences )
+        with
+        | Some _, None | None, Some _ -> varSubst := (var, None) :: !varSubst
+        | None, None ->
+            failwith
+              "bad state: variable occurs neither positively nor negatively"
+        | _ -> ()
+      else ())
+    !allVars;
+  (* Unify equivalent variables based on polar co-occurrence analysis *)
+  let goUnify pol v = function
+    | STyPrim _ as prim
+      when List.assoc_opt (not pol, v) !coOccurences
+           |> Option.map (fun tys -> List.mem prim !tys)
+           |> Option.value ~default:false ->
+        varSubst := (v, None) :: !varSubst
+    | STyVar w
+      when (not (w == v))
+           && (not (List.mem_assoc w !varSubst))
+           (* We avoid merging rec and non-rec vars, because the non-rec one may not be strictly polar *)
+           && List.mem_assoc w !recVars = List.mem_assoc v !recVars -> (
+        let v_w_coOccur =
+          get_or_empty_l (pol, w) coOccurences |> List.mem (STyVar v)
+        in
+        if v_w_coOccur then
+          (* unify w into v *)
+          varSubst := (w, Some v) :: !varSubst;
+        (* Since w gets unified with v, we need to merge their bounds if they are recursive,
+           and otherwise merge the other co-occurrences of v and w from the other polarity.
+           For instance,
+            consider that if we merge v and w in `(v & w) -> v & x -> w -> x`
+            we get `v -> v & x -> v -> x`
+            and the old positive co-occ of v, {v,x} should be changed to just {v,x} & {w,v} == {v} *)
+        match List.assoc_opt w !recVars with
+        | Some b_w ->
+            (* if w is recursive, so is v *)
+            if List.mem_assoc (not pol, w) !coOccurences then
+              failwith "bad state: recursive types must have strict polarity";
+
+            (* w is merged into v, so we forget about it *)
+            recVars := List.filter (fun (t, _) -> t <> w) !recVars;
+            let b_v = List.assoc v !recVars in
+            (* associate the new recursive bound for v we get by merging in w *)
+            recVars := (v, fun () -> merge pol (b_v ()) (b_w ())) :: !recVars
+        | None ->
+            (* w is not recursive and neither is v *)
+            (* opposite-polarity coOccurences must be defined for both v and w,
+               otherwise we'd already have simplified away the non-rec variables in the first pass *)
+            let w_coOccs = List.assoc (not pol, w) !coOccurences in
+            let v_coOccs = List.assoc (not pol, v) !coOccurences in
+            v_coOccs :=
+              List.filter
+                (fun ty -> ty = STyVar v || List.mem ty !w_coOccs)
+                !v_coOccs )
+    | _ -> ()
+  in
+  let polarities = [ true; false ] in
+  let varsToUnify =
+    List.filter (fun v -> not (List.mem_assoc v !varSubst)) !allVars
+  in
+  varsToUnify
+  |> List.iter (fun v ->
+         polarities
+         |> List.iter (fun pol ->
+                let toUnify = get_or_empty_l (pol, v) coOccurences in
+                List.iter (goUnify pol v) toUnify));
+
+  {
+    ty = gone ();
+    rec_vars = sort_vars (List.map (fun (k, v) -> (k, v ())) !recVars);
+  }
+
+(** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L284
+    Coalesces a [compact_ty_scheme] into a [ty] while performing hash-consing
+    to tie recursive type knots a bit tighter, when possible. *)
+let coalesceCompactTy cty =
+  let rec go inProcess pol ty =
+    match List.assoc_opt (ty, pol) inProcess with
+    | Some getTy ->
+        let res = getTy () in
+        res
+    | None -> (
+        let isRec = ref false in
+        let markAsRec () =
+          isRec := true;
+          let vs = match ty with `Var vs -> vs | _ -> freshVar 0 in
+          tyvar_of_uid vs.uid
+        in
+        let inProcess = ((ty, pol), fun () -> markAsRec ()) :: inProcess in
+        match ty with
+        | `Var vs ->
+            List.assoc_opt vs cty.rec_vars
+            |> Option.fold ~none:(tyvar_of_uid vs.uid) ~some:(fun t ->
+                   go inProcess pol (`Compact t))
+        | `Compact { vars; prims; rcd; fn } ->
+            let base, mrg =
+              if pol then (TyBottom, fun l r -> TyUnion (l, r))
+              else (TyTop, fun l r -> TyIntersection (l, r))
+            in
+            let vars = List.map (fun v -> go inProcess pol (`Var v)) vars in
+            let prims = List.map (fun n -> TyPrim n) prims in
+            let rcd =
+              rcd
+              |> Option.map (fun fields ->
+                     TyRecord
+                       (List.map
+                          (fun (f, t) -> (f, go inProcess pol (`Compact t)))
+                          fields))
+              |> Option.to_list
+            in
+            let fn =
+              fn
+              |> Option.map (fun (p, r) ->
+                     let p = go inProcess (not pol) (`Compact p) in
+                     let r = go inProcess pol (`Compact r) in
+                     TyFn (p, r))
+              |> Option.to_list
+            in
+            let allVariants = vars @ prims @ rcd @ fn in
+            Option.value (reduce mrg allVariants) ~default:base )
+  in
+  go [] true (`Compact cty.ty)

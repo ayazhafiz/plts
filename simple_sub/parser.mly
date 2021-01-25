@@ -1,105 +1,56 @@
-%token <bool>   BOOL
-%token <int>    NAT
-%token <string> STRING
+%{
+ open Language
+%}
+
+%token <int>    INT
 %token <string> IDENT
 
-%token FN
+%token LET REC IN FN ARROW EQUAL
 %token IF THEN ELSE
-%token IS IN
-%token TYPE_UNIT TYPE_BOOL TYPE_NAT TYPE_STRING
 %token LPAREN RPAREN
-%token LEFT_BRACKET RIGHT_BRACKET
 %token LCURLY RCURLY
-%token COMMA
-%token COLON
-%token SEMI
-%token VBAR
-%token DOT
+%token COMMA COLON DOT
 
-%token MODE
 %token EOF
 
-%start toplevel
-%type <int> toplevel
+%start program
+%type <toplevel list> program
 %%
 
-toplevel:
-  | COLON MODE IDENT EOF   { 1 }
+program:
+  | EOF                                        { [] }
+  | LET IDENT EQUAL Term; rest = program       { {is_rec=false; name=$2; body=$4}::rest }
+  | LET REC IDENT EQUAL Term; rest = program   { {is_rec=true; name=$3; body=$5}::rest }
+ 
+AtomicTerm:
+  | LPAREN Term RPAREN
+           { $2 }
+  | INT    { Num $1 }
+  | IDENT  { Var $1 }
+  | LCURLY RcdList RCURLY
+           { Record($2) }
+;
 
-/* Program:
-/*   | EOF                          { { fns=[]; expr=None } }
-/*   | e = Expr; EOF                { { fns=[]; expr=Some e } }
-/*   | f = Func; prog = Program     { { prog with fns=f::prog.fns } }
-/* ;
-/* 
-/* Func:
-/*   | FN; name = IDENT; LPAREN; p = Params; RPAREN COLON; ty = Type; LCURLY; e = Expr; RCURLY
-/*     { Fn (name, p, ty, e) }
-/* ;
-/* 
-/* Type:
-/*   | AtomicType  { $1 }
-/*   | AtomicType VBAR AtomicType UnionSeqType { TyUnion ($1::$3::$4) }
-/* ;
-/* 
-/* AtomicType:
-/*   | TYPE_NAT              { TyNat }
-/*   | TYPE_STRING           { TyString }
-/*   | TYPE_BOOL             { TyBool }
-/*   | LCURLY RcdType RCURLY { TyRecord($2) }
-/*   | LPAREN Type RPAREN    { $2 }
-/* ;
-/* 
-/* UnionSeqType:
-/*   | { [] }
-/*   | VBAR AtomicType UnionSeqType { $2::$3 }
-/* ;
-/* 
-/* RcdType:
-/*   | { [] }
-/*   | IDENT COLON Type { [($1, $3)] }
-/*   | IDENT COLON Type COMMA; rest = RcdType { ($1, $3)::rest }
-/* ;
-/* 
-/* Params:
-/*   | { [] }
-/*   | id = IDENT; COLON; ty = Type { [(id, ty)] }  
-/*   | id = IDENT; COLON; ty = Type; COMMA; rest = Params { (id, ty)::rest }
-/* ;
-/* 
-/* AtomicExpr:
-/*   | IDENT  { Var $1 }
-/*   | NAT    { Nat $1 }
-/*   | STRING { String $1 }
-/*   | BOOL   { Bool $1 }
-/*   | IDENT LPAREN ArgList RPAREN
-/*            { App (Var $1, $3) }
-/*   | LCURLY RcdList RCURLY
-/*            { Record($2) }
-/*   | LPAREN Expr RPAREN
-/*            { $2 }
-/*   | AtomicExpr DOT IDENT
-/*            { RecordProj($1, $3) }
-/*   /* Can only narrow variables; pointless to do so on values directly (why?) */
-/*   | IDENT IS Type
-/*            { Narrow((Var $1), $3) }
-/*   | IDENT IN IDENT
-/*            { RecordNarrow($1, (Var $3)) }
-/* ;
-/* 
-/* Expr:
-/*   | AtomicExpr { $1 }
-/*   | IF AtomicExpr THEN Expr ELSE Expr { If($2, $4, $6) }
-/* ;
-/* 
-/* ArgList:
-/*   | { [] }
-/*   | expr = Expr { [expr] }
-/*   | expr = Expr; COMMA; rest = ArgList { expr::rest }
-/* ;
-/* 
-/* RcdList:
-/*   | { [] }
-/*   | IDENT COLON Expr { [($1, $3)] }
-/*   | IDENT COLON Expr COMMA; rest = RcdList { ($1, $3)::rest }
-/* ; */
+PathTerm: /* terms that have a "path", like a projection. */
+  | AtomicTerm { $1 }
+  | PathTerm DOT IDENT
+           { RecordProject($1, $3) }
+;
+
+AppTerm: /* terms that are applications. */
+  | PathTerm { $1 }
+  | AppTerm PathTerm { App($1, $2) }
+
+Term:
+  | AppTerm { $1 }
+  | FN IDENT ARROW Term { Abs($2, $4) }
+  | LET IDENT EQUAL Term IN Term { Let{is_rec=false; name=$2; rhs=$4; body=$6} }
+  | LET REC IDENT EQUAL Term IN Term { Let{is_rec=true; name=$3; rhs=$5; body=$7} }
+  | IF Term THEN Term ELSE Term { App(App(App(Var "if", $2), $4), $6) }
+;
+
+RcdList:
+  | { [] }
+  | IDENT COLON Term { [($1, $3)] }
+  | IDENT COLON Term COMMA; rest = RcdList { ($1, $3)::rest }
+;

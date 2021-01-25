@@ -1,8 +1,51 @@
 open Language
+open Lexing
 open Typecheck
 open Simplify
+open Print
 
-(*
+(* Top-level typechecking drivers *)
+
+(** [pipeline_typecheck ctx program] infers the types for a program in a
+    context, pushes the inferred typings through the simplification pipeline,
+    and returns a string of new bindings in the program as well as the context
+    updated with those bindings. *)
+let pipeline_typecheck ctx program =
+  let bindings, ctx = typeProgram ctx program in
+  let bindings =
+    List.map
+      (fun r ->
+        Result.bind r (fun (name, ty) ->
+            try
+              let ty =
+                ( match ty with
+                | `S simple -> simple
+                | `P poly -> instantiate 0 poly )
+                |> canonicalizeSimpleTy |> simplifyTy |> coalesceCompactTy
+              in
+              Ok (name, ty)
+            with Failure m -> Error m))
+      bindings
+  in
+  (bindings, ctx)
+
+let default_ctx =
+  let b = STyPrim "bool" in
+  let i = STyPrim "int" in
+  [
+    ("true", `S b);
+    ("false", `S b);
+    ("not", `S (STyFn (b, b)));
+    ("succ", `S (STyFn (i, i)));
+    ("add", `S (STyFn (i, STyFn (i, i))));
+    ( "if",
+      let v = STyVar (freshVar 1) in
+      `P (PolyTy (0, STyFn (b, STyFn (v, STyFn (v, v))))) );
+  ]
+  |> List.to_seq |> Ctx.of_seq
+
+(* Repl + File reader *)
+
 let string_of_position lexbuf =
   let pos = lexbuf.lex_curr_p in
   Printf.sprintf "%s:%d:%d" pos.pos_fname pos.pos_lnum
@@ -10,13 +53,12 @@ let string_of_position lexbuf =
 
 let parse lexbuf =
   let result =
-    try Some (Parser.toplevel Lexer.read lexbuf) with
+    try Some (Parser.program Lexer.read lexbuf) with
     | Lexer.SyntaxError msg ->
-        Printf.eprintf "Syntax error: %s at %s\n" msg
-          (string_of_position lexbuf);
+        Printf.eprintf "Syntax error: %s at %s" msg (string_of_position lexbuf);
         None
     | _ ->
-        Printf.eprintf "Parse error at %s\n" (string_of_position lexbuf);
+        Printf.eprintf "Parse error at %s" (string_of_position lexbuf);
         None
   in
   Parsing.clear_parser ();
@@ -52,60 +94,31 @@ let parseMode m =
             (-rt=add runtime)"
            m)
 
-let pr_binding what ty = Printf.sprintf "%s :: %s" what ty
+let pp_results results =
+  results
+  |> List.map (function
+       | Ok (name, ty) -> Printf.sprintf "%s: %s" name (string_of_ty ty)
+       | Error msg -> Printf.sprintf "Type error: %s" msg)
+  |> String.concat "\n"
 
-let handle_mode mode ctx fns expr exprTy to_print =
-  match mode with
-  | Eval ->
-      let evaled = eval ctx expr in
-      let exprBind = pr_binding (string_of_expr evaled) (string_of_ty exprTy) in
-      to_print @ [ exprBind ]
-  | GenC -> [ codegen_c fns expr ]
-  | GenCAddRt -> [ codegen_c_w_rt fns expr ]
+let process_program ctx toplevels =
+  let bindings, ctx = pipeline_typecheck ctx toplevels in
+  let results = pp_results bindings in
+  Printf.printf "%s" results;
+  ctx
 
-let process_fn (ctx, to_print) (Fn (name, _, _, _) as fn) =
-  let ty = typecheck_fn ctx fn in
-  let bind = pr_binding name (string_of_ty ty) in
-  (Ctx.add_fn fn ty ctx, to_print @ [ bind ])
-
-let process_expr_opt mode (ctx, to_print) fns expr =
-  match expr with
-  | None -> (ctx, to_print)
-  | Some expr ->
-      let ty = typecheck ctx expr in
-      let to_print = handle_mode mode ctx fns expr ty to_print in
-      (ctx, to_print)
-
-let process_program (mode, ctx) { fns; expr } =
-  let ctx, to_print = List.fold_left process_fn (ctx, []) fns in
-  let ctx, to_print = process_expr_opt mode (ctx, to_print) fns expr in
-  Printf.printf "%s" (String.concat "\n" to_print);
-  (mode, ctx)
-
-let rec repl ((_, ctx) as oldEnv) =
+let rec repl ctx =
   Printf.printf "> ";
   flush_all ();
   let buf = ref [] in
   readin buf;
   let input = String.concat "\n" !buf in
   let parsed = parse (Lexing.from_string ~with_positions:true input) in
-  let newEnv =
-    try
-      match parsed with
-      | None -> oldEnv
-      | Some (Mode m) ->
-          let mode = parseMode m in
-          Printf.printf "Set mode \"%s\"" m;
-          (mode, ctx)
-      | Some (Program p) -> process_program oldEnv p
-    with Failure msg ->
-      Printf.eprintf "%s" msg;
-      oldEnv
-  in
+  let ctx = Option.fold ~none:ctx ~some:(process_program ctx) parsed in
   flush_all ();
   Printf.printf "\n\n";
   flush_all ();
-  repl newEnv
+  repl ctx
 
 let searchpath = ref [ "" ]
 
@@ -119,19 +132,12 @@ let openfile inFile =
   in
   trynext !searchpath
 
-let process_file inFile env =
+let process_file inFile ctx =
   let fi = openfile inFile in
-  let lexbuf = Lexing.from_channel ~with_positions:true fi in
-  let newEnv =
-    match parse lexbuf with
-    | None -> failwith "No emit"
-    | Some (Mode _) ->
-        failwith
-          "Cannot set mode for single file; use command line flags or repl"
-    | Some (Program p) -> process_program env p
-  in
+  let parsed = parse (Lexing.from_channel ~with_positions:true fi) in
+  let ctx = Option.fold ~none:ctx ~some:(process_program ctx) parsed in
   flush_all ();
-  newEnv
+  ctx
 
 let mode = ref Eval
 
@@ -160,10 +166,8 @@ let parseArgs () =
 let main () =
   match parseArgs () with
   | Some inFile ->
-      let _ = process_file inFile (!mode, Ctx.empty) in
+      let _ = process_file inFile default_ctx in
       ()
-  | None -> repl (!mode, Ctx.empty)
+  | None -> repl default_ctx
 
-*)
-
-let () = ()
+let () = main ()

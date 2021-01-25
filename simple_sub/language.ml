@@ -7,6 +7,8 @@ type term =
   | RecordProject of term * string
   | Let of { is_rec : bool; name : string; rhs : term; body : term }
 
+type toplevel = { is_rec : bool; name : string; body : term }
+
 type var_state = {
   uid : int;
   level : int;
@@ -20,11 +22,15 @@ type var_state = {
 (** Types inferred from the frontend *)
 and simple_ty =
   | STyVar of var_state
-  | STyInt
+  | STyPrim of string
   | STyFn of simple_ty * simple_ty
   | STyRecord of (string * simple_ty) list
 
-type poly_ty = PolyTy of int * simple_ty
+type poly_ty = PolyTy of int (* level *) * simple_ty
+
+type polar_var =
+  | Positive of var_state  (** Positive variables are in output positions *)
+  | Negative of var_state  (** Negative variables are in input positions *)
 
 (** Types after inference and constraining of simple types *)
 type ty =
@@ -36,8 +42,4 @@ type ty =
   | TyRecord of (string * ty) list
   | TyRecursive of string * ty
   | TyVar of string
-  | TyInt
-
-type polar_var =
-  | Positive of var_state  (** Positive variables are in output positions *)
-  | Negative of var_state  (** Negative variables are in input positions *)
+  | TyPrim of string

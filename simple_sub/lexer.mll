@@ -19,65 +19,41 @@ let newline = '\r' | '\n' | "\r\n"
 
 let nat = ['0'-'9']+
 
-let boolean = "true" | "false"
-
 let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
 
-rule string_literal strbuf = parse
-  | eof
-    { EOF }
-  | "\\\"" as q
-    { Buffer.add_string strbuf q;
-      string_literal strbuf lexbuf }
-  | '"'
-    { STRING (Buffer.contents strbuf |> Scanf.unescaped) }
-  | '\n'
-    { new_line lexbuf;
-      Buffer.add_char strbuf '\n';
-      string_literal strbuf lexbuf }
-  | _ as c
-    { Buffer.add_char strbuf c;
-      string_literal strbuf lexbuf }
+rule lineComment = parse
+  | newline
+    { next_line lexbuf; read lexbuf }
+  | _
+    { lineComment lexbuf }
 
 and read = parse
-  | whitespace     { read lexbuf }
-  | newline   { next_line lexbuf; read lexbuf }
+  | whitespace { read lexbuf }
+  | newline    { next_line lexbuf; read lexbuf }
 
-  | nat as b      { NAT  (int_of_string b) }
-  | '"'
-    { string_literal (Buffer.create 100) lexbuf }
-  | boolean as b  { BOOL (bool_of_string b) }
+  | nat as b  { INT  (int_of_string b) }
 
-  | "mode"    { MODE }
-
+  | "let"     { LET }
+  | "rec"     { REC }
+  | "in"      { IN }
   | "fn"      { FN }
   | "if"      { IF }
   | "then"    { THEN }
   | "else"    { ELSE }
 
-  (* Type narrowing *)
-  | "is"      { IS }
-  | "in"      { IN }
-
-  | "unit"    { TYPE_UNIT }
-  | "bool"    { TYPE_BOOL }
-  | "nat"     { TYPE_NAT }
-  | "string"  { TYPE_STRING }
-
   | id as id  { IDENT id }
 
+  | "->"      { ARROW }
   | '('       { LPAREN }
   | ')'       { RPAREN }
-  | '['       { LEFT_BRACKET }
-  | ']'       { RIGHT_BRACKET }
   | '{'       { LCURLY }
   | '}'       { RCURLY }
   | ','       { COMMA }
   | ':'       { COLON }
-  | ';'       { SEMI }
-  | '|'       { VBAR }
   | '.'       { DOT }
+  | '='       { EQUAL }
 
+  | "//"      { lineComment lexbuf }
   | eof       { EOF }
 
   | _ as c    { raise (SyntaxError ("Unexpected char or sequence: " ^ (String.make 1 c))) }
