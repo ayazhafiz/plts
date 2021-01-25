@@ -1,3 +1,7 @@
+(** Module [simplify] simplifies inferred types in a program into a canonical
+    form with the minimum number of type variables needed to correctly type an
+    expression. *)
+
 open Language
 open Typecheck
 

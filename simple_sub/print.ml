@@ -1,3 +1,5 @@
+(** Module [print] pretty-prints types *)
+
 open Language
 
 let uniq_typevars ty =

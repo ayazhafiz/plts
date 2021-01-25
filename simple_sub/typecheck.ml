@@ -1,3 +1,7 @@
+(** Module [typecheck] performs type inference (including constraint) of a
+    user-supplied program. This is the "typechecking frontend"; i.e. work that
+    must be done before we can begin type simplification. *)
+
 open Language
 
 module Ctx = struct
