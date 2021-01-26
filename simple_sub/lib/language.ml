@@ -44,12 +44,13 @@ type ty =
   | TyVar of string
   | TyPrim of string
 
-module VarSet = Set.Make (struct
+module VarStOrder = struct
   type t = var_state
 
   let compare a b = compare a.uid b.uid
-end)
+end
 
+module VarSet = Set.Make (VarStOrder)
 module StringSet = Set.Make (String)
 
 type compact_ty = {

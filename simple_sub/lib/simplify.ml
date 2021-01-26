@@ -40,12 +40,12 @@ let close_over expander items =
 
 let reduce f = function x :: xs -> Some (List.fold_left f x xs) | [] -> None
 
-let get_or_update k default mp =
-  match List.assoc_opt k !mp with
+let get_or_update_tbl k default tbl =
+  match Hashtbl.find_opt tbl k with
   | Some v -> v
   | None ->
-      mp := (k, default) :: !mp;
-      default
+      Hashtbl.add tbl k (default ());
+      Hashtbl.find tbl k
 
 let get_or_empty_l k mp =
   List.assoc_opt k !mp |> Option.map (fun v -> !v) |> Option.value ~default:[]
@@ -98,8 +98,8 @@ let rec merge (isPos : bool) (lhs : compact_ty) (rhs : compact_ty) : compact_ty
 (** Compacts an inferred [simple_ty] into a [compact_ty], which is a more
     accessible representation for the simplification procedures. *)
 let compactSimpleTy ty =
-  let recursives = ref [] in
-  let rec_vars = ref [] in
+  let recursives = Hashtbl.create 16 in
+  let rec_vars = Hashtbl.create 16 in
   (* [parents] remembers the variables whose bounds are being compacted,
       so as to remove spurious cycles such as ?a <: ?b and ?b <: ?a,
       which do not correspond to actual recursive types. *)
@@ -124,7 +124,9 @@ let compactSimpleTy ty =
           (* spurious cycle: ignore the bound *)
           if List.mem vs parents then ecty
           else
-            let v = get_or_update polarV (freshVar 0) recursives in
+            let v =
+              get_or_update_tbl polarV (fun () -> freshVar 0) recursives
+            in
             { ecty with vars = VarSet.singleton v }
         else
           let inProcess = polarV :: inProcess in
@@ -139,13 +141,16 @@ let compactSimpleTy ty =
               { ecty with vars = VarSet.singleton vs }
               compactBounds
           in
-          match List.assoc_opt polarV !recursives with
+          match Hashtbl.find_opt recursives polarV with
           | Some v ->
-              rec_vars := (v, bound) :: !rec_vars;
+              Hashtbl.add rec_vars v bound;
               { ecty with vars = VarSet.singleton v }
           | None -> bound )
   in
-  { ty = go [] [] true ty; rec_vars = sort_vars !rec_vars }
+  {
+    ty = go [] [] true ty;
+    rec_vars = Hashtbl.to_seq rec_vars |> List.of_seq |> sort_vars;
+  }
 
 (** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L86
     Like [compactSimpleTy], but also make sure to produce a 'canonicalized'
@@ -168,8 +173,8 @@ let compactSimpleTy ty =
     though in practice the algorithm often result in good simplifications down
     the line. *)
 let canonicalizeSimpleTy ty =
-  let recursives : ((compact_ty * bool) * var_state) list ref = ref [] in
-  let rec_vars : (var_state * compact_ty) list ref = ref [] in
+  let recursives = Hashtbl.create 16 in
+  let rec_vars = Hashtbl.create 16 in
   let ecty = empty_compact_ty in
   (* Turns the outermost layer of a SimpleType into a CompactType, leaving type
      variables untransformed. *)
@@ -209,7 +214,7 @@ let canonicalizeSimpleTy ty =
     else
       let polarTy = (ty, isPos) in
       if List.mem polarTy inProcess then
-        let var = get_or_update polarTy (freshVar 0) recursives in
+        let var = get_or_update_tbl polarTy (fun () -> freshVar 0) recursives in
         { ecty with vars = VarSet.singleton var }
       else
         let bounds =
@@ -239,13 +244,16 @@ let canonicalizeSimpleTy ty =
                 res.fn;
           }
         in
-        match List.assoc_opt polarTy !recursives with
+        match Hashtbl.find_opt recursives polarTy with
         | Some v ->
-            rec_vars := (v, adapted) :: !rec_vars;
+            Hashtbl.add rec_vars v adapted;
             { ecty with vars = VarSet.singleton v }
         | None -> adapted
   in
-  { ty = go1 [] (go0 true ty) true; rec_vars = sort_vars !rec_vars }
+  {
+    ty = go1 [] (go0 true ty) true;
+    rec_vars = Hashtbl.to_seq rec_vars |> List.of_seq |> sort_vars;
+  }
 
 (** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L161
     Simplifies a type scheme with the ideas described below.
@@ -275,7 +283,7 @@ let canonicalizeSimpleTy ty =
 let simplifyTy cty =
   (* State accumulated during the analysis phase*)
   let allVars = ref (List.map fst cty.rec_vars) in
-  let recVars = ref [] in
+  let recVars = Hashtbl.create 16 in
   let coOccurences = ref [] in
   (* This will be filled up after the analysis phase, to influence the
      reconstruction phase *)
@@ -300,14 +308,11 @@ let simplifyTy cty =
         match List.assoc_opt var cty.rec_vars with
         | Some bound ->
             (* if ty is recursive we need to process its bound *)
-            if not (List.mem_assoc var !recVars) then (
-              let goLater = ref (fun () -> empty_compact_ty) in
-              goLater :=
-                fun () ->
-                  (* we store the fact that we're descending into the bound to
-                      avoid infinite recursion *)
-                  recVars := (var, !goLater) :: !recVars;
-                  (go bound isPos) () )
+            if not (Hashtbl.mem recVars var) then (
+              let goLaterClosure = ref (fun () -> empty_compact_ty) in
+              (* make sure to register the var before recursing, to avoid an infinite recursion *)
+              Hashtbl.add recVars var goLaterClosure;
+              goLaterClosure := go bound isPos )
             else ()
         | None -> ())
       ty.vars;
@@ -347,7 +352,7 @@ let simplifyTy cty =
      negative positions *)
   List.iter
     (fun var ->
-      if not (List.mem_assoc var !recVars) then
+      if not (Hashtbl.mem recVars var) then
         match
           ( List.assoc_opt (true, var) !coOccurences,
             List.assoc_opt (false, var) !coOccurences )
@@ -372,7 +377,7 @@ let simplifyTy cty =
       when (not (w == v))
            && (not (List.mem_assoc w !varSubst))
            (* We avoid merging rec and non-rec vars, because the non-rec one may not be strictly polar *)
-           && List.mem_assoc w !recVars = List.mem_assoc v !recVars -> (
+           && Hashtbl.mem recVars w = Hashtbl.mem recVars v -> (
         let v_w_coOccur =
           get_or_empty_l (pol, w) coOccurences |> List.mem (STyVar v)
         in
@@ -385,17 +390,24 @@ let simplifyTy cty =
             consider that if we merge v and w in `(v & w) -> v & x -> w -> x`
             we get `v -> v & x -> v -> x`
             and the old positive co-occ of v, {v,x} should be changed to just {v,x} & {w,v} == {v} *)
-        match List.assoc_opt w !recVars with
+        match Hashtbl.find_opt recVars w with
         | Some b_w ->
             (* if w is recursive, so is v *)
             if List.mem_assoc (not pol, w) !coOccurences then
               failwith "bad state: recursive types must have strict polarity";
 
             (* w is merged into v, so we forget about it *)
-            recVars := List.filter (fun (t, _) -> t <> w) !recVars;
-            let b_v = List.assoc v !recVars in
+            let rec rm () =
+              if Hashtbl.mem recVars w then (
+                Hashtbl.remove recVars w;
+                rm () )
+              else ()
+            in
+            rm ();
+            let b_v = Hashtbl.find recVars v in
             (* associate the new recursive bound for v we get by merging in w *)
-            recVars := (v, fun () -> merge pol (b_v ()) (b_w ())) :: !recVars
+            Hashtbl.add recVars v
+              (ref (fun () -> merge pol (!b_v ()) (!b_w ())))
         | None ->
             (* w is not recursive and neither is v *)
             (* opposite-polarity coOccurences must be defined for both v and w,
@@ -425,7 +437,10 @@ let simplifyTy cty =
                   List.iter (goUnify pol v) toUnify));
   {
     ty = gone ();
-    rec_vars = sort_vars (List.map (fun (k, v) -> (k, v ())) !recVars);
+    rec_vars =
+      Hashtbl.to_seq recVars |> List.of_seq
+      |> List.map (fun (k, v) -> (k, !v ()))
+      |> sort_vars;
   }
 
 type var_or_compact = Var of var_state | Compact of compact_ty
