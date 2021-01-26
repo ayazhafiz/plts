@@ -11,8 +11,10 @@ let string_of_sty ?(showBounds = true) ty =
     let rec go = function
       | [] -> ()
       | STyVar vs :: rest ->
-          if not (List.mem vs !all) then all := vs :: !all;
-          go (vs.lower_bounds @ vs.upper_bounds @ rest)
+          if List.mem vs !all then go rest
+          else (
+            all := vs :: !all;
+            go (vs.lower_bounds @ vs.upper_bounds @ rest) )
       | STyPrim _ :: rest -> go rest
       | STyFn (p, r) :: rest -> go (p :: r :: rest)
       | STyRecord fields :: rest -> go (List.map snd fields @ rest)
@@ -114,7 +116,7 @@ let string_of_ty ty =
     | TyPrim n -> n
     | TyVar v -> List.assoc v ctx
     | TyRecursive (TyVar v, ty) ->
-        Printf.sprintf "μ%s. %s" (List.assoc v ctx) (show 30 ty)
+        Printf.sprintf "μ %s. %s" (List.assoc v ctx) (show 30 ty)
     | TyRecursive (ty, _) ->
         failwith (show 0 ty ^ " is not a valid recursive type name")
     | TyUnion (l, r) ->

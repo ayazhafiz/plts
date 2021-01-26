@@ -5,8 +5,6 @@
 open Language
 open Typecheck
 
-(* open Print *)
-
 let isEmpty { vars; prims; rcd; fn } =
   VarSet.is_empty vars && StringSet.is_empty prims && Option.is_none rcd
   && Option.is_none fn
@@ -217,6 +215,7 @@ let canonicalizeSimpleTy ty =
         let var = get_or_update_tbl polarTy (fun () -> freshVar 0) recursives in
         { ecty with vars = VarSet.singleton var }
       else
+        let inProcess = polarTy :: inProcess in
         let bounds =
           VarSet.elements ty.vars
           |> List.concat_map (function vs ->
@@ -229,7 +228,6 @@ let canonicalizeSimpleTy ty =
         in
         let bound = Option.value (reduce (merge isPos) bounds) ~default:ecty in
         let res = merge isPos ty bound in
-        let inProcess = polarTy :: inProcess in
         let adapted =
           {
             res with
@@ -250,10 +248,9 @@ let canonicalizeSimpleTy ty =
             { ecty with vars = VarSet.singleton v }
         | None -> adapted
   in
-  {
-    ty = go1 [] (go0 true ty) true;
-    rec_vars = Hashtbl.to_seq rec_vars |> List.of_seq |> sort_vars;
-  }
+  let ty = go1 [] (go0 true ty) true in
+  let rec_vars = Hashtbl.to_seq rec_vars |> List.of_seq |> sort_vars in
+  { ty; rec_vars }
 
 (** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L161
     Simplifies a type scheme with the ideas described below.
@@ -336,18 +333,6 @@ let simplifyTy cty =
       }
   in
   let gone = go cty.ty true in
-  (*
-  let sty s = string_of_sty ~showBounds:false (STyVar s) in
-  let print_coOcc tys =
-    List.map (string_of_sty ~showBounds:false) !tys |> String.concat ", "
-  in
-  Printf.eprintf "[occ] ";
-  List.iter
-    (fun ((pol, st), tys) ->
-      Printf.eprintf "\t(%s, %s) -> [%s];\n" (string_of_bool pol) (sty st)
-        (print_coOcc tys))
-    !coOccurences;
-  *)
   (* Simplify away those non-recursive variables that only occur in positive or
      negative positions *)
   List.iter
@@ -357,9 +342,7 @@ let simplifyTy cty =
           ( List.assoc_opt (true, var) !coOccurences,
             List.assoc_opt (false, var) !coOccurences )
         with
-        | Some _, None | None, Some _ ->
-            (* Printf.eprintf "[!] %s\n" (sty var); *)
-            varSubst := (var, None) :: !varSubst
+        | Some _, None | None, Some _ -> varSubst := (var, None) :: !varSubst
         | None, None ->
             failwith
               "bad state: variable occurs neither positively nor negatively"
@@ -426,22 +409,17 @@ let simplifyTy cty =
   |> List.iter (fun v ->
          if List.mem_assoc v !varSubst then ()
          else
-           (*
-           Printf.eprintf "[v] %s %s %s\n" (sty v)
-             (print_coOcc (List.assoc (true, v) !coOccurences))
-             (print_coOcc (List.assoc (false, v) !coOccurences));
-           *)
            polarities
            |> List.iter (fun pol ->
                   let toUnify = get_or_empty_l (pol, v) coOccurences in
                   List.iter (goUnify pol v) toUnify));
-  {
-    ty = gone ();
-    rec_vars =
-      Hashtbl.to_seq recVars |> List.of_seq
-      |> List.map (fun (k, v) -> (k, !v ()))
-      |> sort_vars;
-  }
+  let ty = gone () in
+  let rec_vars =
+    Hashtbl.to_seq recVars |> List.of_seq
+    |> List.map (fun (k, v) -> (k, !v ()))
+    |> sort_vars
+  in
+  { ty; rec_vars }
 
 type var_or_compact = Var of var_state | Compact of compact_ty
 

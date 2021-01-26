@@ -3,7 +3,7 @@ twice: ('a|'b -> 'a) -> 'b -> 'a
 object1: {x: int, y: 'a -> 'a}
 object2: {x: int, y: bool}
 pick_an_object: bool -> {x: int, y: bool|('a -> 'a)}
-produce: int -> {head: int, tail: never}
-consume: {head: int, tail: any} -> int
-codata: {head: int, tail: never}
+produce: int -> μ 'a. {head: int, tail: 'a}
+consume: μ 'a. {head: int, tail: 'a} -> int
+codata: μ 'a. {head: int, tail: 'a}
 res: int

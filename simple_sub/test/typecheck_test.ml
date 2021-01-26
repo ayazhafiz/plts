@@ -1,19 +1,22 @@
 let infer debug term =
   let open SimpleSub in
   let res = Typecheck.typeTerm Lib.default_ctx 0 term in
-  if debug then Printf.eprintf "infer:\n  %s\n" (Print.string_of_sty res);
+  if debug then Printf.eprintf "\ninfer:\n  %s\n" (Print.string_of_sty res);
+  flush_all ();
   res
 
 let canonicalize debug sty =
   let open SimpleSub in
-  let res = Simplify.compactSimpleTy sty in
+  let res = Simplify.canonicalizeSimpleTy sty in
   if debug then Printf.eprintf "canonical:\n  %s\n" (Print.string_of_cty res);
+  flush_all ();
   res
 
 let simplify debug cty =
   let open SimpleSub in
   let res = Simplify.simplifyTy cty in
   if debug then Printf.eprintf "simple:\n  %s\n" (Print.string_of_cty res);
+  flush_all ();
   res
 
 let tyck debug s =
@@ -96,13 +99,13 @@ let self_app_set =
     (* Z combinator *)
     t "(fn f -> (fn x -> f (fn v -> (x x) v)) (fn x -> f (fn v -> (x x) v)))"
       "(('a -> 'b) -> 'c&('a -> 'b)) -> 'c";
-    (* Hungry fnction *)
+    (* Hungry function *)
     t
       "(fn f -> (fn x -> f (fn v -> (x x) v)) (fn x -> f (fn v -> (x x) v))) \
        (fn f -> fn x -> f)"
-      "any -> (any -> 'a) as 'a";
+      "any -> μ 'a. (any -> 'a)";
     t "let rec trutru = fn g -> trutru (g true) in trutru"
-      "(bool -> 'a) as 'a -> never";
+      "μ 'a. (bool -> 'a) -> never";
     t "fn i -> if ((i i) true) then true else true"
       "'a&('a -> bool -> bool) -> bool";
   ]
@@ -113,35 +116,31 @@ let let_poly_set =
     t "fn y -> let f = fn x -> x in {a: f y, b: f true}"
       "'a -> {a: 'a, b: bool}";
     t "fn y -> let f = fn x -> y x in {a: f 0, b: f true}"
-      "(bool ∨ int -> 'a) -> {a: 'a, b: 'a}";
+      "(bool|int -> 'a) -> {a: 'a, b: 'a}";
     t "fn y -> let f = fn x -> x y in {a: f (fn z -> z), b: f (fn z -> true)}"
       "'a -> {a: 'a, b: bool}";
     t "fn y -> let f = fn x -> x y in {a: f (fn z -> z), b: f (fn z -> succ z)}"
-      "'a ∧ int -> {a: 'a, b: int}";
+      "'a&int -> {a: 'a, b: int}";
     e "(fn k -> k (fn x -> let tmp = add x 1 in x)) (fn f -> f true)"
-      "cannot constrain bool <: int";
-    e
-      "(fn k -> let test = k (fn x -> let tmp = add x 1 in x) in test) (fn f \
-       -> f true)"
       "cannot constrain bool <: int";
   ]
 
 let recursive =
   [
-    t "let rec f = fn x -> f x.u in f" "{u: 'a} as 'a -> never";
-    t "let rec r = fn a -> r in if true then r else r" "(any -> 'a) as 'a";
+    t "let rec f = fn x -> f x.u in f" "μ 'a. {u: 'a} -> never";
+    t "let rec r = fn a -> r in if true then r else r" "μ 'a. (any -> 'a)";
     t
       "let rec l = fn a -> l in let rec r = fn a -> fn a -> r in if true then \
        l else r"
-      "(any -> any -> 'a) as 'a";
+      "μ 'a. (any -> any -> 'a)";
     t
       "let rec l = fn a -> fn a -> fn a -> l in let rec r = fn a -> fn a -> r \
        in if true then l else r"
-      "(any -> any -> any -> any -> any -> any -> 'a) as 'a";
+      "μ 'a. (any -> any -> any -> any -> any -> any -> 'a)";
     t
       "let rec recursive_monster = fn x -> {thing: x, self: recursive_monster \
        x} in recursive_monster"
-      "'a -> {self: 'b, thing: 'a} as 'b";
+      "'a -> μ 'b. {self: 'b, thing: 'a}";
   ]
 
 (* Run it *)
