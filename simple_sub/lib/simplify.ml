@@ -54,8 +54,18 @@ let rec merge (isPos : bool) (lhs : compact_ty) (rhs : compact_ty) : compact_ty
     merge_opts
       (fun fL fR ->
         if isPos then
-          (* TODO: why do we do it this way?? *)
-          (* Positive (union): only base merge on one record. *)
+          (* Positive (union): only base merge on one record.
+             For example consider
+
+               if c then {a: 1, b: 2} else {b: 3, c: 4}
+
+             While a union of this may be thought to be {a: int, b: int}|{b: int, c: int}, such a
+             union type is actually useless in simple_sub because we would
+             recieve it from a positive position (output of the "if"), but it is
+             impossible to place the union in a negative position (negative
+             positions can only have intersections).
+             Thus, the only meaningful union of these two records in simple_sub
+             is the intersection of their fields, namely {b: int}. *)
           List.filter_map
             (fun (f, tyL) ->
               Option.map
