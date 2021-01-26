@@ -102,63 +102,44 @@ let extrude ty atLevel =
   go ty
 
 let constrain s t =
-  let seen = Hashtbl.create 16 in
-  let rec constr s t =
-    if s == t then ()
+  let rec constr seen s t =
+    if List.mem (s, t) seen then ()
     else
-      (* There is no need to remember the subtyping tests performed that did not involve
-         type variables, as type variables will necessary be part of any possible cycles. *)
-      let pr =
-        match (s, t) with
-        | STyVar l, STyVar r -> Some (`V l.uid, `V r.uid)
-        | STyVar l, r -> Some (`V l.uid, `T r)
-        | l, STyVar r -> Some (`T l, `V r.uid)
-        | _ -> None
-      in
-      let stop =
-        match pr with
-        | Some p when Hashtbl.mem seen p -> true
-        | None -> false
-        | Some p ->
-            Hashtbl.add seen p true;
-            false
-      in
-      if stop then ()
-      else
-        match (s, t) with
-        | STyPrim m, STyPrim n when m = n -> ()
-        | STyFn (pS, rS), STyFn (pT, rT) ->
-            constr pT pS;
-            constr rS rT
-        | STyRecord fS, STyRecord fT ->
-            List.iter
-              (fun (field, tyT) ->
-                match List.assoc_opt field fS with
-                | Some tyS -> constr tyS tyT
-                | None ->
-                    failwith
-                      (Printf.sprintf "no field \"%s\" in %s" field
-                         (string_of_ty (coalesce s))))
-              fT
-        | (STyVar lhsVs as lhs), rhs when level rhs <= level lhs ->
-            lhsVs.upper_bounds <- rhs :: lhsVs.upper_bounds;
-            List.iter (fun l -> constr l rhs) lhsVs.lower_bounds
-        | lhs, (STyVar rhsVs as rhs) when level lhs <= level rhs ->
-            rhsVs.lower_bounds <- lhs :: rhsVs.lower_bounds;
-            List.iter (constr lhs) rhsVs.upper_bounds
-        | (STyVar _ as lhs), rhs0 ->
-            let rhs = extrude rhs0 (level lhs) in
-            constr lhs rhs
-        | lhs0, (STyVar _ as rhs) ->
-            let lhs = extrude lhs0 (level rhs) in
-            constr lhs rhs
-        | _ ->
-            failwith
-              (Printf.sprintf "cannot constrain %s <: %s"
-                 (string_of_ty (coalesce s))
-                 (string_of_ty (coalesce t)))
+      let seen = (s, t) :: seen in
+      match (s, t) with
+      | STyPrim m, STyPrim n when m = n -> ()
+      | STyFn (pS, rS), STyFn (pT, rT) ->
+          constr seen pT pS;
+          constr seen rS rT
+      | STyRecord fS, STyRecord fT ->
+          List.iter
+            (fun (field, tyT) ->
+              match List.assoc_opt field fS with
+              | Some tyS -> constr seen tyS tyT
+              | None ->
+                  failwith
+                    (Printf.sprintf "no field \"%s\" in %s" field
+                       (string_of_ty (coalesce s))))
+            fT
+      | STyVar sVs, t when level t <= level s ->
+          sVs.upper_bounds <- t :: sVs.upper_bounds;
+          List.iter (fun s -> constr seen s t) sVs.lower_bounds
+      | s, STyVar rVs when level s <= level t ->
+          rVs.lower_bounds <- s :: rVs.lower_bounds;
+          List.iter (constr seen s) rVs.upper_bounds
+      | STyVar _, t ->
+          let tF = extrude t (level s) in
+          constr seen s tF
+      | s, STyVar _ ->
+          let lhs = extrude s (level t) in
+          constr seen lhs t
+      | _ ->
+          failwith
+            (Printf.sprintf "cannot constrain %s <: %s"
+               (string_of_ty (coalesce s))
+               (string_of_ty (coalesce t)))
   in
-  constr s t
+  constr [] s t
 
 let rec typeLetRhs ctx level is_rec name rhs =
   let rhsTy =

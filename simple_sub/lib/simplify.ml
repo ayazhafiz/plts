@@ -48,9 +48,8 @@ let get_or_update_tbl k default tbl =
 let get_or_empty_l k mp =
   List.assoc_opt k !mp |> Option.map (fun v -> !v) |> Option.value ~default:[]
 
-let rec merge (isPos : bool) (lhs : compact_ty) (rhs : compact_ty) : compact_ty
-    =
-  let rcd : (string * compact_ty) list option =
+let rec merge isPos lhs rhs =
+  let rcd =
     merge_opts
       (fun fL fR ->
         if isPos then
@@ -431,25 +430,12 @@ let simplifyTy cty =
   in
   { ty; rec_vars }
 
-type var_or_compact = Var of var_state | Compact of compact_ty
-
-module RecMap = Map.Make (struct
-  type t = var_or_compact * bool
-
-  let compare a b =
-    match (a, b) with
-    | (Var _, _), (Compact _, _) -> -1
-    | (Compact _, _), (Var _, _) -> 1
-    | (Var a, b1), (Var b, b2) -> compare (a.uid, b1) (b.uid, b2)
-    | (Compact a, b1), (Compact b, b2) -> compare (a, b1) (b, b2)
-end)
-
 (** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L284
     Coalesces a [compact_ty_scheme] into a [ty] while performing hash-consing
     to tie recursive type knots a bit tighter, when possible. *)
 let coalesceCompactTy cty =
   let rec go inProcess pol ty =
-    match RecMap.find_opt (ty, pol) inProcess with
+    match List.assoc_opt (ty, pol) inProcess with
     | Some getTy ->
         let res = getTy () in
         res
@@ -461,26 +447,26 @@ let coalesceCompactTy cty =
           | Some t -> t
           | None ->
               isRec := true;
-              let vs = match ty with Var vs -> vs | _ -> freshVar 0 in
+              let vs = match ty with `Var vs -> vs | _ -> freshVar 0 in
               let ty = tyvar_of_uid vs.uid in
               recTy := Some ty;
               ty
         in
-        let inProcess = RecMap.add (ty, pol) lookUpRec inProcess in
+        let inProcess = ((ty, pol), lookUpRec) :: inProcess in
         let res =
           match ty with
-          | Var vs ->
+          | `Var vs ->
               List.assoc_opt vs cty.rec_vars
               |> Option.fold ~none:(tyvar_of_uid vs.uid) ~some:(fun t ->
-                     go inProcess pol (Compact t))
-          | Compact { vars; prims; rcd; fn } ->
+                     go inProcess pol (`Compact t))
+          | `Compact { vars; prims; rcd; fn } ->
               let base, mrg =
                 if pol then (TyBottom, fun l r -> TyUnion (l, r))
                 else (TyTop, fun l r -> TyIntersection (l, r))
               in
               let vars =
                 VarSet.elements vars
-                |> List.map (fun v -> go inProcess pol (Var v))
+                |> List.map (fun v -> go inProcess pol (`Var v))
               in
               let prims =
                 StringSet.elements prims |> List.map (fun n -> TyPrim n)
@@ -490,15 +476,15 @@ let coalesceCompactTy cty =
                 |> Option.map (fun fields ->
                        TyRecord
                          (List.map
-                            (fun (f, t) -> (f, go inProcess pol (Compact t)))
+                            (fun (f, t) -> (f, go inProcess pol (`Compact t)))
                             fields))
                 |> Option.to_list
               in
               let fn =
                 fn
                 |> Option.map (fun (p, r) ->
-                       let p = go inProcess (not pol) (Compact p) in
-                       let r = go inProcess pol (Compact r) in
+                       let p = go inProcess (not pol) (`Compact p) in
+                       let r = go inProcess pol (`Compact r) in
                        TyFn (p, r))
                 |> Option.to_list
               in
@@ -507,4 +493,4 @@ let coalesceCompactTy cty =
         in
         if !isRec then TyRecursive (lookUpRec (), res) else res
   in
-  go RecMap.empty true (Compact cty.ty)
+  go [] true (`Compact cty.ty)
