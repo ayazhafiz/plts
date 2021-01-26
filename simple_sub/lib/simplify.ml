@@ -5,25 +5,14 @@
 open Language
 open Typecheck
 
-type compact_ty = {
-  vars : var_state list;
-  prims : string list;
-  rcd : (string * compact_ty) list option;
-  fn : (compact_ty * compact_ty) option;
-}
-(** Describes a union or intersection with different type components. *)
-
-type compact_ty_scheme = {
-  ty : compact_ty;
-  rec_vars : (var_state * compact_ty) list;
-}
+(* open Print *)
 
 let isEmpty { vars; prims; rcd; fn } =
-  List.length vars = 0
-  && List.length prims = 0
-  && Option.is_none rcd && Option.is_none fn
+  VarSet.is_empty vars && StringSet.is_empty prims && Option.is_none rcd
+  && Option.is_none fn
 
-let empty_compact_ty = { vars = []; prims = []; rcd = None; fn = None }
+let empty_compact_ty =
+  { vars = VarSet.empty; prims = StringSet.empty; rcd = None; fn = None }
 
 let merge_opts f = function
   | Some l, Some r -> Some (f l r)
@@ -100,8 +89,8 @@ let rec merge (isPos : bool) (lhs : compact_ty) (rhs : compact_ty) : compact_ty
       (lhs.fn, rhs.fn)
   in
   {
-    vars = lhs.vars @ rhs.vars;
-    prims = lhs.prims @ rhs.prims;
+    vars = VarSet.union lhs.vars rhs.vars;
+    prims = StringSet.union lhs.prims rhs.prims;
     rcd = Option.map sort_rcd rcd;
     fn;
   }
@@ -116,7 +105,7 @@ let compactSimpleTy ty =
       which do not correspond to actual recursive types. *)
   let ecty = empty_compact_ty in
   let rec go parents inProcess isPos = function
-    | STyPrim p -> { ecty with prims = [ p ] }
+    | STyPrim p -> { ecty with prims = StringSet.singleton p }
     | STyFn (p, r) ->
         let fn =
           Some (go [] inProcess (not isPos) p, go [] inProcess isPos r)
@@ -136,7 +125,7 @@ let compactSimpleTy ty =
           if List.mem vs parents then ecty
           else
             let v = get_or_update polarV (freshVar 0) recursives in
-            { ecty with vars = [ v ] }
+            { ecty with vars = VarSet.singleton v }
         else
           let inProcess = polarV :: inProcess in
           let parents = vs :: parents in
@@ -147,13 +136,13 @@ let compactSimpleTy ty =
           let bound =
             List.fold_left
               (fun l r -> merge isPos l r)
-              { ecty with vars = [ vs ] }
+              { ecty with vars = VarSet.singleton vs }
               compactBounds
           in
           match List.assoc_opt polarV !recursives with
           | Some v ->
               rec_vars := (v, bound) :: !rec_vars;
-              { ecty with vars = [ v ] }
+              { ecty with vars = VarSet.singleton v }
           | None -> bound )
   in
   { ty = go [] [] true ty; rec_vars = sort_vars !rec_vars }
@@ -185,7 +174,7 @@ let canonicalizeSimpleTy ty =
   (* Turns the outermost layer of a SimpleType into a CompactType, leaving type
      variables untransformed. *)
   let rec go0 isPos = function
-    | STyPrim p -> { ecty with prims = [ p ] }
+    | STyPrim p -> { ecty with prims = StringSet.singleton p }
     | STyFn (p, r) ->
         let fn = Some (go0 (not isPos) p, go0 isPos r) in
         { ecty with fn }
@@ -208,6 +197,7 @@ let canonicalizeSimpleTy ty =
         in
         let vars =
           List.filter_map (function STyVar vs -> Some vs | _ -> None) vars
+          |> VarSet.of_list
         in
         { ecty with vars }
   in
@@ -220,19 +210,17 @@ let canonicalizeSimpleTy ty =
       let polarTy = (ty, isPos) in
       if List.mem polarTy inProcess then
         let var = get_or_update polarTy (freshVar 0) recursives in
-        { ecty with vars = [ var ] }
+        { ecty with vars = VarSet.singleton var }
       else
         let bounds =
-          List.concat_map
-            (function
-              | vs ->
-                  let bounds =
-                    if isPos then vs.lower_bounds else vs.upper_bounds
-                  in
-                  List.filter_map
-                    (function STyVar _ -> None | b -> Some (go0 isPos b))
-                    bounds)
-            ty.vars
+          VarSet.elements ty.vars
+          |> List.concat_map (function vs ->
+                 let bounds =
+                   if isPos then vs.lower_bounds else vs.upper_bounds
+                 in
+                 List.filter_map
+                   (function STyVar _ -> None | b -> Some (go0 isPos b))
+                   bounds)
         in
         let bound = Option.value (reduce (merge isPos) bounds) ~default:ecty in
         let res = merge isPos ty bound in
@@ -254,7 +242,7 @@ let canonicalizeSimpleTy ty =
         match List.assoc_opt polarTy !recursives with
         | Some v ->
             rec_vars := (v, adapted) :: !rec_vars;
-            { ecty with vars = [ v ] }
+            { ecty with vars = VarSet.singleton v }
         | None -> adapted
   in
   { ty = go1 [] (go0 true ty) true; rec_vars = sort_vars !rec_vars }
@@ -296,12 +284,12 @@ let simplifyTy cty =
   (* Traverses the type, performing the analysis, and returns a thunk to
      reconstruct it later *)
   let rec go ty isPos =
-    List.iter
+    VarSet.iter
       (fun var ->
         allVars := var :: !allVars;
         let newOccs =
-          List.map (fun s -> STyVar s) ty.vars
-          @ List.map (fun p -> STyPrim p) ty.prims
+          List.map (fun s -> STyVar s) (VarSet.elements ty.vars)
+          @ List.map (fun p -> STyPrim p) (StringSet.elements ty.prims)
         in
         ( match List.assoc_opt (isPos, var) !coOccurences with
         (* compute the intersection of co-occurence *)
@@ -327,13 +315,13 @@ let simplifyTy cty =
     let fn1 = Option.map (fun (p, r) -> (go p (not isPos), go r isPos)) ty.fn in
     fun () ->
       let newVars =
-        List.concat_map
-          (fun v ->
-            match List.assoc_opt v !varSubst with
-            | Some (Some v2) -> [ v2 ]
-            | Some None -> []
-            | None -> [ v ])
-          ty.vars
+        VarSet.elements ty.vars
+        |> List.concat_map (fun v ->
+               match List.assoc_opt v !varSubst with
+               | Some (Some v2) -> [ v2 ]
+               | Some None -> []
+               | None -> [ v ])
+        |> VarSet.of_list
       in
       {
         vars = newVars;
@@ -343,6 +331,18 @@ let simplifyTy cty =
       }
   in
   let gone = go cty.ty true in
+  (*
+  let sty s = string_of_sty ~showBounds:false (STyVar s) in
+  let print_coOcc tys =
+    List.map (string_of_sty ~showBounds:false) !tys |> String.concat ", "
+  in
+  Printf.eprintf "[occ] ";
+  List.iter
+    (fun ((pol, st), tys) ->
+      Printf.eprintf "\t(%s, %s) -> [%s];\n" (string_of_bool pol) (sty st)
+        (print_coOcc tys))
+    !coOccurences;
+  *)
   (* Simplify away those non-recursive variables that only occur in positive or
      negative positions *)
   List.iter
@@ -352,7 +352,9 @@ let simplifyTy cty =
           ( List.assoc_opt (true, var) !coOccurences,
             List.assoc_opt (false, var) !coOccurences )
         with
-        | Some _, None | None, Some _ -> varSubst := (var, None) :: !varSubst
+        | Some _, None | None, Some _ ->
+            (* Printf.eprintf "[!] %s\n" (sty var); *)
+            varSubst := (var, None) :: !varSubst
         | None, None ->
             failwith
               "bad state: variable occurs neither positively nor negatively"
@@ -407,68 +409,99 @@ let simplifyTy cty =
     | _ -> ()
   in
   let polarities = [ true; false ] in
-  let varsToUnify =
-    List.filter (fun v -> not (List.mem_assoc v !varSubst)) !allVars
-  in
-  varsToUnify
+  !allVars
+  |> List.sort (fun a b -> compare a.uid b.uid)
   |> List.iter (fun v ->
-         polarities
-         |> List.iter (fun pol ->
-                let toUnify = get_or_empty_l (pol, v) coOccurences in
-                List.iter (goUnify pol v) toUnify));
-
+         if List.mem_assoc v !varSubst then ()
+         else
+           (*
+           Printf.eprintf "[v] %s %s %s\n" (sty v)
+             (print_coOcc (List.assoc (true, v) !coOccurences))
+             (print_coOcc (List.assoc (false, v) !coOccurences));
+           *)
+           polarities
+           |> List.iter (fun pol ->
+                  let toUnify = get_or_empty_l (pol, v) coOccurences in
+                  List.iter (goUnify pol v) toUnify));
   {
     ty = gone ();
     rec_vars = sort_vars (List.map (fun (k, v) -> (k, v ())) !recVars);
   }
+
+type var_or_compact = Var of var_state | Compact of compact_ty
+
+module RecMap = Map.Make (struct
+  type t = var_or_compact * bool
+
+  let compare a b =
+    match (a, b) with
+    | (Var _, _), (Compact _, _) -> -1
+    | (Compact _, _), (Var _, _) -> 1
+    | (Var a, b1), (Var b, b2) -> compare (a.uid, b1) (b.uid, b2)
+    | (Compact a, b1), (Compact b, b2) -> compare (a, b1) (b, b2)
+end)
 
 (** https://github.com/LPTK/simple-sub/blob/febe38e237b3c1a8bdf5dfff22a166159a25c663/shared/src/main/scala/simplesub/TypeSimplifier.scala#L284
     Coalesces a [compact_ty_scheme] into a [ty] while performing hash-consing
     to tie recursive type knots a bit tighter, when possible. *)
 let coalesceCompactTy cty =
   let rec go inProcess pol ty =
-    match List.assoc_opt (ty, pol) inProcess with
+    match RecMap.find_opt (ty, pol) inProcess with
     | Some getTy ->
         let res = getTy () in
         res
-    | None -> (
+    | None ->
         let isRec = ref false in
-        let markAsRec () =
-          isRec := true;
-          let vs = match ty with `Var vs -> vs | _ -> freshVar 0 in
-          tyvar_of_uid vs.uid
+        let recTy = ref None in
+        let lookUpRec () =
+          match !recTy with
+          | Some t -> t
+          | None ->
+              isRec := true;
+              let vs = match ty with Var vs -> vs | _ -> freshVar 0 in
+              let ty = tyvar_of_uid vs.uid in
+              recTy := Some ty;
+              ty
         in
-        let inProcess = ((ty, pol), fun () -> markAsRec ()) :: inProcess in
-        match ty with
-        | `Var vs ->
-            List.assoc_opt vs cty.rec_vars
-            |> Option.fold ~none:(tyvar_of_uid vs.uid) ~some:(fun t ->
-                   go inProcess pol (`Compact t))
-        | `Compact { vars; prims; rcd; fn } ->
-            let base, mrg =
-              if pol then (TyBottom, fun l r -> TyUnion (l, r))
-              else (TyTop, fun l r -> TyIntersection (l, r))
-            in
-            let vars = List.map (fun v -> go inProcess pol (`Var v)) vars in
-            let prims = List.map (fun n -> TyPrim n) prims in
-            let rcd =
-              rcd
-              |> Option.map (fun fields ->
-                     TyRecord
-                       (List.map
-                          (fun (f, t) -> (f, go inProcess pol (`Compact t)))
-                          fields))
-              |> Option.to_list
-            in
-            let fn =
-              fn
-              |> Option.map (fun (p, r) ->
-                     let p = go inProcess (not pol) (`Compact p) in
-                     let r = go inProcess pol (`Compact r) in
-                     TyFn (p, r))
-              |> Option.to_list
-            in
-            let allVariants = vars @ prims @ rcd @ fn in
-            Option.value (reduce mrg allVariants) ~default:base )
+        let inProcess = RecMap.add (ty, pol) lookUpRec inProcess in
+        let res =
+          match ty with
+          | Var vs ->
+              List.assoc_opt vs cty.rec_vars
+              |> Option.fold ~none:(tyvar_of_uid vs.uid) ~some:(fun t ->
+                     go inProcess pol (Compact t))
+          | Compact { vars; prims; rcd; fn } ->
+              let base, mrg =
+                if pol then (TyBottom, fun l r -> TyUnion (l, r))
+                else (TyTop, fun l r -> TyIntersection (l, r))
+              in
+              let vars =
+                VarSet.elements vars
+                |> List.map (fun v -> go inProcess pol (Var v))
+              in
+              let prims =
+                StringSet.elements prims |> List.map (fun n -> TyPrim n)
+              in
+              let rcd =
+                rcd
+                |> Option.map (fun fields ->
+                       TyRecord
+                         (List.map
+                            (fun (f, t) -> (f, go inProcess pol (Compact t)))
+                            fields))
+                |> Option.to_list
+              in
+              let fn =
+                fn
+                |> Option.map (fun (p, r) ->
+                       let p = go inProcess (not pol) (Compact p) in
+                       let r = go inProcess pol (Compact r) in
+                       TyFn (p, r))
+                |> Option.to_list
+              in
+              let allVariants = vars @ prims @ rcd @ fn in
+              Option.value (reduce mrg allVariants) ~default:base
+        in
+        if !isRec then TyRecursive (lookUpRec (), res) else res
   in
-  go [] true (`Compact cty.ty)
+  go RecMap.empty true (Compact cty.ty)

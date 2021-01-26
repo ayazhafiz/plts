@@ -1,9 +1,9 @@
 id: 'a -> 'a
-twice: ('b | 'c -> 'a & 'b) -> 'c -> 'a
+twice: ('a|'b -> 'a) -> 'b -> 'a
 object1: {x: int, y: 'a -> 'a}
 object2: {x: int, y: bool}
-pick_an_object: bool -> {x: int | int, y: bool | ('a -> 'a)}
+pick_an_object: bool -> {x: int, y: bool|('a -> 'a)}
 produce: int -> {head: int, tail: never}
 consume: {head: int, tail: any} -> int
-codata: {head: int | int, tail: never}
+codata: {head: int, tail: never}
 res: int

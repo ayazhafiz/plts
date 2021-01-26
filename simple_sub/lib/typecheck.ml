@@ -3,96 +3,7 @@
     must be done before we can begin type simplification. *)
 
 open Language
-
-module Ctx = struct
-  include Map.Make (String)
-end
-
-let freshVar =
-  let uid = ref 0 in
-  fun level ->
-    uid := !uid + 1;
-    { uid = !uid; level; lower_bounds = []; upper_bounds = [] }
-
-let rec level = function
-  | STyVar vs -> vs.level
-  | STyPrim _ -> 0
-  | STyFn (p, r) -> max (level p) (level r)
-  | STyRecord fields ->
-      List.fold_left max 0 (List.map (fun (_, t) -> level t) fields)
-
-let instantiate atLevel (PolyTy (limit, body)) =
-  let freshened = ref [] in
-  let rec go = function
-    | t when level t <= limit -> t
-    | STyPrim _ as t -> t
-    | STyFn (p, r) -> STyFn (go p, go r)
-    | STyRecord fields -> STyRecord (List.map (fun (f, t) -> (f, go t)) fields)
-    | STyVar vs when List.mem_assoc vs !freshened ->
-        STyVar (List.assoc vs !freshened)
-    | STyVar vs ->
-        let fresh = freshVar atLevel in
-        freshened := (vs, fresh) :: !freshened;
-        fresh.lower_bounds <- List.map go vs.lower_bounds;
-        fresh.upper_bounds <- List.map go vs.upper_bounds;
-        STyVar fresh
-  in
-  go body
-
-let extrude ty isPos atLevel =
-  let cache = ref [] in
-  let rec go isPos = function
-    | _ when level ty <= atLevel -> ty
-    | STyPrim _ -> ty
-    | STyFn (p, r) -> STyFn (go (not isPos) p, go isPos r)
-    | STyRecord fields ->
-        STyRecord (List.map (function f, t -> (f, go isPos t)) fields)
-    | STyVar vs when List.mem_assoc vs !cache -> STyVar (List.assoc vs !cache)
-    | STyVar vs ->
-        let nvs = freshVar atLevel in
-        cache := (vs, nvs) :: !cache;
-        if isPos then (
-          vs.upper_bounds <- STyVar nvs :: vs.upper_bounds;
-          nvs.lower_bounds <- List.map (fun t -> go isPos t) vs.lower_bounds )
-        else (
-          vs.lower_bounds <- STyVar nvs :: vs.lower_bounds;
-          nvs.upper_bounds <- List.map (fun t -> go isPos t) vs.upper_bounds );
-        STyVar nvs
-  in
-  go isPos ty
-
-let constrain s t =
-  let rec constr seen s t =
-    if List.mem (s, t) seen then ()
-    else
-      let seen = (s, t) :: seen in
-      match (s, t) with
-      | STyPrim m, STyPrim n when m = n -> ()
-      | STyFn (pS, rS), STyFn (pT, rT) ->
-          constr seen pT pS;
-          constr seen rS rT
-      | STyRecord fS, STyRecord fT ->
-          List.iter
-            (fun (field, tyT) ->
-              match List.assoc_opt field fS with
-              | Some tyS -> constr seen tyS tyT
-              | None -> failwith (Printf.sprintf "no field " ^ field))
-            fT
-      | (STyVar tyS as s), tyT when level tyT <= level s ->
-          tyS.upper_bounds <- tyT :: tyS.upper_bounds;
-          List.iter (fun lower -> constr seen lower tyT) tyS.lower_bounds
-      | tyS, (STyVar tyT as t) when level tyS <= level t ->
-          tyT.lower_bounds <- tyS :: tyT.lower_bounds;
-          List.iter (fun upper -> constr seen tyS upper) tyT.upper_bounds
-      | (STyVar _ as tyS), tyT ->
-          let tyT = extrude tyT false (level tyS) in
-          constr seen tyS tyT
-      | tyS, (STyVar _ as tyT) ->
-          let tyS = extrude tyS true (level tyT) in
-          constr seen tyS tyT
-      | _ -> failwith "cannot constrain"
-  in
-  constr [] s t
+open Print
 
 let tyvar_of_uid uid = TyVar ("'fresh" ^ string_of_int uid)
 
@@ -130,6 +41,125 @@ let coalesce ty =
   in
   coalesce [] ty true
 
+module Ctx = struct
+  include Map.Make (String)
+end
+
+let freshVar =
+  let uid = ref 0 in
+  fun level ->
+    uid := !uid + 1;
+    { uid = !uid; level; lower_bounds = []; upper_bounds = [] }
+
+let h { uid; _ } = uid
+
+let rec level = function
+  | STyVar vs -> vs.level
+  | STyPrim _ -> 0
+  | STyFn (p, r) -> max (level p) (level r)
+  | STyRecord fields ->
+      List.fold_left max 0 (List.map (fun (_, t) -> level t) fields)
+
+let instantiate atLevel (PolyTy (limit, body)) =
+  let freshened = Hashtbl.create 16 in
+  let rec go = function
+    | t when level t <= limit -> t
+    | STyPrim _ as t -> t
+    | STyFn (p, r) -> STyFn (go p, go r)
+    | STyRecord fields -> STyRecord (List.map (fun (f, t) -> (f, go t)) fields)
+    | STyVar vs when Hashtbl.mem freshened (h vs) ->
+        STyVar (Hashtbl.find freshened (h vs))
+    | STyVar vs ->
+        let fresh = freshVar atLevel in
+        Hashtbl.add freshened (h vs) fresh;
+        fresh.lower_bounds <-
+          List.rev vs.lower_bounds |> List.map go |> List.rev;
+        fresh.upper_bounds <-
+          List.rev vs.upper_bounds |> List.map go |> List.rev;
+        STyVar fresh
+  in
+  go body
+
+let extrude ty atLevel =
+  let cache = Hashtbl.create 16 in
+  let rec go = function
+    | _ when level ty <= atLevel -> ty
+    | STyPrim _ -> ty
+    | STyFn (p, r) -> STyFn (go p, go r)
+    | STyRecord fields ->
+        STyRecord (List.map (function f, t -> (f, go t)) fields)
+    | STyVar vs when Hashtbl.mem cache (h vs) ->
+        STyVar (Hashtbl.find cache (h vs))
+    | STyVar vs ->
+        let nvs = freshVar atLevel in
+        Hashtbl.add cache (h vs) nvs;
+        nvs.lower_bounds <- List.map go vs.lower_bounds;
+        nvs.upper_bounds <- List.map go vs.upper_bounds;
+        vs.lower_bounds <- STyVar nvs :: vs.lower_bounds;
+        vs.upper_bounds <- STyVar nvs :: vs.upper_bounds;
+        STyVar nvs
+  in
+  go ty
+
+let constrain s t =
+  let seen = Hashtbl.create 16 in
+  let rec constr s t =
+    if s == t then ()
+    else
+      (* There is no need to remember the subtyping tests performed that did not involve
+         type variables, as type variables will necessary be part of any possible cycles. *)
+      let pr =
+        match (s, t) with
+        | STyVar l, STyVar r -> Some (`V l.uid, `V r.uid)
+        | STyVar l, r -> Some (`V l.uid, `T r)
+        | l, STyVar r -> Some (`T l, `V r.uid)
+        | _ -> None
+      in
+      let stop =
+        match pr with
+        | Some p when Hashtbl.mem seen p -> true
+        | None -> false
+        | Some p ->
+            Hashtbl.add seen p true;
+            false
+      in
+      if stop then ()
+      else
+        match (s, t) with
+        | STyPrim m, STyPrim n when m = n -> ()
+        | STyFn (pS, rS), STyFn (pT, rT) ->
+            constr pT pS;
+            constr rS rT
+        | STyRecord fS, STyRecord fT ->
+            List.iter
+              (fun (field, tyT) ->
+                match List.assoc_opt field fS with
+                | Some tyS -> constr tyS tyT
+                | None ->
+                    failwith
+                      (Printf.sprintf "no field \"%s\" in %s" field
+                         (string_of_ty (coalesce s))))
+              fT
+        | (STyVar lhsVs as lhs), rhs when level rhs <= level lhs ->
+            lhsVs.upper_bounds <- rhs :: lhsVs.upper_bounds;
+            List.iter (fun l -> constr l rhs) lhsVs.lower_bounds
+        | lhs, (STyVar rhsVs as rhs) when level lhs <= level rhs ->
+            rhsVs.lower_bounds <- lhs :: rhsVs.lower_bounds;
+            List.iter (constr lhs) rhsVs.upper_bounds
+        | (STyVar _ as lhs), rhs0 ->
+            let rhs = extrude rhs0 (level lhs) in
+            constr lhs rhs
+        | lhs0, (STyVar _ as rhs) ->
+            let lhs = extrude lhs0 (level rhs) in
+            constr lhs rhs
+        | _ ->
+            failwith
+              (Printf.sprintf "cannot constrain %s <: %s"
+                 (string_of_ty (coalesce s))
+                 (string_of_ty (coalesce t)))
+  in
+  constr s t
+
 let rec typeLetRhs ctx level is_rec name rhs =
   let rhsTy =
     if is_rec then (
@@ -142,8 +172,7 @@ let rec typeLetRhs ctx level is_rec name rhs =
   in
   `P (PolyTy (level, rhsTy))
 
-and typeTerm ctx level term =
-  match term with
+and typeTerm ctx level = function
   | Num _ -> STyPrim "int"
   | Var v -> (
       match Ctx.find_opt v ctx with
@@ -152,24 +181,25 @@ and typeTerm ctx level term =
       | None -> failwith (Printf.sprintf "no variable " ^ v) )
   | Abs (name, body) ->
       let paramTy = STyVar (freshVar level) in
-      let ctx' = Ctx.add name (`S paramTy) ctx in
-      STyFn (paramTy, typeTerm ctx' level body)
+      let ctx1 = Ctx.add name (`S paramTy) ctx in
+      STyFn (paramTy, typeTerm ctx1 level body)
   | App (fn, param) ->
-      let resTy = STyVar (freshVar level) in
       let fnTy = typeTerm ctx level fn in
-      constrain fnTy (STyFn (typeTerm ctx level param, resTy));
+      let paramTy = typeTerm ctx level param in
+      let resTy = STyVar (freshVar level) in
+      constrain fnTy (STyFn (paramTy, resTy));
       resTy
   | Record fields ->
       STyRecord (List.map (fun (f, t) -> (f, typeTerm ctx level t)) fields)
   | RecordProject (rcd, field) ->
-      let fieldTy = STyVar (freshVar level) in
       let rcdTy = typeTerm ctx level rcd in
+      let fieldTy = STyVar (freshVar level) in
       constrain rcdTy (STyRecord [ (field, fieldTy) ]);
       fieldTy
   | Let { is_rec; name; rhs; body } ->
       let rhsTy = typeLetRhs ctx level is_rec name rhs in
-      let ctx = Ctx.add name rhsTy ctx in
-      typeTerm ctx level body
+      let ctx1 = Ctx.add name rhsTy ctx in
+      typeTerm ctx1 level body
 
 let typeBinding ctx { is_rec; name; body } =
   try

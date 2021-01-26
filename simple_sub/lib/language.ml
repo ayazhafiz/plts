@@ -40,6 +40,28 @@ type ty =
   | TyIntersection of ty * ty
   | TyFn of ty * ty
   | TyRecord of (string * ty) list
-  | TyRecursive of string * ty
+  | TyRecursive of ty (* Must always be a TyVar *) * ty
   | TyVar of string
   | TyPrim of string
+
+module VarSet = Set.Make (struct
+  type t = var_state
+
+  let compare a b = compare a.uid b.uid
+end)
+
+module StringSet = Set.Make (String)
+
+type compact_ty = {
+  vars : VarSet.t;
+  prims : StringSet.t;
+  rcd : (string * compact_ty) list option;
+  fn : (compact_ty * compact_ty) option;
+}
+(** Describes a union or intersection with different type components.
+    Useful as an IR during simplification. *)
+
+type compact_ty_scheme = {
+  ty : compact_ty;
+  rec_vars : (var_state * compact_ty) list;
+}
