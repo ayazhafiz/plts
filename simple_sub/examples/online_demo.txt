@@ -1,6 +1,4 @@
 // Same as on https://lptk.github.io/simple-sub
-// TODO: this is partly broken. We are not picking up recursive types
-//       and introducing superfluous bounds.
 
 let id = fn x -> x
 let twice = fn f -> fn x -> f (f x)
