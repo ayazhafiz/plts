@@ -1,0 +1,12 @@
+Nat :: *
+one: Nat
+two: Nat
+(λX::*. (λx: X. x)): (∀X::*. (X -> X))
+(λx: (∀X::*. (X -> X)). x): ((∀X::*. (X -> X)) -> (∀X::*. (X -> X)))
+((λy: Nat. y) one): Nat
+Pair :: (* => (* => *))
+onetwo: Pair Nat Nat
+((λpair: Pair Nat Nat. pair) onetwo): Pair Nat Nat
+(λF::*. (λS::*. (λfst: F. (λsnd: S. (λRes::*. (λextract: (F -> (S -> Res)). ((extract fst) snd))))))): (∀F::*. (∀S::*. (F -> (S -> (∀Res::*. ((F -> (S -> Res)) -> Res))))))
+(λF::*. (λS::*. (λextract: (∀Res::*. ((F -> (S -> Res)) -> Res)). (extract [F] (λf: F. (λs: S. f)))))): (∀F::*. (∀S::*. ((∀Res::*. ((F -> (S -> Res)) -> Res)) -> F)))
+((λextract: (∀Res::*. ((Nat -> (Nat -> Res)) -> Res)). (extract [Nat] (λf: Nat. (λs: Nat. f)))) (((λfst: Nat. (λsnd: Nat. (λRes::*. (λextract: (Nat -> (Nat -> Res)). ((extract fst) snd))))) one) two)): Nat
