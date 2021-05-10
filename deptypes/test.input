@@ -1,0 +1,8 @@
+Nat :: *;
+Vector :: Pi n: Nat. *;
+succ: Pi n: Nat. Nat;
+zero: Nat;
+nil: Vector zero;
+inc: Pi n: Nat. Pi v: Vector n. Vector (succ n);
+
+lam n: Nat. inc zero nil;
