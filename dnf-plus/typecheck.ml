@@ -41,6 +41,11 @@ let flatten_ty ty =
   in
   ty |> flatten_inters |> flatten_unions |> unwrap_trivial
 
+(***************************)
+(* Disjunctive Normal Form *)
+(* Section 3.2             *)
+(***************************)
+
 let is_union = function Union _ -> true | _ -> false
 
 let get_union = function Union tys -> tys | _ -> failwith "not union"
@@ -61,7 +66,39 @@ let split_at elt =
   in
   walk []
 
-(* See 3.2. *)
+exception Not_dnf of string
+
+exception Not_positive of string
+
+(** Lemma 4: DNF(T) ~ |_i &_i T*_{i,j},
+    where T* = T+ | T-,
+          T- = !T+
+          T+ = any | int | (T_1, ..., T_n) *)
+let assert_dnf_form =
+  let rec assert_tpos = function
+    | Any | Int -> ()
+    | Tuple tys -> List.iter assert_tpos tys
+    | ty -> raise (Not_positive (string_of_ty ty))
+  in
+  let assert_tstar = function
+    | Not ty -> assert_tpos ty
+    | ty -> assert_tpos ty
+  in
+  let rec assert_inner_intersection = function
+    | Inter tys -> TySet.iter assert_tstar tys
+    | Union _ as ty -> raise (Not_dnf (string_of_ty ty))
+    | ty -> assert_inner_intersection (Inter (TySet.singleton ty))
+  in
+  let rec assert_outer_union ty =
+    match ty with
+    | Union ts -> TySet.iter assert_inner_intersection ts
+    | Inter _ -> assert_outer_union (Union (TySet.singleton ty))
+    | Not _ | Tuple _ | Any | Never | Int ->
+        assert_outer_union (Inter (TySet.singleton ty))
+  in
+  assert_outer_union
+
+(* Definition 6 *)
 let dnf_step = function
   | Not (Not t) -> t
   | Not (Union tys) -> Inter (TySet.map (fun t -> Not t) tys)
@@ -125,4 +162,6 @@ let dnf ty =
     | Some last_ty when last_ty = ty -> ty
     | _ -> fix (Some ty) (flatten_ty (step ty))
   in
-  fix None (flatten_ty ty)
+  let dnf_ty = fix None (flatten_ty ty) in
+  assert_dnf_form dnf_ty;
+  dnf_ty
