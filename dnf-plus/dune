@@ -1,0 +1,13 @@
+(ocamllex lexer)
+(menhir
+  (flags --explain --fixed-exception)
+  (modules parser))
+
+(library
+ (name ft)
+ (modules Ft Language Parser Lexer Typecheck))
+
+(test
+ (name test)
+ (modules Test)
+ (libraries ft alcotest))
