@@ -123,6 +123,54 @@ let subtype_tests =
     subtype_cases
   |> List.map mk_test
 
+let program_cases =
+  [
+    ( {|
+fn f(x: any) = if x is int then 1 else (0, 0)
+in (f 1, f (1, 2))
+|},
+      Ok "(int, (int, int))" );
+  ]
+
+let program_tests =
+  let mk_test (p, expect) =
+    let p = String.trim p in
+    let test () =
+      let result = typecheck (parse_term p) |> Result.map string_of_ty in
+      Alcotest.(check (result string string)) p expect result
+    in
+    (p, `Quick, wrap test)
+  in
+  List.map mk_test program_cases
+
+let readfi path =
+  let ch = open_in path in
+  let content = really_input_string ch (in_channel_length ch) in
+  close_in ch;
+  content
+
+let writefi path content =
+  let ch = open_out path in
+  output_string ch content;
+  close_out ch
+
+let examples =
+  Sys.readdir "examples" |> Array.to_list
+  |> List.filter (fun f -> Filename.extension f = ".ft")
+  |> List.map (Filename.concat "examples")
+
+let example_tests =
+  let mk_test example =
+    let test _ =
+      let p = readfi example |> parse_term in
+      ignore (typecheck p);
+      let realannot = Filename.remove_extension example ^ ".realannot" in
+      writefi realannot (string_of_term p)
+    in
+    (example, `Quick, test)
+  in
+  List.map mk_test examples
+
 let () =
   Alcotest.run "FT tests"
     [
@@ -130,4 +178,6 @@ let () =
       ("Disjunctive Normal Form", dnf_tests);
       ("Canonicalized Disjunctive Normal Form", dnf_plus_tests);
       ("Subtyping", subtype_tests);
+      ("Program Typing", program_tests);
+      ("Examples", example_tests);
     ]

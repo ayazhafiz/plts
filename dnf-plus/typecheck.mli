@@ -11,3 +11,5 @@ val ty_of_dnf : dnf -> ty
 val dnf_plus : ty -> ty
 
 val ( <: ) : ty -> ty -> bool
+
+val typecheck : term -> (ty, string) Result.t

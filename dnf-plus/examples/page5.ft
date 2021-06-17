@@ -1,0 +1,2 @@
+fn f(x: any) = if x is int then 1 else (0, 0)
+in (f 1, f (1, 2))

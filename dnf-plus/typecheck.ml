@@ -1,6 +1,10 @@
 open Language
 open Language.Ast
 
+let inter tys = Inter (TySet.of_list tys)
+
+let union tys = Union (TySet.of_list tys)
+
 let flatten_ty ty =
   let rec flatten_inters ty =
     match ty with
@@ -29,15 +33,20 @@ let flatten_ty ty =
              TySet.empty)
   in
   let rec unwrap_trivial ty =
-    let go builder tys =
-      if TySet.cardinal tys = 1 then TySet.choose tys else builder tys
-    in
     match ty with
     | Any | Never | Int -> ty
     | Tuple tys -> Tuple (List.map unwrap_trivial tys)
     | Not ty -> Not (unwrap_trivial ty)
-    | Inter tys -> go (fun tys -> Inter tys) (TySet.map unwrap_trivial tys)
-    | Union tys -> go (fun tys -> Union tys) (TySet.map unwrap_trivial tys)
+    | Inter tys ->
+        TySet.map unwrap_trivial tys |> fun tys ->
+        if TySet.cardinal tys = 1 then TySet.choose tys else Inter tys
+    | Union tys -> (
+        TySet.map unwrap_trivial tys |> TySet.remove Never |> function
+        | tys -> (
+            match TySet.to_list tys with
+            | [] -> Never
+            | [ t ] -> t
+            | _ -> Union tys))
   in
   ty |> flatten_inters |> flatten_unions |> unwrap_trivial
 
@@ -61,7 +70,11 @@ let atom_of_ty =
     | Tuple tys -> ATuple (List.map pos tys)
     | ty -> raise (Not_positive (string_of_ty ty))
   in
-  function Not ty -> AtomNeg (ANot (pos ty)) | ty -> AtomPos (pos ty)
+  function
+  | Never -> AtomNeg (ANot AAny)
+  | Not Never -> AtomPos AAny
+  | Not ty -> AtomNeg (ANot (pos ty))
+  | ty -> AtomPos (pos ty)
 
 let rec ty_of_pos = function
   | AAny -> Any
@@ -372,7 +385,7 @@ let can (DnfInter atoms) =
 
 (** Definition 11: DNF+ construction *)
 let dnf_plus t =
-  let (DnfForm union_of_inters) = dnf (flatten_ty t) in
+  let (DnfForm union_of_inters) = dnf t in
   let union_of_inters =
     List.map
       (fun inters ->
@@ -389,7 +402,79 @@ let dnf_plus t =
   in
   let t = TySet.of_list union_of_inters in
   let t = TySet.remove Never t in
-  if TySet.is_empty t then Never else flatten_ty (Union t)
+  flatten_ty (Union t)
 
 (** Determines [s <: t]. *)
-let ( <: ) s t = dnf_plus (Inter (TySet.of_list [ s; Not t ])) = Never
+let ( <: ) s t = dnf_plus (inter [ s; Not t ]) = Never
+
+let ( </: ) s t = not (s <: t)
+
+(*********************)
+(* Term Typechecking *)
+(*********************)
+
+type fnbind = { params : (string * ty) list; body : term }
+
+exception TyErr of string
+
+let tyerr what = raise (TyErr what)
+
+let getvar v venv =
+  match List.assoc_opt v venv with
+  | Some ty -> ty
+  | None -> tyerr ("variable " ^ v ^ " is unbound")
+
+let rec typeof ?(report_unhabited_branches = false) venv fenv = function
+  | Num _ -> Int
+  | Var v -> getvar v venv
+  | Tup ts -> Tuple (List.map (typeof venv fenv) ts)
+  | App (fn, args) when List.mem_assoc fn fenv ->
+      let { params; body } = List.assoc fn fenv in
+      if List.length args <> List.length params then
+        tyerr ("wrong number of arguments to " ^ fn);
+      let venv' =
+        List.fold_left2
+          (fun venv a (p, pty) ->
+            let aty = typeof venv fenv a in
+            if aty </: pty then
+              tyerr
+                (Printf.sprintf "argument %s is wrong type" (string_of_term a));
+            (* Bind specific type of this argument in this application, rather
+               than the "generic" formal parameter type; this allows us to
+               retrieve a specific return type for this exact application. *)
+            (p, aty) :: venv)
+          venv args params
+      in
+      typeof venv' fenv body
+  | App (fn, _) -> tyerr ("function " ^ fn ^ " is unbound")
+  | Dec (fn, params, body, cont) ->
+      let venv' = params @ venv in
+      (* ensure body is sound with declared args *)
+      ignore (typeof ~report_unhabited_branches:true venv' fenv body);
+      (* NB: we are binding the body of the function rather than its universal
+         return type for the declared parameters. This permits us to return the
+         type of _specific_ applications of the function by inlining arguments,
+         which may be subtypes of the formal params, at those applications.
+         See the [App] case. *)
+      let fenv' = (fn, { params; body }) :: fenv in
+      typeof venv fenv' cont
+  | If (var, isty, then', else') ->
+      let varty = getvar var venv in
+      let vthenty = inter [ varty; isty ] in
+      let velsety = inter [ varty; Not isty ] in
+      let thenty =
+        if vthenty </: Never then typeof ((var, vthenty) :: venv) fenv then'
+        else (
+          if report_unhabited_branches then tyerr "then branch is never taken";
+          Never)
+      in
+      let elsety =
+        if velsety </: Never then typeof ((var, velsety) :: venv) fenv else'
+        else (
+          if report_unhabited_branches then tyerr "else branch is never taken";
+          Never)
+      in
+      union [ thenty; elsety ]
+
+let typecheck body =
+  try Ok (typeof [] [] body |> dnf_plus) with TyErr err -> Error err

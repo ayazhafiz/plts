@@ -10,4 +10,10 @@
 (test
  (name test)
  (modules Test)
- (libraries ft alcotest str))
+ (libraries ft alcotest str)
+ (deps (glob_files examples/*.*))
+ (action
+   (progn
+     (run %{test} -e)
+     (no-infer (progn
+                 (diff examples/page5.annot examples/page5.realannot))))))

@@ -24,3 +24,6 @@ val dnf_plus : ty -> ty
 
 val ( <: ) : ty -> ty -> bool
 (** [s <: t] determines if s <: t, i.e. if the subtype relation s <= t holds. *)
+
+val typecheck : term -> (ty, string) Result.t
+(** [typecheck tm] typechecks a term, returning the first error found, if any. *)

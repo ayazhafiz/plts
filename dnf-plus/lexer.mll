@@ -30,6 +30,7 @@ rule read = parse
   | "if"          { IF }
   | "in"          { IN }
   | "is"          { IS }
+  | "fn"          { FN }
   | "then"        { THEN }
   | "else"        { ELSE }
 

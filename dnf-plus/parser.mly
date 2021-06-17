@@ -11,6 +11,7 @@
 %token IF
 %token IN
 %token IS
+%token FN
 %token THEN
 %token ELSE
 %token COMMA
@@ -38,18 +39,20 @@ toplevel_term:
 toplevel_ty:
   | ty   EOF { $1 }
 
-term:
+atomic_term:
   | NUM         { Num $1 }
   | IDENT       { Var $1 }
   | LPAREN term COMMA tuple_list RPAREN { Tup ($2::$4) }
-  | IDENT term  { App ($1, $2) }
-  | IDENT LPAREN param_list RPAREN EQ term IN term { Dec ($1, $3, $6, $8) }
+  | LPAREN term RPAREN { $2 }
+term:
+  | atomic_term { $1 }
+  | IDENT atomic_term+ { App ($1, $2) }
+  | FN IDENT LPAREN param_list RPAREN EQ term IN term { Dec ($2, $4, $7, $9) }
   | IF IDENT IS ty THEN term ELSE term { If ($2, $4, $6, $8) }
 tuple_list:
   | term { [$1] }
   | term COMMA tuple_list { $1::$3 }
 param_list:
-  | { [] }
   | IDENT CO ty { [($1, $3)] }
   | IDENT CO ty COMMA param_list { ($1, $3)::$5 }
 

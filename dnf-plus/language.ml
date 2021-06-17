@@ -12,7 +12,7 @@ module rec Ast : sig
     | Num of int
     | Var of string
     | Tup of term list
-    | App of string * term
+    | App of string * term list
     | Dec of string * (string * ty) list * term * term
     | If of string * ty * term * term
 end =
@@ -110,29 +110,28 @@ let print_term f t =
         fprintf f "(";
         print_sep f s ",@ " ts;
         fprintf f ")"
-    | App (fn, t) ->
-        pp_print_string f fn;
-        fprintf f "@ ";
-        s t
+    | App (fn, ts) ->
+        fprintf f "%s " fn;
+        print_sep f s "@ " ts
     | Dec (fn, vars, body, cont) ->
-        fprintf f "@[<hov 2>%s(" fn;
+        fprintf f "@[<v 0>@[<v 2>@[<hov 2>fn %s(" fn;
         print_sep f
           (fun (var, ty) ->
             fprintf f "%s: " var;
             print_ty f ty)
           ",@ " vars;
-        fprintf f ") =@ ";
+        fprintf f ") =@]@ ";
         s body;
-        fprintf f "@]@ in@ ";
+        fprintf f "@]@ in@]@ ";
         s cont
     | If (var, is, then', else') ->
-        fprintf f "@[<v 2>if %s is " var;
+        fprintf f "@[<v>@[<hov 2>if %s is @[" var;
         print_ty f is;
-        fprintf f " then@ ";
+        fprintf f "@]@]@ @[<v 2>then@ @[";
         s then';
-        fprintf f "@ else@ ";
+        fprintf f "@]@]@ @[<v 2>else@ @[";
         s else';
-        fprintf f "@]"
+        fprintf f "@]@]@]"
   in
   s t
 

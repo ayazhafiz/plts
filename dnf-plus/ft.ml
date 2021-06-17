@@ -9,7 +9,7 @@ let rec flatten_ty_in_term t =
   match t with
   | Num _ | Var _ -> t
   | Tup ts -> Tup (List.map flatten_ty_in_term ts)
-  | App (fn, t) -> App (fn, flatten_ty_in_term t)
+  | App (fn, t) -> App (fn, List.map flatten_ty_in_term t)
   | Dec (fn, params, body, cont) ->
       Dec
         ( fn,
@@ -39,3 +39,5 @@ let ty_of_dnf = Typecheck.ty_of_dnf
 let dnf_plus = Typecheck.dnf_plus
 
 let ( <: ) = Typecheck.( <: )
+
+let typecheck = Typecheck.typecheck
