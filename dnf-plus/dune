@@ -10,4 +10,4 @@
 (test
  (name test)
  (modules Test)
- (libraries ft alcotest))
+ (libraries ft alcotest str))

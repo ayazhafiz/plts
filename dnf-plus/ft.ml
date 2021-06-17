@@ -30,4 +30,12 @@ let parse_term s =
 
 let parse_ty s = lex s |> Parser.toplevel_ty Lexer.read |> flatten_ty
 
+type dnf = Typecheck.dnf
+
 let dnf = Typecheck.dnf
+
+let ty_of_dnf = Typecheck.ty_of_dnf
+
+let dnf_plus = Typecheck.dnf_plus
+
+let ( <: ) = Typecheck.( <: )

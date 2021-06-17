@@ -41,6 +41,75 @@ let flatten_ty ty =
   in
   ty |> flatten_inters |> flatten_unions |> unwrap_trivial
 
+(***************)
+(* Type Atoms  *)
+(* Section 3.1 *)
+(***************)
+
+type pos_atom = AAny | AInt | ATuple of pos_atom list
+
+type neg_atom = ANot of pos_atom
+
+type star_atom = AtomPos of pos_atom | AtomNeg of neg_atom
+
+exception Not_positive of string
+
+let atom_of_ty =
+  let rec pos = function
+    | Any -> AAny
+    | Int -> AInt
+    | Tuple tys -> ATuple (List.map pos tys)
+    | ty -> raise (Not_positive (string_of_ty ty))
+  in
+  function Not ty -> AtomNeg (ANot (pos ty)) | ty -> AtomPos (pos ty)
+
+let rec ty_of_pos = function
+  | AAny -> Any
+  | AInt -> Int
+  | ATuple tys -> Tuple (List.map ty_of_pos tys)
+
+let ty_of_neg (ANot p) = Not (ty_of_pos p)
+
+let ty_of_atom = function AtomNeg n -> ty_of_neg n | AtomPos p -> ty_of_pos p
+
+type atom_inter = AINever | AIPos of pos_atom
+
+(** Atom subtyping s ≤ t: Figure 4. *)
+let rec ( @<: ) s t =
+  match (s, t) with
+  | s, t when s = t -> true
+  | _, AAny -> true
+  | ATuple s, ATuple t ->
+      List.length s = List.length t && List.for_all2 ( @<: ) s t
+  | _ -> false
+
+(** Computes s ≥ t. *)
+let ( @:> ) s t = t @<: s
+
+(** Computes s /≥ t. *)
+let ( @:/> ) s t = not (s @:> t)
+
+(** Atom intersection: Definition 4. *)
+let rec ( @^^ ) t1 t2 =
+  match (t1, t2) with
+  | t1, t2 when t1 = t2 -> AIPos t1
+  | AAny, t | t, AAny -> AIPos t
+  | AInt, ATuple _ | ATuple _, AInt -> AINever
+  | ATuple t, ATuple s
+    when List.length t <> List.length s
+         || List.exists2 (fun ti si -> ti @^^ si = AINever) t s ->
+      AINever
+  | ATuple t, ATuple s ->
+      AIPos
+        (ATuple
+           (List.map2
+              (fun ti si ->
+                match ti @^^ si with
+                | AIPos p -> p
+                | AINever -> failwith "impossible")
+              t s))
+  | _ -> failwith "impossible state"
+
 (***************************)
 (* Disjunctive Normal Form *)
 (* Section 3.2             *)
@@ -68,35 +137,49 @@ let split_at elt =
 
 exception Not_dnf of string
 
-exception Not_positive of string
+module StarAtomSet = Set.Make (struct
+  type t = star_atom
+
+  let compare = compare
+end)
+
+type dnf_inter = DnfInter of StarAtomSet.t
+
+type dnf = DnfForm of dnf_inter list
 
 (** Lemma 4: DNF(T) ~ |_i &_i T*_{i,j},
     where T* = T+ | T-,
           T- = !T+
           T+ = any | int | (T_1, ..., T_n) *)
-let assert_dnf_form =
-  let rec assert_tpos = function
-    | Any | Int -> ()
-    | Tuple tys -> List.iter assert_tpos tys
-    | ty -> raise (Not_positive (string_of_ty ty))
-  in
-  let assert_tstar = function
-    | Not ty -> assert_tpos ty
-    | ty -> assert_tpos ty
-  in
-  let rec assert_inner_intersection = function
-    | Inter tys -> TySet.iter assert_tstar tys
-    | Union _ as ty -> raise (Not_dnf (string_of_ty ty))
-    | ty -> assert_inner_intersection (Inter (TySet.singleton ty))
-  in
-  let rec assert_outer_union ty =
+let dnf_of_ty =
+  let dnf_inter ty =
     match ty with
-    | Union ts -> TySet.iter assert_inner_intersection ts
-    | Inter _ -> assert_outer_union (Union (TySet.singleton ty))
+    | Inter tys ->
+        DnfInter
+          (TySet.to_list tys |> List.map atom_of_ty |> StarAtomSet.of_list)
+    | Union _ -> raise (Not_dnf (string_of_ty ty))
     | Not _ | Tuple _ | Any | Never | Int ->
-        assert_outer_union (Inter (TySet.singleton ty))
+        DnfInter (StarAtomSet.singleton (atom_of_ty ty))
   in
-  assert_outer_union
+  let rec dnf_form ty =
+    match ty with
+    | Union tys -> DnfForm (TySet.to_list tys |> List.map dnf_inter)
+    | Inter _ -> dnf_form (Union (TySet.singleton ty))
+    | Not _ | Tuple _ | Any | Never | Int ->
+        dnf_form (Inter (TySet.singleton ty))
+  in
+  dnf_form
+
+let ty_of_dnf (DnfForm inters) =
+  Union
+    (List.map
+       (fun (DnfInter atoms) ->
+         Inter
+           (StarAtomSet.to_seq atoms |> List.of_seq |> List.map ty_of_atom
+          |> TySet.of_list))
+       inters
+    |> TySet.of_list)
+  |> flatten_ty
 
 (* Definition 6 *)
 let dnf_step = function
@@ -163,5 +246,150 @@ let dnf ty =
     | _ -> fix (Some ty) (flatten_ty (step ty))
   in
   let dnf_ty = fix None (flatten_ty ty) in
-  assert_dnf_form dnf_ty;
+  let dnf_ty = dnf_of_ty dnf_ty in
   dnf_ty
+
+(****************************)
+(* Conjuct Canonicalization *)
+(* Section 4.3              *)
+(****************************)
+
+(* Definition 8 *)
+
+module PosAtomSet = struct
+  include Set.Make (struct
+    type t = pos_atom
+
+    let compare = compare
+  end)
+
+  let to_list t = to_seq t |> List.of_seq
+end
+
+(** [canonical_conjuct] describes the result of Conjuct Canonicalization, which
+    results in the bottom type [Never] or the form described in Definition 7. *)
+type canonical_conjuct =
+  | ConjNever  (** Canonicalization determined this is a "never" type. *)
+  | CanonicalConjuct of { add : pos_atom; sub : PosAtomSet.t }
+      (** A Canonical Conjuct as described in Definition 7, of the form
+            1. T+_1 & !T+_2 & ... & !T+_n
+               ^^^^   ^^^^^^^^^^^^^^^^^^^
+               atom           sub
+            2. Forall !T+_k, T+_1 \ne T+_k and T+_k <: T+_1
+            3. For any two !T+_k, !T+_m, T+_k :/> T+_m *)
+
+let assert_canonical_conjuct = function
+  | ConjNever -> ()
+  | CanonicalConjuct { add; sub } ->
+      PosAtomSet.iter (fun tk -> assert (add <> tk && (add @:> tk))) sub;
+      PosAtomSet.iter
+        (fun tk ->
+          PosAtomSet.iter (fun tm -> if tk <> tm then assert (tk @:/> tm)) sub)
+        sub
+
+let and_then_none pred = function Some res -> Some res | None -> pred ()
+
+let can (DnfInter atoms) =
+  let pos, neg =
+    StarAtomSet.fold
+      (fun atom (pos, neg) ->
+        match atom with
+        | AtomPos p -> (p :: pos, neg)
+        | AtomNeg (ANot n) -> (pos, n :: neg))
+      atoms ([], [])
+  in
+  let neg = PosAtomSet.of_list neg in
+  (* Rule 2: T+_i & T+_j & ... => (T+_i ^^ T+_j) & ... *)
+  let rec rule2 total pos =
+    match (total, pos) with
+    | AINever, _ -> AINever
+    | (AIPos _ as total), [] -> total
+    | AIPos total, atom :: rest -> rule2 (total @^^ atom) rest
+  in
+  (* Rule 3: T+_x & !T+_y & ... => never                         if T+_x <: T+_y *)
+  let rule3 add sub () =
+    if PosAtomSet.exists (fun ty -> add @<: ty) sub then Some ConjNever
+    else None
+  in
+  (* Rule 4: T+_x & !T+_y & ... => T+_x & ...                    if T+_x ^^ T+_y = never *)
+  let rule4 add sub () =
+    PosAtomSet.find_first_opt (fun ty -> add @^^ ty = AINever) sub
+    |> Option.map (fun ty ->
+           CanonicalConjuct { add; sub = PosAtomSet.remove ty sub })
+  in
+  (* Rule 5: T+_x & !T+_y & ... => T+_x & !(T+_x ^^ T+_y) ...    if T+_x :/> T+_y *)
+  let rule5 add sub () =
+    PosAtomSet.find_first_opt (fun ty -> add @:/> ty) sub
+    |> Option.map (fun ty ->
+           match add @^^ ty with
+           | AIPos interxy ->
+               CanonicalConjuct
+                 { add; sub = PosAtomSet.(add interxy (remove ty sub)) }
+           | AINever -> failwith "impossible")
+  in
+  (* Rule 6: !T+_x & !T+_y & ... => !T+_x & ...                  if T+_x :> T+_y *)
+  let rule6 add sub () =
+    let rec find_txy = function
+      | [] -> None
+      | tx :: rest -> (
+          let rec find_ty = function
+            | [] -> None
+            | ty :: _ when tx @:> ty -> Some (tx, ty)
+            | _ :: rest -> find_ty rest
+          in
+          match find_ty rest with Some txy -> Some txy | None -> find_txy rest)
+    in
+    find_txy (PosAtomSet.to_list sub)
+    |> Option.map (fun (_tx, ty) ->
+           CanonicalConjuct { add; sub = PosAtomSet.remove ty sub })
+  in
+  (* The rest of Definition 8 - rule 3-6 *)
+  let rec rule3456 add sub =
+    match
+      None
+      |> and_then_none (rule3 add sub)
+      |> and_then_none (rule4 add sub)
+      |> and_then_none (rule5 add sub)
+      |> and_then_none (rule6 add sub)
+    with
+    | None -> CanonicalConjuct { add; sub }
+    | Some ConjNever -> ConjNever
+    | Some (CanonicalConjuct { add; sub }) -> rule3456 add sub
+  in
+  let any = AIPos AAny in
+  let conj =
+    match rule2 any pos with
+    | AINever -> ConjNever
+    | AIPos add -> rule3456 add neg
+  in
+  assert_canonical_conjuct conj;
+  conj
+
+(********************)
+(* Subtyping        *)
+(* Section 4.4, 4.5 *)
+(********************)
+
+(** Definition 11: DNF+ construction *)
+let dnf_plus t =
+  let (DnfForm union_of_inters) = dnf (flatten_ty t) in
+  let union_of_inters =
+    List.map
+      (fun inters ->
+        match can inters with
+        | ConjNever -> Never
+        | CanonicalConjuct { add; sub } ->
+            let add = ty_of_pos add in
+            let sub =
+              PosAtomSet.to_list sub
+              |> List.map (fun t_ij -> ty_of_neg (ANot t_ij))
+            in
+            Inter (TySet.of_list (add :: sub)))
+      union_of_inters
+  in
+  let t = TySet.of_list union_of_inters in
+  let t = TySet.remove Never t in
+  if TySet.is_empty t then Never else flatten_ty (Union t)
+
+(** Determines [s <: t]. *)
+let ( <: ) s t = dnf_plus (Inter (TySet.of_list [ s; Not t ])) = Never
