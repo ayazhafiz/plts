@@ -424,11 +424,15 @@ let getvar v venv =
   | Some ty -> ty
   | None -> tyerr ("variable " ^ v ^ " is unbound")
 
+let update ty real =
+  ty := Some real;
+  real
+
 let rec typeof ?(report_unhabited_branches = false) venv fenv = function
   | Num _ -> Int
-  | Var v -> getvar v venv
-  | Tup ts -> Tuple (List.map (typeof venv fenv) ts)
-  | App (fn, args) when List.mem_assoc fn fenv ->
+  | Var (v, ty) -> update ty (getvar v venv)
+  | Tup (ts, ty) -> update ty (Tuple (List.map (typeof venv fenv) ts))
+  | App (fn, args, ty) when List.mem_assoc fn fenv ->
       let { params; body } = List.assoc fn fenv in
       if List.length args <> List.length params then
         tyerr ("wrong number of arguments to " ^ fn);
@@ -445,12 +449,13 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
             (p, aty) :: venv)
           venv args params
       in
-      typeof venv' fenv body
-  | App (fn, _) -> tyerr ("function " ^ fn ^ " is unbound")
-  | Dec (fn, params, body, cont) ->
+      update ty (typeof venv' fenv body)
+  | App (fn, _, _) -> tyerr ("function " ^ fn ^ " is unbound")
+  | Dec (fn, params, body, cont, ty) ->
       let venv' = params @ venv in
       (* ensure body is sound with declared args *)
-      ignore (typeof ~report_unhabited_branches:true venv' fenv body);
+      ignore
+        (update ty (typeof ~report_unhabited_branches:true venv' fenv body));
       (* NB: we are binding the body of the function rather than its universal
          return type for the declared parameters. This permits us to return the
          type of _specific_ applications of the function by inlining arguments,
@@ -458,7 +463,7 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
          See the [App] case. *)
       let fenv' = (fn, { params; body }) :: fenv in
       typeof venv fenv' cont
-  | If (var, isty, then', else') ->
+  | If (var, isty, then', else', ty) ->
       let varty = getvar var venv in
       let vthenty = inter [ varty; isty ] in
       let velsety = inter [ varty; Not isty ] in
@@ -474,7 +479,7 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
           if report_unhabited_branches then tyerr "else branch is never taken";
           Never)
       in
-      union [ thenty; elsety ]
+      update ty (union [ thenty; elsety ])
 
 let typecheck body =
   try Ok (typeof [] [] body |> dnf_plus) with TyErr err -> Error err

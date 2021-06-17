@@ -10,11 +10,11 @@ module rec Ast : sig
 
   type term =
     | Num of int
-    | Var of string
-    | Tup of term list
-    | App of string * term list
-    | Dec of string * (string * ty) list * term * term
-    | If of string * ty * term * term
+    | Var of string * ty option ref
+    | Tup of term list * ty option ref
+    | App of string * term list * ty option ref
+    | Dec of string * (string * ty) list * term * term * ty option ref
+    | If of string * ty * term * term * ty option ref
 end =
   Ast
 
@@ -105,15 +105,15 @@ let print_term f t =
   let open Format in
   let rec s = function
     | Num i -> pp_print_int f i
-    | Var s -> pp_print_string f s
-    | Tup ts ->
+    | Var (s, _) -> pp_print_string f s
+    | Tup (ts, _) ->
         fprintf f "(";
         print_sep f s ",@ " ts;
         fprintf f ")"
-    | App (fn, ts) ->
+    | App (fn, ts, _) ->
         fprintf f "%s " fn;
         print_sep f s "@ " ts
-    | Dec (fn, vars, body, cont) ->
+    | Dec (fn, vars, body, cont, _) ->
         fprintf f "@[<v 0>@[<v 2>@[<hov 2>fn %s(" fn;
         print_sep f
           (fun (var, ty) ->
@@ -124,7 +124,7 @@ let print_term f t =
         s body;
         fprintf f "@]@ in@]@ ";
         s cont
-    | If (var, is, then', else') ->
+    | If (var, is, then', else', _) ->
         fprintf f "@[<v>@[<hov 2>if %s is @[" var;
         print_ty f is;
         fprintf f "@]@]@ @[<v 2>then@ @[";

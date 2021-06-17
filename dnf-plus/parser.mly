@@ -41,14 +41,14 @@ toplevel_ty:
 
 atomic_term:
   | NUM         { Num $1 }
-  | IDENT       { Var $1 }
-  | LPAREN term COMMA tuple_list RPAREN { Tup ($2::$4) }
+  | IDENT       { Var ($1, ref None) }
+  | LPAREN term COMMA tuple_list RPAREN { Tup ($2::$4, ref None) }
   | LPAREN term RPAREN { $2 }
 term:
   | atomic_term { $1 }
-  | IDENT atomic_term+ { App ($1, $2) }
-  | FN IDENT LPAREN param_list RPAREN EQ term IN term { Dec ($2, $4, $7, $9) }
-  | IF IDENT IS ty THEN term ELSE term { If ($2, $4, $6, $8) }
+  | IDENT atomic_term+ { App ($1, $2, ref None) }
+  | FN IDENT LPAREN param_list RPAREN EQ term IN term { Dec ($2, $4, $7, $9, ref None) }
+  | IF IDENT IS ty THEN term ELSE term { If ($2, $4, $6, $8, ref None) }
 tuple_list:
   | term { [$1] }
   | term COMMA tuple_list { $1::$3 }

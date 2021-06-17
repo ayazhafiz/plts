@@ -8,20 +8,22 @@ let string_of_ty = Language.string_of_ty
 let rec flatten_ty_in_term t =
   match t with
   | Num _ | Var _ -> t
-  | Tup ts -> Tup (List.map flatten_ty_in_term ts)
-  | App (fn, t) -> App (fn, List.map flatten_ty_in_term t)
-  | Dec (fn, params, body, cont) ->
+  | Tup (ts, ty) -> Tup (List.map flatten_ty_in_term ts, ty)
+  | App (fn, t, ty) -> App (fn, List.map flatten_ty_in_term t, ty)
+  | Dec (fn, params, body, cont, ty) ->
       Dec
         ( fn,
           List.map (fun (p, t) -> (p, flatten_ty t)) params,
           flatten_ty_in_term body,
-          flatten_ty_in_term cont )
-  | If (var, isty, then', else') ->
+          flatten_ty_in_term cont,
+          ty )
+  | If (var, isty, then', else', ty) ->
       If
         ( var,
           flatten_ty isty,
           flatten_ty_in_term then',
-          flatten_ty_in_term else' )
+          flatten_ty_in_term else',
+          ty )
 
 let lex = Lexing.from_string ~with_positions:true
 
