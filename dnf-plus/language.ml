@@ -119,8 +119,7 @@ let fmt_term t =
     | Tup (ts, ty) ->
         let sep = text "," ^^ space in
         let inner = fmt_list s sep ts in
-        group
-          (text "(" ^^ group (nest 1 inner) ^^ break "" ^^ texta ")" (sty ty))
+        group (text "(" ^^ group (nest 1 inner) ^. texta ")" (sty ty))
     | App (fn, ts, ty) ->
         let ty = fn ^ " .. ~> " ^ sty ty in
         let indent = String.length fn + 1 in
