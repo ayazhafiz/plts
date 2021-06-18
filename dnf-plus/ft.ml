@@ -1,9 +1,11 @@
 open Language.Ast
 open Typecheck
 
-let string_of_term = Language.string_of_term
-
 let string_of_ty = Language.string_of_ty
+
+let string_of_term =
+  Language.string_of_term (fun ty ->
+      !ty |> Option.map dnf_plus |> Option.map string_of_ty)
 
 let rec flatten_ty_in_term t =
   match t with

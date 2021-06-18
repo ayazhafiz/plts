@@ -425,8 +425,10 @@ let getvar v venv =
   | None -> tyerr ("variable " ^ v ^ " is unbound")
 
 let update ty real =
-  if Option.is_none !ty then ty := Some (dnf_plus real);
+  if Option.is_none !ty then ty := Some real;
   real
+
+let string_of_term = string_of_term (fun _ -> None)
 
 let rec typeof ?(report_unhabited_branches = false) venv fenv = function
   | Num _ -> Int

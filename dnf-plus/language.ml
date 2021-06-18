@@ -110,22 +110,27 @@ let string_of_ty ty =
   let open F in
   pretty width cmt (fmt_ty ty)
 
-let fmt_term t =
+let fmt_term fmt_optref_type t =
   let open F in
-  let sty ty = string_of_ty (Option.get !ty) in
+  let textty t typrefix ty =
+    match fmt_optref_type ty with
+    | Some ty -> texta t (typrefix ^ ty)
+    | None -> text t
+  in
   let rec s = function
     | Num i -> text (string_of_int i)
-    | Var (s, ty) -> texta s (sty ty)
+    | Var (s, ty) -> textty s "" ty
     | Tup (ts, ty) ->
         let sep = text "," ^^ space in
         let inner = fmt_list s sep ts in
-        group (text "(" ^^ group (nest 1 inner) ^. texta ")" (sty ty))
+        let rparen_w_ty = textty ")" "" ty in
+        group (text "(" ^^ group (nest 1 inner) ^. rparen_w_ty)
     | App (fn, ts, ty) ->
-        let ty = fn ^ " .. ~> " ^ sty ty in
+        let fn_w_ty = textty fn (fn ^ " .. ~> ") ty in
         let indent = String.length fn + 1 in
-        group (nest indent (texta fn ty ^| fmt_list s space ts))
+        group (nest indent (fn_w_ty ^| fmt_list s space ts))
     | Dec (fn, formals, body, cont, ty) ->
-        let ty = "=> " ^ sty ty in
+        let endfn_w_ty = textty ") =" "=> " ty in
         let formals =
           fmt_list
             (fun (p, ty) -> text p ^^ text ": " ^^ fmt_ty ty)
@@ -133,22 +138,21 @@ let fmt_term t =
             formals
         in
         let header =
-          text "fn " ^^ text fn ^^ text "(" ^^ formals ^^ texta ") =" ty
+          text "fn " ^^ text fn ^^ text "(" ^^ formals ^^ endfn_w_ty
           |> nest 2 |> group
         in
         let body = s body in
         let decl = header ^| body |> nest 2 |> group in
         group (decl ^| group (nest 2 (text "in" ^| s cont)))
     | If (var, is, then', else', ty) ->
-        let ty = "if .. ~> " ^ sty ty in
+        let if_w_ty = textty "if " "if .. ~> " ty in
         group
-          (group
-             (nest 2 (texta "if " ty ^^ text var ^^ text " is" ^| fmt_ty is))
+          (group (nest 2 (if_w_ty ^^ text var ^^ text " is" ^| fmt_ty is))
           ^| group (nest 2 (text "then" ^| s then'))
           ^| group (nest 2 (text "else" ^| s else')))
   in
   s t
 
-let string_of_term t =
+let string_of_term fmt_optref_type t =
   let open F in
-  pretty ~global_align:true width cmt (fmt_term t)
+  pretty ~global_align:true width cmt (fmt_term fmt_optref_type t)
