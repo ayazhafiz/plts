@@ -27,3 +27,10 @@ val ( <: ) : ty -> ty -> bool
 
 val typecheck : term -> (ty, string) Result.t
 (** [typecheck tm] typechecks a term, returning the first error found, if any. *)
+
+val infer_types : term -> (term, string) Result.t
+(** [infer_types tm] infers the types in a term, returning the first semantic or
+    inference error found, if any.
+    NB: This is a tool to generate types for terms, and not a substitute for
+    [typecheck]. Indeed, a term should first have its types inferred, then be
+    typechecked. *)

@@ -18,7 +18,7 @@ let flatten_ty ty =
              (function Inter intys -> TySet.union intys | ty -> TySet.add ty)
              (TySet.map flatten_inters tys)
              TySet.empty)
-    | Fresh _ -> failwith "impossible"
+    | Infer f -> Infer f
   in
   let rec flatten_unions ty =
     match ty with
@@ -32,7 +32,7 @@ let flatten_ty ty =
              (function Union intys -> TySet.union intys | ty -> TySet.add ty)
              (TySet.map flatten_unions tys)
              TySet.empty)
-    | Fresh _ -> failwith "impossible"
+    | Infer f -> Infer f
   in
   let rec unwrap_trivial ty =
     match ty with
@@ -49,7 +49,7 @@ let flatten_ty ty =
             | [] -> Never
             | [ t ] -> t
             | _ -> Union tys))
-    | Fresh _ -> failwith "impossible"
+    | Infer f -> Infer f
   in
   ty |> flatten_inters |> flatten_unions |> unwrap_trivial
 
@@ -135,7 +135,7 @@ let is_union = function Union _ -> true | _ -> false
 
 let get_union = function Union tys -> tys | _ -> failwith "not union"
 
-let is_inter = function Inter _ -> true | _ -> false
+let is_infer = function Inter _ -> true | _ -> false
 
 let get_inter = function Inter tys -> tys | _ -> failwith "not union"
 
@@ -176,7 +176,7 @@ let dnf_of_ty =
     | Union _ -> raise (Not_dnf (string_of_ty ty))
     | Not _ | Tuple _ | Any | Never | Int ->
         DnfInter (StarAtomSet.singleton (atom_of_ty ty))
-    | Fresh _ -> failwith "impossible"
+    | Infer _ -> failwith "impossible"
   in
   let rec dnf_form ty =
     match ty with
@@ -184,7 +184,7 @@ let dnf_of_ty =
     | Inter _ -> dnf_form (Union (TySet.singleton ty))
     | Not _ | Tuple _ | Any | Never | Int ->
         dnf_form (Inter (TySet.singleton ty))
-    | Fresh _ -> failwith "impossible"
+    | Infer _ -> failwith "impossible"
   in
   dnf_form
 
@@ -226,9 +226,9 @@ let dnf_step = function
         (TySet.map
            (fun t_i -> Tuple (before @ [ t_i ] @ after))
            (get_union factor_out))
-  | Tuple tys when List.exists is_inter tys ->
+  | Tuple tys when List.exists is_infer tys ->
       (* Factor intersections out of tuples. *)
-      let factor_out = List.find is_inter tys in
+      let factor_out = List.find is_infer tys in
       let before, after = split_at factor_out tys in
       Inter
         (TySet.map
@@ -257,7 +257,7 @@ let dnf ty =
     | Not t -> dnf_step (Not (step t))
     | Inter tys -> dnf_step (Inter (TySet.map step tys))
     | Union tys -> dnf_step (Union (TySet.map step tys))
-    | Fresh _ -> failwith "impossible"
+    | Infer _ -> failwith "impossible"
   in
   let rec fix last_ty ty =
     match last_ty with
@@ -430,18 +430,23 @@ let getvar v venv =
   | Some ty -> ty
   | None -> tyerr ("variable " ^ v ^ " is unbound")
 
+let getfn f fenv =
+  match List.assoc_opt f fenv with
+  | Some b -> b
+  | None -> tyerr ("function " ^ f ^ " is unbound")
+
 let update ty real =
   if Option.is_none !ty then ty := Some real;
   real
 
-let string_of_term = string_of_term (fun _ -> None)
+let string_of_term = string_of_term (fun ty -> ty)
 
 let rec typeof ?(report_unhabited_branches = false) venv fenv = function
   | Num _ -> Int
   | Var (v, ty) -> update ty (getvar v venv)
   | Tup (ts, ty) -> update ty (Tuple (List.map (typeof venv fenv) ts))
-  | App (fn, args, ty) when List.mem_assoc fn fenv ->
-      let { params; body } = List.assoc fn fenv in
+  | App (fn, args, ty) ->
+      let { params; body } = getfn fn fenv in
       if List.length args <> List.length params then
         tyerr ("wrong number of arguments to " ^ fn);
       let venv' =
@@ -458,13 +463,13 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
           venv args params
       in
       update ty (typeof venv' fenv body)
-  | App (fn, _, _) -> tyerr ("function " ^ fn ^ " is unbound")
   | Dec (fn, params, body, cont, ty) ->
       let params =
         List.map
           (function
-            | { name; ty = None } -> tyerr ("param " ^ name ^ " is untyped")
-            | { name; ty = Some ty } -> (name, ty))
+            | name, ty, _ when needs_inference !ty ->
+                tyerr ("param " ^ name ^ " is uninferred")
+            | name, ty, _ -> (name, !ty))
           params
       in
       let venv' = params @ venv in
@@ -480,16 +485,18 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
       typeof venv fenv' cont
   | If (var, isty, then', else', ty) ->
       let varty = getvar var venv in
-      let vthenty = inter [ varty; isty ] in
-      let velsety = inter [ varty; Not isty ] in
+      let then_varty = inter [ varty; isty ] in
+      let else_varty = inter [ varty; Not isty ] in
       let thenty =
-        if vthenty </: Never then typeof ((var, vthenty) :: venv) fenv then'
+        if then_varty </: Never then
+          typeof ((var, then_varty) :: venv) fenv then'
         else (
           if report_unhabited_branches then tyerr "then branch is never taken";
           Never)
       in
       let elsety =
-        if velsety </: Never then typeof ((var, velsety) :: venv) fenv else'
+        if else_varty </: Never then
+          typeof ((var, else_varty) :: venv) fenv else'
         else (
           if report_unhabited_branches then tyerr "else branch is never taken";
           Never)

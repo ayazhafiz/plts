@@ -171,10 +171,15 @@ let example_tests =
   let mk_test example =
     let test _ =
       let p = readfi example |> parse_term in
+      let p =
+        match infer_types p with Ok p -> p | Error what -> failwith what
+      in
       ignore (typecheck p);
       let realannot = Filename.remove_extension example ^ ".realannot" in
       let annotated = string_of_term p in
-      ignore (parse_term annotated) (* make sure it parses *);
+      (try ignore (parse_term annotated)
+       with Parsing.Parse_error ->
+         failwith ("Unable to parse annotated:\n" ^ annotated));
       writefi realannot annotated
     in
     (example, `Quick, test)

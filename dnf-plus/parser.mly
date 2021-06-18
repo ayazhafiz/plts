@@ -56,8 +56,8 @@ param_list:
   | param { [$1] }
   | param COMMA param_list { $1::$3 }
 param:
-  | IDENT { {name=$1; ty=None} }
-  | IDENT CO ty { {name=$1; ty=Some $3} }
+  | IDENT { ($1, ref (fresh_infer_ty ()), Inferred) }
+  | IDENT CO ty { ($1, ref $3, UserDefined) }
 
 ty:
   | INT          { Int }
