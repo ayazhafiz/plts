@@ -1,3 +1,5 @@
+module F = Strictly_annotated
+
 module rec Ast : sig
   type ty =
     | Any
@@ -50,6 +52,13 @@ let print_sep f print_item sep lst =
       if i <> lasti then Format.fprintf f sep)
     lst
 
+let fmt_list fmt_item sep items =
+  let open F in
+  let lasti = List.length items - 1 in
+  List.map fmt_item items
+  |> List.mapi (fun i x -> if i = lasti then x else x ^^ sep)
+  |> List.fold_left ( ^^ ) empty
+
 let should_wrap =
   let prec = function
     | Union _ -> 1
@@ -61,83 +70,86 @@ let should_wrap =
   | (Any | Never | Int | Tuple _), _ | _, (Any | Never | Int | Tuple _) -> false
   | child, parent -> prec child < prec parent
 
-let print_ty f ty =
-  let open Format in
-  let rec s outer_break parent_ty ty =
+let width = 80
+
+let cmt = "  # "
+
+let fmt_ty ty =
+  let open F in
+  let rec s parent_breaks parent_ty ty =
     let wrap = should_wrap (ty, parent_ty) in
     let inter_in_union =
       match (ty, parent_ty) with Inter _, Union _ -> true | _ -> false
     in
-    if wrap then fprintf f "(";
-    (match ty with
-    | Any -> pp_print_string f "any"
-    | Never -> pp_print_string f "never"
-    | Int -> pp_print_string f "int"
-    | Tuple tys ->
-        fprintf f "(";
-        print_sep f (s true ty) (if outer_break then ", " else ",@ ") tys;
-        fprintf f ")"
-    | Not ty1 ->
-        fprintf f "!";
-        s outer_break ty ty1
-    | Inter tys ->
-        print_sep f (s true ty)
-          (if inter_in_union then "&"
-          else if outer_break then " & "
-          else " &@ ")
-          (TySet.to_list tys)
-    | Union tys ->
-        print_sep f (s true ty)
-          (if outer_break then " | " else " |@ ")
-          (TySet.to_list tys));
-    if wrap then fprintf f ")"
+    let fty =
+      match ty with
+      | Any -> text "any"
+      | Never -> text "never"
+      | Int -> text "int"
+      | Tuple tys ->
+          let sep = text "," ^^ if parent_breaks then text " " else space in
+          let inner = fmt_list (s true ty) sep tys in
+          group (nest 2 (text "(" ^^ inner ^^ text ")"))
+      | Not ty1 -> group (text "!" ^^ s parent_breaks ty ty1)
+      | Inter tys ->
+          let sep =
+            if inter_in_union then text "&"
+            else if parent_breaks then text " & "
+            else text " &" ^^ space
+          in
+          group (nest 2 (fmt_list (s true ty) sep (TySet.to_list tys)))
+      | Union tys ->
+          let sep = if parent_breaks then text " | " else text " |" ^^ space in
+          group (nest 2 (fmt_list (s true ty) sep (TySet.to_list tys)))
+    in
+    if wrap then group (text "(" ^^ fty ^^ text ")") else fty
   in
   s false Never ty
 
 let string_of_ty ty =
-  let open Format in
-  with_formatter (fun f ->
-      pp_open_box f 2;
-      print_ty f ty;
-      pp_close_box f ())
+  let open F in
+  pretty width cmt (fmt_ty ty)
 
-let print_term f t =
-  let open Format in
+let fmt_term t =
+  let open F in
+  let sty ty = string_of_ty (Option.get !ty) in
   let rec s = function
-    | Num i -> pp_print_int f i
-    | Var (s, _) -> pp_print_string f s
-    | Tup (ts, _) ->
-        fprintf f "(";
-        print_sep f s ",@ " ts;
-        fprintf f ")"
-    | App (fn, ts, _) ->
-        fprintf f "%s " fn;
-        print_sep f s "@ " ts
-    | Dec (fn, vars, body, cont, _) ->
-        fprintf f "@[<v 0>@[<v 2>@[<hov 2>fn %s(" fn;
-        print_sep f
-          (fun (var, ty) ->
-            fprintf f "%s: " var;
-            print_ty f ty)
-          ",@ " vars;
-        fprintf f ") =@]@ ";
-        s body;
-        fprintf f "@]@ in@]@ ";
-        s cont
-    | If (var, is, then', else', _) ->
-        fprintf f "@[<v>@[<hov 2>if %s is @[" var;
-        print_ty f is;
-        fprintf f "@]@]@ @[<v 2>then@ @[";
-        s then';
-        fprintf f "@]@]@ @[<v 2>else@ @[";
-        s else';
-        fprintf f "@]@]@]"
+    | Num i -> text (string_of_int i)
+    | Var (s, ty) -> texta s (sty ty)
+    | Tup (ts, ty) ->
+        let sep = text "," ^^ space in
+        let inner = fmt_list s sep ts in
+        group
+          (text "(" ^^ group (nest 1 inner) ^^ break "" ^^ texta ")" (sty ty))
+    | App (fn, ts, ty) ->
+        let ty = fn ^ " .. ~> " ^ sty ty in
+        let indent = String.length fn + 1 in
+        group (nest indent (texta fn ty ^| fmt_list s space ts))
+    | Dec (fn, formals, body, cont, ty) ->
+        let ty = "=> " ^ sty ty in
+        let formals =
+          fmt_list
+            (fun (p, ty) -> text p ^^ text ": " ^^ fmt_ty ty)
+            (text "," ^^ space)
+            formals
+        in
+        let header =
+          text "fn " ^^ text fn ^^ text "(" ^^ formals ^^ texta ") =" ty
+          |> nest 2 |> group
+        in
+        let body = s body in
+        let decl = header ^| body |> nest 2 |> group in
+        group (decl ^| group (nest 2 (text "in" ^| s cont)))
+    | If (var, is, then', else', ty) ->
+        let ty = "if .. ~> " ^ sty ty in
+        group
+          (group
+             (nest 2 (texta "if " ty ^^ text var ^^ text " is" ^| fmt_ty is))
+          ^| group (nest 2 (text "then" ^| s then'))
+          ^| group (nest 2 (text "else" ^| s else')))
   in
   s t
 
 let string_of_term t =
-  let open Format in
-  with_formatter (fun f ->
-      pp_open_box f 2;
-      print_term f t;
-      pp_close_box f ())
+  let open F in
+  pretty ~global_align:true width cmt (fmt_term t)

@@ -8,6 +8,8 @@ let wrap test =
     Printexc.record_backtrace false;
     Alcotest.fail (Printexc.to_string e ^ "\n" ^ Printexc.get_backtrace ())
 
+let rm1 s = String.sub s 1 (String.length s - 1)
+
 type type_test = {
   input : string;
   parse : string;
@@ -69,7 +71,13 @@ let type_cases =
       input = "(int|any) | ((int, int)|(any, any&(int|(any|(int, any)))))";
       parse = "any | int | (any, any & (any | int | (int, any))) | (int, int)";
       dnf =
-        {|any | int | (any, any) | (int, int) | (any, any)&(any, int) |
+        rm1
+          {|
+any |
+  int |
+  (any, any) |
+  (int, int) |
+  (any, any)&(any, int) |
   (any, any)&(any, (int, any))|};
       dnf_plus =
         "any | int | (any, any) | (any, int) | (any, (int, any)) | (int, int)";
@@ -165,7 +173,9 @@ let example_tests =
       let p = readfi example |> parse_term in
       ignore (typecheck p);
       let realannot = Filename.remove_extension example ^ ".realannot" in
-      writefi realannot (string_of_term p)
+      let annotated = string_of_term p in
+      ignore (parse_term annotated) (* make sure it parses *);
+      writefi realannot annotated
     in
     (example, `Quick, test)
   in

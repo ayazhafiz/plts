@@ -52,7 +52,7 @@ rule read = parse
   | _ as c    { raise (SyntaxError ("Unexpected char or sequence: " ^ (String.make 1 c))) }
 
 and comment = parse
-  | eof { raise (SyntaxError "Unterminated comment") }
+  | eof { EOF }
   | newline
     { next_line lexbuf; read lexbuf }
   | _

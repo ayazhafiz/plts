@@ -5,7 +5,8 @@
 
 (library
  (name ft)
- (modules Ft Language Parser Lexer Typecheck))
+ (modules ft language parser lexer typecheck)
+ (libraries strictly-annotated))
 
 (test
  (name test)
