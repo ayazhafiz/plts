@@ -9,6 +9,7 @@ module rec Ast : sig
     | Not of ty
     | Inter of TySet.t
     | Union of TySet.t
+    | Fresh of int  (** A yet-unknown type for use in inference. *)
 
   type param = { name : string; ty : ty option }
 
@@ -103,6 +104,7 @@ let fmt_ty ty =
       | Union tys ->
           let sep = if parent_breaks then text " | " else text " |" ^^ space in
           group (nest 2 (fmt_list (s true ty) sep (TySet.to_list tys)))
+      | Fresh _ -> failwith "impossible"
     in
     if wrap then group (text "(" ^^ fty ^^ text ")") else fty
   in
