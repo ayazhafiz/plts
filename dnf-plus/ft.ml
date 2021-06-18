@@ -15,7 +15,9 @@ let rec flatten_ty_in_term t =
   | Dec (fn, params, body, cont, ty) ->
       Dec
         ( fn,
-          List.map (fun (p, t) -> (p, flatten_ty t)) params,
+          List.map
+            (fun { name; ty } -> { name; ty = Option.map flatten_ty ty })
+            params,
           flatten_ty_in_term body,
           flatten_ty_in_term cont,
           ty )

@@ -53,8 +53,11 @@ tuple_list:
   | term { [$1] }
   | term COMMA tuple_list { $1::$3 }
 param_list:
-  | IDENT CO ty { [($1, $3)] }
-  | IDENT CO ty COMMA param_list { ($1, $3)::$5 }
+  | param { [$1] }
+  | param COMMA param_list { $1::$3 }
+param:
+  | IDENT { {name=$1; ty=None} }
+  | IDENT CO ty { {name=$1; ty=Some $3} }
 
 ty:
   | INT          { Int }

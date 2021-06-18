@@ -10,12 +10,14 @@ module rec Ast : sig
     | Inter of TySet.t
     | Union of TySet.t
 
+  type param = { name : string; ty : ty option }
+
   type term =
     | Num of int
     | Var of string * ty option ref
     | Tup of term list * ty option ref
     | App of string * term list * ty option ref
-    | Dec of string * (string * ty) list * term * term * ty option ref
+    | Dec of string * param list * term * term * ty option ref
     | If of string * ty * term * term * ty option ref
 end =
   Ast
@@ -133,7 +135,9 @@ let fmt_term fmt_optref_type t =
         let endfn_w_ty = textty ") =" "=> " ty in
         let formals =
           fmt_list
-            (fun (p, ty) -> text p ^^ text ": " ^^ fmt_ty ty)
+            (function
+              | { name; ty = None } -> text name
+              | { name; ty = Some ty } -> text name ^^ text ": " ^^ fmt_ty ty)
             (text "," ^^ space)
             formals
         in

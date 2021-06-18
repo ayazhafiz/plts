@@ -454,6 +454,13 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
       update ty (typeof venv' fenv body)
   | App (fn, _, _) -> tyerr ("function " ^ fn ^ " is unbound")
   | Dec (fn, params, body, cont, ty) ->
+      let params =
+        List.map
+          (function
+            | { name; ty = None } -> tyerr ("param " ^ name ^ " is untyped")
+            | { name; ty = Some ty } -> (name, ty))
+          params
+      in
       let venv' = params @ venv in
       (* ensure body is sound with declared args *)
       ignore
