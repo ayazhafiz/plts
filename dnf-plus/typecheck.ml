@@ -18,6 +18,7 @@ let flatten_ty ty =
              (function Inter intys -> TySet.union intys | ty -> TySet.add ty)
              (TySet.map flatten_inters tys)
              TySet.empty)
+    | Fresh _ -> failwith "impossible"
   in
   let rec flatten_unions ty =
     match ty with
@@ -31,6 +32,7 @@ let flatten_ty ty =
              (function Union intys -> TySet.union intys | ty -> TySet.add ty)
              (TySet.map flatten_unions tys)
              TySet.empty)
+    | Fresh _ -> failwith "impossible"
   in
   let rec unwrap_trivial ty =
     match ty with
@@ -47,6 +49,7 @@ let flatten_ty ty =
             | [] -> Never
             | [ t ] -> t
             | _ -> Union tys))
+    | Fresh _ -> failwith "impossible"
   in
   ty |> flatten_inters |> flatten_unions |> unwrap_trivial
 
@@ -173,6 +176,7 @@ let dnf_of_ty =
     | Union _ -> raise (Not_dnf (string_of_ty ty))
     | Not _ | Tuple _ | Any | Never | Int ->
         DnfInter (StarAtomSet.singleton (atom_of_ty ty))
+    | Fresh _ -> failwith "impossible"
   in
   let rec dnf_form ty =
     match ty with
@@ -180,6 +184,7 @@ let dnf_of_ty =
     | Inter _ -> dnf_form (Union (TySet.singleton ty))
     | Not _ | Tuple _ | Any | Never | Int ->
         dnf_form (Inter (TySet.singleton ty))
+    | Fresh _ -> failwith "impossible"
   in
   dnf_form
 
@@ -252,6 +257,7 @@ let dnf ty =
     | Not t -> dnf_step (Not (step t))
     | Inter tys -> dnf_step (Inter (TySet.map step tys))
     | Union tys -> dnf_step (Union (TySet.map step tys))
+    | Fresh _ -> failwith "impossible"
   in
   let rec fix last_ty ty =
     match last_ty with
