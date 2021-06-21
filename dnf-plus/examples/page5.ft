@@ -1,4 +1,9 @@
-fn neverused(x) = x in
-fn tup(x, y: any) = (x, y) in
-fn f(x) = if x is int then 1 else tup x x in
-(f 1, f (1, 2), f 1) # TODO: f (tup (1, 2)) currently fails due to cyclic inference variable dependencies.
+fn f(x: any) = 
+  if x is int  
+  then 1
+  else (0, 0)  
+in
+  (f 1,        
+   f           
+     (1, 2)    
+  )            

@@ -1,0 +1,23 @@
+fn neverused(x    # :> never
+            ) =   # -> never
+  x               # never
+in
+fn f(x            # :> int | (int, int)
+    ) =           # -> int | (int, int)
+  x               # int | (int, int)
+in
+fn g(y            # :> int | (int, int)
+    ) =           # -> int | (int, int)
+  f               # f .. ~> int | (int, int)
+    y             # int | (int, int)
+in
+fn h(z            # :> int | (int, int)
+    ) =           # -> int | (int, int)
+  g               # g .. ~> int | (int, int)
+    z             # int | (int, int)
+in
+(h                # h .. ~> (int, int)
+   (f             # f .. ~> (int, int)
+      (1, 1)),    # (int, int)
+ g 1              # g .. ~> int
+)                 # ((int, int), int)

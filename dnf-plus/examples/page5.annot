@@ -1,25 +1,9 @@
-fn neverused(x    # :> never
-            ) =   # -> never
-  x               # never
-in
-fn tup(x,         # :> (int, int)
-       y: any
-      ) =         # -> ((int, int), any)
-  (x,             # (int, int)
-   y              # any
-  )               # ((int, int), any)
-in
-fn f(x            # :> int | (int, int)
-    ) =           # -> int | ((int, int), (int, int))
-  if x is int     # if .. ~> int | ((int, int), (int, int))
+fn f(x: any ) =   # -> int | (int, int)
+  if x is int     # if .. ~> int | (int, int)
   then 1
-  else
-    tup           # tup .. ~> ((int, int), (int, int))
-        x         # (int, int)
-        x         # (int, int)
+  else (0, 0)     # (int, int)
 in
 (f 1,             # f .. ~> int
- f                # f .. ~> ((int, int), (int, int))
-   (1, 2),        # (int, int)
- f 1              # f .. ~> int
-)                 # (int, ((int, int), (int, int)), int)
+ f                # f .. ~> (int, int)
+   (1, 2)         # (int, int)
+)                 # (int, (int, int))

@@ -1,0 +1,5 @@
+fn neverused(x) = x in
+fn f(x) = x in
+fn g(y) = f y in
+fn h(z) = g z in
+(h (f (1, 1)), g 1)
