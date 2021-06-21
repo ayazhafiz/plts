@@ -111,9 +111,26 @@ any <: int | !int
 ## Notes
 
 - The subtyping algorithm is clearly not trivial in time complexity, for a
-    number of reasons. Firstly, as noted in Definition 6 (3.2), the construction
-    of `DNF(T)` may be exponential in time complexity. Secondly, the algorithms
-    `DNF` and `CAN` are both order-insensitive, which means application of
-    rewrite rules takes quadratic time (without implementation tricks).
+  number of reasons. Firstly, as noted in Definition 6 (3.2), the construction
+  of `DNF(T)` may be exponential in time complexity. Secondly, the algorithms
+  `DNF` and `CAN` are both order-insensitive, which means application of
+  rewrite rules takes quadratic time (without implementation tricks).
+
+- In fact, the exponential growth of `DNF(T)` can be tremendous. I have been
+  unable to terminate the normalization of
+  ```
+  (((int, int) & !int, (int, int) & !int), ((int, int) & !int, (int, int) & !int))`
+  ```
+
+## Extensions
 
 - Pearce calls the bottom type `void`; I call it `never`.
+
+- This implementation flow-types function calls. This means when checking a
+    call, we inline the type of arguments into the body of the function and then
+    check the body, rather than using a constant return type for all argument
+    subtypes.
+
+- This implementation also includes a type inferer that is guaranteed to infer
+    the minimal legal type for a variable, if any exists. See
+    [infer.ml](./infer.ml). A proof of this property is upcoming.
