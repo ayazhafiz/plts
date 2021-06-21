@@ -133,15 +133,15 @@ let rec ( @^^ ) t1 t2 =
 
 let is_union = function Union _ -> true | _ -> false
 
-let get_union = function Union tys -> tys | _ -> failwith "not union"
+let get_union = function Union tys -> tys | _ -> failwith "not Union"
 
-let is_infer = function Inter _ -> true | _ -> false
+let is_inter = function Inter _ -> true | _ -> false
 
-let get_inter = function Inter tys -> tys | _ -> failwith "not union"
+let get_inter = function Inter tys -> tys | _ -> failwith "not Inter"
 
 let is_not = function Not _ -> true | _ -> false
 
-let get_not = function Not ty -> ty | _ -> failwith "not union"
+let get_not = function Not ty -> ty | _ -> failwith "not Not"
 
 let split_at elt =
   let rec walk before = function
@@ -226,9 +226,9 @@ let dnf_step = function
         (TySet.map
            (fun t_i -> Tuple (before @ [ t_i ] @ after))
            (get_union factor_out))
-  | Tuple tys when List.exists is_infer tys ->
+  | Tuple tys when List.exists is_inter tys ->
       (* Factor intersections out of tuples. *)
-      let factor_out = List.find is_infer tys in
+      let factor_out = List.find is_inter tys in
       let before, after = split_at factor_out tys in
       Inter
         (TySet.map
@@ -444,7 +444,8 @@ let string_of_term = string_of_term (fun ty -> ty)
 let rec typeof ?(report_unhabited_branches = false) venv fenv = function
   | Num _ -> Int
   | Var (v, ty) -> update ty (getvar v venv)
-  | Tup (ts, ty) -> update ty (Tuple (List.map (typeof venv fenv) ts))
+  | Tup (ts, ty) ->
+      update ty (Tuple (List.map (fun t -> typeof venv fenv t) ts))
   | App (fn, args, ty) ->
       let { params; body } = getfn fn fenv in
       if List.length args <> List.length params then
@@ -503,5 +504,4 @@ let rec typeof ?(report_unhabited_branches = false) venv fenv = function
       in
       update ty (union [ thenty; elsety ])
 
-let typecheck body =
-  try Ok (typeof [] [] body |> dnf_plus) with TyErr err -> Error err
+let typecheck body = try Ok (typeof [] [] body) with TyErr err -> Error err

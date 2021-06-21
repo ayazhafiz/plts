@@ -144,7 +144,10 @@ let program_tests =
   let mk_test (p, expect) =
     let p = String.trim p in
     let test () =
-      let result = typecheck (parse_term p) |> Result.map string_of_ty in
+      let result =
+        typecheck (parse_term p)
+        |> Result.map dnf_plus |> Result.map string_of_ty
+      in
       Alcotest.(check (result string string)) p expect result
     in
     (p, `Quick, wrap test)
@@ -182,7 +185,7 @@ let example_tests =
          failwith ("Unable to parse annotated:\n" ^ annotated));
       writefi realannot annotated
     in
-    (example, `Quick, test)
+    (example, `Quick, wrap test)
   in
   List.map mk_test examples
 

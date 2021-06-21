@@ -6,17 +6,19 @@
 (library
  (name ft)
  (modules ft language parser lexer typecheck infer)
- (libraries strictly-annotated)
+ (libraries strictly-annotated ocamlgraph)
  (inline_tests)
  (preprocess (pps ppx_inline_test ppx_expect)))
 
 (test
  (name test)
  (modules Test)
+ (modes byte exe)
  (libraries ft alcotest str)
  (deps (glob_files examples/*.*))
  (action
    (progn
      (run %{test} -e)
      (no-infer (progn
-                 (diff examples/page5.annot examples/page5.realannot))))))
+                 (diff examples/page5.annot examples/page5.realannot)
+                 (diff examples/infer.annot examples/infer.realannot))))))

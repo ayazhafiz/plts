@@ -42,6 +42,18 @@ let reify_ty get_solution =
       Note that this solver is a form of liveness analysis - if a solution
       yields f1 := never, we know that variables of type f1 are never reached. *)
 module ConstraintSolver = struct
+  module G = Graph.Imperative.Digraph.Concrete (struct
+    type t = int
+
+    let compare = Stdlib.compare
+
+    let hash i = i
+
+    let equal = Stdlib.( = )
+  end)
+
+  module SCC = Graph.Components.Make (G)
+
   type bounds = { lb : ty list; ub : ty list }
 
   let trivial_bounds = { lb = [ Never ]; ub = [ Any ] }
@@ -51,10 +63,13 @@ module ConstraintSolver = struct
       (List.map string_of_ty lb |> String.concat "\n\t       ")
       (List.map string_of_ty ub |> String.concat "\n\t       ")
 
-  let infervars_of_bounds { lb; ub } =
-    List.fold_left
-      (fun all -> function Infer f -> f :: all | _ -> all)
-      [] (lb @ ub)
+  let rec infervars_of_ty = function
+    | Any | Int | Never -> []
+    | Tuple tys -> List.concat_map infervars_of_ty tys
+    | Not ty -> infervars_of_ty ty
+    | Inter tys | Union tys ->
+        TySet.to_list tys |> List.concat_map infervars_of_ty
+    | Infer t -> [ t ]
 
   let rec sets_of_constrs = function
     | [] -> []
@@ -71,55 +86,102 @@ module ConstraintSolver = struct
         in
         (v, vbounds) :: sets_of_constrs rest
 
-  let toposort depgraph =
-    let nodes = List.map fst depgraph in
-    let rec toposort path n =
-      if List.mem n path then path (* already accounted for *)
-      else
-        let nodedeps = List.assoc n depgraph in
-        let dep_path' = List.fold_left toposort path nodedeps in
-        n :: dep_path'
-    in
-    List.fold_left toposort [] nodes |> List.rev
+  (** [solution_clusters_of_sets sets] yields a list [SO] of lists of inference
+      variables with the following properties. Let [G] be a directed graph whose
+      vertices are inference variables and an edge [i=>j] means that the lower
+      bounds of [i] depend on the variable [j]. Then
+        - each cluster [C\in SO] of inference variables is strongly connected in
+          [G]
+        - [SO] is topologically sorted, so that each [ivar\in SO(n)] depends
+          only on inference variables in [SO(1)..SO(n-1)] or in its strongly
+          connected component [SO(n)]. *)
+  let solution_clusters_of_sets sets =
+    let graph = G.create ~size:(List.length sets) () in
+    List.iter (fun (ivar, _) -> G.add_vertex graph (G.V.create ivar)) sets;
+    let ( => ) i j = G.add_edge graph (G.V.create i) (G.V.create j) in
+    List.iter
+      (fun (i, { lb; _ }) ->
+        List.iter
+          (fun lb -> List.iter (fun j -> i => j) (infervars_of_ty lb))
+          lb)
+      sets;
+    let clusters = SCC.scc_list graph in
+    List.map (List.map G.V.label) clusters
 
-  let%test "toposort" =
-    let simple_graph =
-      [
-        (6, [ 1; 3 ]);
-        (5, [ 3; 4 ]);
-        (4, [ 3; 2 ]);
-        (3, [ 1; 2 ]);
-        (2, []);
-        (1, []);
-      ]
-    in
-    toposort simple_graph = [ 1; 2; 3; 6; 4; 5 ]
+  let string_of_solution_clusters sc =
+    List.map
+      (fun cluster ->
+        List.map string_of_int cluster
+        |> String.concat "," |> Printf.sprintf "[%s]")
+      sc
+    |> String.concat " => "
 
   let solve constrs =
     let open Typecheck in
     let sets = sets_of_constrs constrs in
-    let infervar_depgraph =
-      List.map (fun (v, bounds) -> (v, infervars_of_bounds bounds)) sets
+    let solution_clusters = solution_clusters_of_sets sets in
+    let solved = Hashtbl.create (List.length sets) in
+    (* Reify a type with inference vars we already solved for. *)
+    let reify_solved =
+      reify_ty (fun ivar ->
+          match Hashtbl.find_opt solved ivar with
+          | Some ty -> ty
+          | None -> Infer ivar)
     in
-    let solve_order = toposort infervar_depgraph in
-    let solved = Hashtbl.create (List.length solve_order) in
-    let reify = List.map (reify_ty (Hashtbl.find solved)) in
-    let rec go = function
+    (* Check if a variable has a "deep" inference var, that is one that is not
+       on the toplevel. *)
+    let has_deep_ivar =
+      let rec ck deep = function
+        | Any | Int | Never -> false
+        | Tuple tys -> List.exists (ck true) tys
+        | Not ty -> ck true ty
+        | Inter tys | Union tys -> TySet.exists (ck true) tys
+        | Infer _ -> deep
+      in
+      ck false
+    in
+    (* Solve for potential solutions. *)
+    let rec solve = function
       | [] -> ()
-      | v :: rest ->
-          let { lb; _ } = List.assoc v sets in
-          let lb = reify lb in
-          let vty = Union (TySet.of_list lb) in
-          Hashtbl.add solved v vty;
-          go rest
+      | cluster_ivars :: rest ->
+          let cluster =
+            List.map
+              (fun ivar ->
+                let { lb; _ } = List.assoc ivar sets in
+                let lb = List.map reify_solved lb in
+                (ivar, lb))
+              cluster_ivars
+          in
+          (* Check if this cluster is "deep", meaning that some ivar deeply
+             depends on any other ivar in the cluster. *)
+          let is_deep =
+            List.exists (fun (_, lbs) -> List.exists has_deep_ivar lbs) cluster
+          in
+          (if is_deep then
+           (* A deep cluster cannot be solved for an exact solution: some
+              inference variable will have a recursive type, which we can't
+              express. The closest we (or the user) can get is to mark
+              everything as [Any]. *)
+           List.iter (fun ivar -> Hashtbl.add solved ivar Any) cluster_ivars
+          else
+            (* Every ivar in a flat cluster has the same solution, if it exists.
+               This solution is the union of the lower bounds of each ivar,
+               excluding the ivars themselves. *)
+            let sol_lb =
+              List.concat_map snd cluster
+              |> List.filter (fun t -> not (needs_inference t))
+            in
+            let sol = union sol_lb in
+            List.iter (fun ivar -> Hashtbl.add solved ivar sol) cluster_ivars);
+          solve rest
     in
+    (* Verify solutions actually exist against upper bounds. *)
     let rec verify = function
       | [] -> ()
-      | v :: rest ->
-          let vty = Hashtbl.find solved v in
-          let { ub; _ } = List.assoc v sets in
-          let ub = reify ub in
-          let ubty = Inter (TySet.of_list ub) in
+      | (ivar, { ub; _ }) :: rest ->
+          let vty = Hashtbl.find solved ivar in
+          let ub = List.map (reify_ty (Hashtbl.find solved)) ub in
+          let ubty = inter ub in
           if vty </: ubty then
             tyerr
               (Printf.sprintf "Unsolvable constraint: %s <: %s"
@@ -127,14 +189,19 @@ module ConstraintSolver = struct
           verify rest
     in
     (try
-       go solve_order;
-       verify solve_order
-     with _ ->
+       solve solution_clusters;
+       verify sets
+     with e ->
        let bss = List.map string_of_boundset sets |> String.concat "\n" in
-       let so = List.map string_of_int solve_order |> String.concat ", " in
-       failwith
-         ("Bad constraints. Debug output:\nBounds sets:\n" ^ bss
-        ^ "\nSolving order:\n" ^ so));
+       let so = string_of_solution_clusters solution_clusters in
+       Printf.eprintf
+         "Bad constraints. Debug output:\n\
+          Bounds sets:\n\
+          %s\n\
+          Solution clusters:\n\
+          %s"
+         bss so;
+       raise e);
     solved
 
   let%expect_test "constraint solving" =
