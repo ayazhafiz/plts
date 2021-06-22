@@ -1,5 +1,3 @@
-# Skittles playgrounds
-
 Repository: [gh:ayazhafiz/skittles](https://github.com/ayazhafiz/skittles).
 
 ## Flow typing
