@@ -14,12 +14,12 @@ jobs:
       - checkout
       - run: |
           eval $(opam env)
-          ./dnf-plus/www/build.sh
+          ./ft/www/build.sh
       - run: |
           mkdir -p /tmp/out
-          mkdir -p /tmp/out/dnf-plus
+          mkdir -p /tmp/out/ft
           cp -v index.md /tmp/out
-          cp -v -R dnf-plus/www /tmp/out/dnf-plus
+          cp -v -R ft/www /tmp/out/ft
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"
