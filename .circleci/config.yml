@@ -12,12 +12,14 @@ jobs:
       - image: ayazhafiz/skittles
     steps:
       - checkout
-      - run: eval $(opam env) && ./dnf-plus/www/build.sh
+      - run: |
+          eval $(opam env)
+          ./dnf-plus/www/build.sh
       - run: |
           mkdir -p /tmp/out
           mkdir -p /tmp/out/dnf-plus
-          cp index.md /tmp/out
-          cp -R dnf-plus/www /tmp/out/dnf-plus 
+          cp -v index.md /tmp/out
+          cp -v -R dnf-plus/www /tmp/out/dnf-plus
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"
@@ -25,7 +27,7 @@ jobs:
           git remote add circleorigin https://${GH_TOKEN}@github.com/ayazhafiz/skittles
           git checkout gh-pages
           rm -rf *
-          mv /tmp/out/**/* .
+          cp -v -a /tmp/out/. .
           git add -f .
           if git commit -m "CircleCI build $CIRCLE_BUILD_NUM" ; then
             git push -fq circleorigin
