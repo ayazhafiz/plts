@@ -297,7 +297,9 @@ let apply_solutions solutions =
   doterm
 
 let infer_types term =
-  let reify =
-    term |> collect_constraints |> ConstraintSolver.solve |> apply_solutions
-  in
-  try Ok (reify term) with T.TyErr what -> Error what
+  try
+    let reify =
+      term |> collect_constraints |> ConstraintSolver.solve |> apply_solutions
+    in
+    Ok (reify term)
+  with T.TyErr what -> Error what
