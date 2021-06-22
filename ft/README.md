@@ -1,8 +1,9 @@
-# DNF+
+# FT
 
 This is an implementation of the subtype-checking algorithm described in David Pearce's _[Sound and Complete Flow Typing with Unions, Intersections, and Negations](https://ecs.wgtn.ac.nz/foswiki/pub/Main/TechnicalReportSeries/ECSTR12-20.pdf)_,
-so-called DNF+ because of Pearce's construction of a "DNF+" canonical form
-underlying the subtyping algorithm.
+so-named after Pearce's FT calculus. Our implementation also includes a
+self-designed type inference algorithm guaranteed to infer the minimal
+user-typable type, if any exists.
 
 The type system consists of the following syntactic types:
 
