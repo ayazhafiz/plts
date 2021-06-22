@@ -1,0 +1,63 @@
+version: 2.1
+
+commands:
+  install_deps:
+    steps:
+      - run: |
+          eval $(opam env)
+          opam pin strictly-annotated https://github.com/ayazhafiz/strictly-annotated.git
+          opam install -y \
+            dune \
+            menhir \
+            js_of_ocaml \
+            js_of_ocaml-compiler \
+            js_of_ocaml-ppx \
+            ppx_inline_test \
+            ppx_expect \
+            ocamlgraph
+
+jobs:
+  test:
+    docker:
+      - image: ocaml/opam
+    steps:
+      - checkout
+      - install_deps
+      - run: eval $(opam env) && dune test
+  publish_site:
+    docker:
+      - image: ocaml/opam
+    steps:
+      - checkout
+      - install_deps
+      - run: eval $(opam env) && ./dnf-plus/www/build.sh
+      - run: |
+          mkdir -p /tmp/out
+          mkdir -p /tmp/out/dnf-plus
+          cp -R dnf-plus/www/ /tmp/out/dnf-plus 
+      - run: |
+          git reset --hard HEAD
+          git config --global user.email "builds@circleci.com"
+          git config --global user.name "CircleCI"
+          git remote add circleorigin https://${GH_TOKEN}@github.com/ayazhafiz/skittles
+          git checkout gh-pages
+          rm -rf *
+          mv /tmp/out/**/* .
+          git add -f .
+          if git commit -m "CircleCI build $CIRCLE_BUILD_NUM" ; then
+            git push -fq circleorigin
+            echo -e "Deploy completed\n"
+          else
+            echo "Content not changed, nothing to deploy"
+          fi          
+
+workflows:
+  test_and_publish:
+    jobs:
+      - test
+      - publish_site:
+          requires:
+            - test
+          filters:
+            branches:
+              only: [ base ]

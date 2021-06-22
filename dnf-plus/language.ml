@@ -182,7 +182,7 @@ let fmt_term simplify_ty t =
             group
               (nest name_indent
                  (fgroup (nest 1 (text "fn " ^^ text fn ^^ text "(" ^^ formals))
-                 ^| textty ") =" "-> " ty))
+                 ^. textty ") =" "-> " ty))
           in
           let body = s body in
           let decl = group (header ^^ vgroup (nest 2 (text " " ^| body))) in
