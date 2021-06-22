@@ -9,7 +9,7 @@ jobs:
       - run: eval $(opam env) && dune test
   publish_site:
     docker:
-      - image: ocaml/opam
+      - image: ayazhafiz/skittles
     steps:
       - checkout
       - run: eval $(opam env) && ./dnf-plus/www/build.sh
