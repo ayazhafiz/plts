@@ -9,6 +9,7 @@ commands:
           opam install -y \
             dune \
             menhir \
+            aclotest \
             js_of_ocaml \
             js_of_ocaml-compiler \
             js_of_ocaml-ppx \
