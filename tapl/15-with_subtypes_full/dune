@@ -1,7 +1,0 @@
-(ocamllex lexer)
-(menhir
-  (flags --explain --fixed-exception)
-  (modules parser))
-
-(executable
-  (name with_subtypes))

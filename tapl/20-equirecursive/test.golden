@@ -1,2 +1,0 @@
-NatList :: Rec X. <nil:Unit, cons:{1:Nat, 2:X}>
-nil : NatList

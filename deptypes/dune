@@ -1,8 +1,0 @@
-(ocamllex lexer)
-(menhir
-  (flags --explain --fixed-exception)
-  (modules parser))
-
-(executable
-  (name main)
-  (modes byte exe))

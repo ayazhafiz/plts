@@ -1,3 +1,0 @@
-(test
-  (name typecheck_test)
-  (libraries SimpleSub alcotest))

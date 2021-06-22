@@ -1,7 +1,0 @@
-(ocamllex lexer)
-(menhir
-  (flags --explain)
-  (modules parser))
-
-(executable
-  (name simply_typed))
