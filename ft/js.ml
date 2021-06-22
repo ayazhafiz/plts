@@ -29,22 +29,28 @@ let err s : result Js.t =
     val error = Js.(some @@ string s)
   end
 
-let r2r = function Ok s -> ok s | Error s -> err s
+let ret = function Ok s -> ok s | Error s -> err s
+
+let wrap doit =
+  Printexc.record_backtrace true;
+  try doit ()
+  with e ->
+    Error
+      (Printexc.record_backtrace false;
+       "Internal error. Please report this.\n\n" ^ Printexc.to_string e ^ "\n"
+       ^ Printexc.get_backtrace ())
 
 let _ =
   Js.export_all
     (object%js
        method ftCheck program =
-         try r2r @@ check (Js.to_string program)
-         with Failure msg -> err ("Fatal error: " ^ msg)
+         wrap (fun () -> check (Js.to_string program)) |> ret
 
        method subtypeCheck query =
          match Str.split (Str.regexp_string "<:") (Js.to_string query) with
          | [ s; t ] ->
-             let st =
-               try Ok (parse_ty s, parse_ty t) with _ -> Error "Parsing error"
-             in
-             r2r @@ Result.map (fun (s, t) -> string_of_bool (s <: t)) st
+             let st = wrap (fun () -> Ok (parse_ty s, parse_ty t)) in
+             Result.map (fun (s, t) -> string_of_bool (s <: t)) st |> ret
          | _ ->
              err "Query should be of the form `S <: T` where S and T are types."
     end)
