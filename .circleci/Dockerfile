@@ -11,3 +11,4 @@ RUN opam install -y js_of_ocaml-ppx
 RUN opam install -y ppx_inline_test
 RUN opam install -y ppx_expect
 RUN opam install -y ocamlgraph
+RUN opam update
