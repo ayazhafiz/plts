@@ -5,11 +5,14 @@ type a = int
 
 let and_then map = function Ok x -> map x | s -> s
 
-let check program =
-  let tm = try Ok (parse_term program) with _ -> Error "Parsing error" in
-  tm |> and_then infer_types
+let parse program =
+  try Ok (parse_term program) with _ -> Error "Parsing error"
+
+let infer program = parse program |> and_then infer_types
+
+let check program do_infer =
+  (if do_infer then infer program else parse program)
   |> and_then (fun tm -> typecheck tm |> Result.map (fun _ -> tm))
-  |> Result.map string_of_term
 
 type result =
   < error : Js.js_string Js.t Js.opt Js.readonly_prop
@@ -43,8 +46,15 @@ let wrap doit =
 let _ =
   Js.export_all
     (object%js
-       method ftCheck program =
-         wrap (fun () -> check (Js.to_string program)) |> ret
+       method ftCheck program do_infer =
+         wrap (fun () ->
+             check (Js.to_string program) do_infer |> Result.map string_of_term)
+         |> ret
+
+       method ftInfer program =
+         wrap (fun () ->
+             infer (Js.to_string program) |> Result.map string_of_term)
+         |> ret
 
        method subtypeCheck query =
          match Str.split (Str.regexp_string "<:") (Js.to_string query) with
