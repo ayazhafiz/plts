@@ -27,7 +27,7 @@
     }
   </style>
 
-  <script src="./ft.js?c8c7762b2abbc43b3128cc03b1fab34a734ee448"></script>
+  <script src="./ft.js?810925c1cef12c901605b757635b903ed2c57b41"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
 </head>
@@ -70,7 +70,9 @@ in (f 1, f (1, 2))
     const $ = document.querySelector.bind(document);
 
     const backends = {
-      "Typecheck and Infer": ["Annotations", ftCheck],
+      "Infer and Typecheck": ["Annotations", (input) => ftCheck(input, true)],
+      "Infer only": ["Annotations", ftInfer],
+      "Typecheck only": ["Annotations", (input) => ftCheck(input, false)],
       "Subtyping Calculator": ["Result", subtypeCheck],
     };
     let backendExec = Object.values(backends)[0][1];
