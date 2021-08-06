@@ -16,3 +16,5 @@ programming languages I find interesting.
   Parreaux's work distills [Dolan's 2017 thesis](https://www.cs.tufts.edu/~nr/cs257/archive/stephen-dolan/thesis.pdf)
   on Algebraic Subtyping into a simpler core.
 - [FT](./ft/) - an implementation of David Pearce's _[Sound and Complete Flow Typing with Unions, Intersections, and Negations](https://ecs.wgtn.ac.nz/foswiki/pub/Main/TechnicalReportSeries/ECSTR12-20.pdf)_. Like `lang_narrow`, but proven sound and complete. Also includes a self-designed type inferer guaranteed to infer minimal types.
+- [typescript-lambda-calculus](./typescript-lambda-calculus) - an implementation
+    of the Lambda Calculus, entirely in the TypeScript type system.
