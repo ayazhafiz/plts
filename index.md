@@ -1,6 +1,10 @@
 Repository: [gh:ayazhafiz/skittles](https://github.com/ayazhafiz/skittles).
 
-## Flow typing
+## Lambda Calculus
+
+- [Emulating the Lambda Calculus in TypeScript's Type System](https://ayazhafiz.com/articles/21/typescript-type-system-lambda-calculus): Evaluating the lambda calculus entirely using the TypeScript type system.
+
+## Flow Typing
 
 - [lang_narrow](https://ayazhafiz.com/lang_narrow): A language with unions,
 records, and flow typing. A checker, interpreter, and C code generator is
