@@ -1,0 +1,19 @@
+# TAL
+
+A compiler from a System F-like language to the Typed Assembly Language, as in
+[Morrisett, Walker, Crary, and Glew (1998)](https://www.cs.princeton.edu/~dpw/papers/tal-toplas.pdf).
+
+TODO
+
+- [x] Frontend
+- [x] CPS Conversion
+- [ ] Closure Conversion
+  - [ ] Hoisting
+- [ ] Allocation
+- [ ] Cgen System A to TAL
+- [ ] TAL emulation
+- [ ] Cgen TAL to x86
+- [ ] Optimizations
+  - [ ] After CPS
+    - Harper and Lillibridge [1993]
+    - Danvy and Filinski [1992]

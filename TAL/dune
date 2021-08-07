@@ -1,0 +1,17 @@
+(ocamllex lexer)
+(menhir
+  (flags --explain --fixed-exception)
+  (modules parser))
+
+(library
+ (name tal)
+ (modules tal util f k parser lexer)
+ (inline_tests)
+ (js_of_ocaml)
+ (preprocess (pps ppx_inline_test ppx_expect)))
+
+(test
+ (name test)
+ (modules Test)
+ (modes byte exe)
+ (libraries tal alcotest))
