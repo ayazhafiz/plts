@@ -6,6 +6,7 @@ type testcase = {
   output : string option;
   pretty_f : string;
   typecheck_f : string;
+  pretty_k : string;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -26,6 +27,13 @@ let cases =
    (if0 n then 1 else
      (n * (f (n - 1))))) 6)|};
       typecheck_f = "int";
+      pretty_k =
+        rm1
+          {|
+((fix f(n: int, c: ((int) -> void)).
+   (if0 n then (c(1)) else
+     (let y1 = n - 1 in (f(y1, (λ(v: int). (let y = n * v in (c(y)))))))))(6,
+  (λ(v1: int). halt<int>v1)))|};
     };
     {
       name = "twice";
@@ -43,6 +51,7 @@ let cases =
   (fix in_f(f: (a -> a)): (a -> a).
     (fix in_x(x: a): a. (f (f x))))|};
       typecheck_f = "∀a.((a -> a) -> (a -> a))";
+      pretty_k = "";
     };
   ]
 
@@ -85,6 +94,14 @@ let f_eval_tests =
   in
   List.map (mk_test (fun t -> F.(eval t |> string_of_term))) cases
 
+let k_pp_tests =
+  let cases =
+    List.map (fun { name; input; pretty_k; _ } -> (name, input, pretty_k)) cases
+  in
+  List.map
+    (mk_test (fun t -> F.elaborate t |> K.of_F |> K.string_of_term))
+    cases
+
 let k_typecheck_tests =
   let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
   List.map
@@ -111,6 +128,7 @@ let () =
       ("[F] Pretty Printing", f_pp_tests);
       ("[F] Typecheck", f_typecheck_tests);
       ("[F] Eval", f_eval_tests);
-      ("[K] Typecheck", k_typecheck_tests);
       ("[K] Eval", k_eval_tests);
+      ("[K] Pretty Printing", k_pp_tests);
+      ("[K] Typecheck", k_typecheck_tests);
     ]

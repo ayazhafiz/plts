@@ -82,7 +82,7 @@ let rec pp_value f =
     | VFix { name; typarams; params; body } ->
         let header =
           if String.index_opt name '_' = Some 0 then "λ"
-          else sprintf "fix\n        %s" name
+          else sprintf "fix %s" name
         in
         fprintf f "@[<hov 2>(%s" header;
         if List.length typarams <> 0 then (
@@ -115,12 +115,7 @@ let rec pp_value f =
             if i <> lasti then fprintf f ",@ ")
           es;
         fprintf f ")@]"
-    | VAnnot (v, t) ->
-        fprintf f "@[<hov 2>(";
-        go v;
-        fprintf f ":@ ";
-        pp_ty f t;
-        fprintf f ")@]"
+    | VAnnot (v, _) -> go v
   in
   go
 
@@ -347,7 +342,7 @@ let rec trans_ty = function
 and trans_ty_cont t = TFn { typarams = []; body = [ trans_ty t ] }
 
 let reify_cont fresh k inty =
-  let cont = fresh "cont" in
+  let cont = fresh "_" in
   let v = fresh "v" in
   let body = k (VAnnot (VVar v, inty)) in
   VAnnot
@@ -569,6 +564,7 @@ let subst x e =
 
 let evalerr what = raise (EvalErr ("K eval error: " ^ what))
 
+(* TODO: deal with fact that all values are annotated *)
 let step = function
   | Let (DeclVal (x, v), body) -> subst x v body
   | Let (DeclProj (x, VTup vs, i), body) -> subst x (List.nth vs (i - 1)) body

@@ -192,7 +192,7 @@ let rec elab tctx vctx =
       let body', body_ty =
         elab tctx ((name, fn_ty) :: (param, param_ty) :: vctx) body
       in
-      if body_ty = ret_ty then annot (Fix { f with body = body' }) ret_ty
+      if body_ty = ret_ty then annot (Fix { f with body = body' }) fn_ty
       else
         tyerr (sprintf "function checks as %s not %s" (st body_ty) (st ret_ty))
   | App (e1, e2) -> (
@@ -201,7 +201,10 @@ let rec elab tctx vctx =
           let e2', e2_ty = elab tctx vctx e2 in
           if e2_ty = t1 then annot (App (e1', e2')) t2
           else tyerr (sprintf "argument %s must be of type %s" (se e2) (st t1))
-      | _ -> tyerr (sprintf "application target %s is not a function" (se e1)))
+      | _, te1 ->
+          tyerr
+            (sprintf "application target %s is not a function (found %s)"
+               (se e1) (st te1)))
   | TyAbs (a, e) ->
       let e', t = elab (a :: tctx) vctx e in
       annot (TyAbs (a, e')) (TAll (a, t))
