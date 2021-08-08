@@ -140,8 +140,6 @@ let string_of_ty t = with_buffer (fun f -> pp_ty f t) 40
 
 (*** Typecheck ***)
 
-exception TyErr of string
-
 let tyerr what = raise (TyErr ("F type error: " ^ what))
 
 let rec ftv = function
@@ -150,8 +148,6 @@ let rec ftv = function
   | TArrow (t1, t2) -> SSet.union (ftv t1) (ftv t2)
   | TTup ts -> List.fold_left SSet.union SSet.empty (List.map ftv ts)
   | TAll (a, t) -> SSet.remove a (ftv t)
-
-let rec freshen a used = if SSet.mem a used then freshen (a ^ "'") used else a
 
 let check_wf t tctx =
   if not (SSet.subset (ftv t) (SSet.of_list tctx)) then
@@ -244,3 +240,98 @@ let rec tyof tctx vctx =
             (sprintf "then/else branches of if0 have different types (%s/%s)"
                (st tt) (st te))
       | _ -> tyerr (sprintf "if0 test %s must be an int" (se test)))
+
+(*** Eval ***)
+
+let rec fvs =
+  let open SSet in
+  function
+  | Var x -> singleton x
+  | Int _ -> empty
+  | Fix { name; param; body; _ } -> fvs body |> remove name |> remove param
+  | App (e1, e2) -> union (fvs e1) (fvs e2)
+  | TyAbs (_, e) -> fvs e
+  | TyApp (e, _) -> fvs e
+  | Tup ts -> List.fold_left union empty (List.map fvs ts)
+  | Proj (e, _) -> fvs e
+  | Op (_, e1, e2) -> union (fvs e1) (fvs e2)
+  | If0 (e1, e2, e3) -> fvs e1 |> union (fvs e2) |> union (fvs e3)
+  | Annot (e, _) -> fvs e
+
+let subst x e tm =
+  let rec go subs tm =
+    match tm with
+    | Var y -> ( match List.assoc_opt y subs with Some e -> e | None -> Var y)
+    | Int _ -> tm
+    | Fix { name; param; param_ty; ret_ty; body } ->
+        if x = name || x = param then tm
+        else
+          let fvs_e = fvs e in
+          let used = SSet.union fvs_e (fvs body) in
+          let vs = [ name; param ] in
+          let vs', esubs =
+            List.map
+              (fun v ->
+                if SSet.mem v fvs_e then
+                  let v' = freshen v used in
+                  (v', Some (v, Var v'))
+                else (v, None))
+              vs
+            |> List.split
+          in
+          let esubs = List.filter_map Fun.id esubs in
+          let name', param' =
+            match vs' with [ n; p ] -> (n, p) | _ -> failwith "unreachable"
+          in
+          Fix
+            {
+              name = name';
+              param = param';
+              param_ty;
+              ret_ty;
+              body = go (esubs @ subs) body;
+            }
+    | App (e1, e2) -> App (go subs e1, go subs e2)
+    | TyAbs (a, e) -> TyAbs (a, go subs e)
+    | TyApp (e, t) -> TyApp (go subs e, t)
+    | Tup ts -> Tup (List.map (go subs) ts)
+    | Proj (e, i) -> Proj (go subs e, i)
+    | Op (op, e1, e2) -> Op (op, go subs e1, go subs e2)
+    | If0 (e1, e2, e3) -> If0 (go subs e1, go subs e2, go subs e3)
+    | Annot (e, t) -> Annot (go subs e, t)
+  in
+  go [ (x, e) ] tm
+
+let rec isvalue = function
+  | Int _ | Fix _ | TyAbs _ -> true
+  | Tup ts -> List.for_all isvalue ts
+  | _ -> false
+
+let evalerr what = raise (EvalErr ("F eval error: " ^ what))
+
+let rec step = function
+  | App ((Fix { name; param; body; _ } as f), e2) when isvalue e2 ->
+      subst param e2 body |> subst name f
+  | App (e1, e2) when isvalue e1 -> App (e1, step e2)
+  | TyApp (TyAbs (_, body), _) -> body
+  | TyApp (e, t) -> TyApp (step e, t)
+  | Tup es ->
+      let rec do1 = function
+        | [] -> []
+        | e :: rst when isvalue e -> e :: do1 rst
+        | e :: rst -> step e :: rst
+      in
+      Tup (do1 es)
+  | Proj (Tup es, i) -> List.nth es (i - 1)
+  | Proj (e, i) -> Proj (step e, i)
+  | Op (op, Int i, Int j) ->
+      Int (match op with Plus -> i + j | Minus -> i - j | Times -> i * j)
+  | Op (op, e1, e2) when isvalue e1 -> Op (op, e1, step e2)
+  | Op (op, e1, e2) -> Op (op, step e1, e2)
+  | If0 (Int 0, e1, _) -> e1
+  | If0 (Int _, _, e2) -> e2
+  | If0 (t, e1, e2) -> If0 (step t, e1, e2)
+  | Annot (e, _) -> e
+  | t -> evalerr (Printf.sprintf "term %s is stuck" (string_of_term t))
+
+let rec eval tm = if isvalue tm then tm else eval (step tm)

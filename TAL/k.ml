@@ -212,8 +212,6 @@ let rec ftv = function
       let ftvs = SSet.(List.fold_left union empty (List.map ftv body)) in
       SSet.(diff ftvs (of_list typarams))
 
-let rec freshen a used = if SSet.mem a used then freshen (a ^ "'") used else a
-
 let tysub a ta t =
   let rec go subs = function
     | TInt -> TInt
@@ -550,3 +548,117 @@ let trans_top u =
       }
   in
   trans_exp fresh [] [] u toplevel_cont
+
+(*** Eval ***)
+
+let rec fvs_v =
+  let open SSet in
+  let rec go = function
+    | VVar x -> singleton x
+    | VInt _ -> empty
+    | VFix { name; typarams = _; params; body } ->
+        let bound = add name (of_list (List.map fst params)) in
+        diff (fvs_t body) bound
+    | VTup vs -> List.fold_left union empty (List.map go vs)
+    | VAnnot (v, _) -> go v
+  in
+  go
+
+and fvs_t =
+  let open SSet in
+  let rec go = function
+    | Let (DeclVal (x, v), e) -> union (fvs_v v) (remove x (go e))
+    | Let (DeclProj (x, v, _), e) -> union (fvs_v v) (remove x (go e))
+    | Let (DeclOp (x, _, v1, v2), e) ->
+        union (fvs_v v1) (fvs_v v2) |> union (remove x (go e))
+    | App (v, _, vs) -> List.fold_left union empty (List.map fvs_v (v :: vs))
+    | If0 (v1, t2, t3) -> fvs_v v1 |> union (go t2) |> union (go t3)
+    | Halt (_, v) -> fvs_v v
+  in
+  go
+
+let subst x e =
+  let rec go_v subs tm =
+    match tm with
+    | VVar y -> (
+        match List.assoc_opt y subs with Some e -> e | None -> VVar y)
+    | VInt _ -> tm
+    | VFix { name; typarams; params; body } ->
+        if x = name || List.exists (fun (p, _) -> p = x) params then tm
+        else
+          let fvs_e = fvs_v e in
+          let used = SSet.union fvs_e (fvs_t body) in
+          let vs = name :: List.map fst params in
+          let vs', esubs =
+            List.map
+              (fun v ->
+                if SSet.mem v fvs_e then
+                  let v' = freshen v used in
+                  (v', Some (v, VVar v'))
+                else (v, None))
+              vs
+            |> List.split
+          in
+          let esubs = List.filter_map Fun.id esubs in
+          let name', params' =
+            match vs' with n :: p -> (n, p) | _ -> failwith "unreachable"
+          in
+          let params' = List.map2 (fun p (_, t) -> (p, t)) params' params in
+          VFix
+            {
+              name = name';
+              typarams;
+              params = params';
+              body = go_t (esubs @ subs) body;
+            }
+    | VTup vs -> VTup (List.map (go_v subs) vs)
+    | VAnnot (v, t) -> VAnnot (go_v subs v, t)
+  and go_t subs tm =
+    let do_let y body create_let =
+      if x = y then tm
+      else if SSet.mem y (fvs_v e) then
+        let y' = freshen y (SSet.union (fvs_v e) (fvs_t body)) in
+        create_let y' [ (y, VVar y') ]
+      else create_let y []
+    in
+    match tm with
+    | Let (DeclVal (y, v), body) ->
+        do_let y body (fun y' esubs ->
+            Let (DeclVal (y', go_v subs v), go_t (esubs @ subs) body))
+    | Let (DeclProj (y, v, i), body) ->
+        do_let y body (fun y' esubs ->
+            Let (DeclProj (y', go_v subs v, i), go_t (esubs @ subs) body))
+    | Let (DeclOp (y, op, e1, e2), body) ->
+        do_let y body (fun y' esubs ->
+            Let
+              ( DeclOp (y', op, go_v subs e1, go_v subs e2),
+                go_t (esubs @ subs) body ))
+    | App (v, ts, vs) -> App (go_v subs v, ts, List.map (go_v subs) vs)
+    | If0 (v, t1, t2) -> If0 (go_v subs v, go_t subs t1, go_t subs t2)
+    | Halt (t, v) -> Halt (t, go_v subs v)
+  in
+  go_t [ (x, e) ]
+
+let evalerr what = raise (EvalErr ("K eval error: " ^ what))
+
+let step = function
+  | Let (DeclVal (x, v), body) -> subst x v body
+  | Let (DeclProj (x, VTup vs, i), body) -> subst x (List.nth vs (i - 1)) body
+  | Let (DeclOp (x, op, VInt i, VInt j), body) ->
+      subst x
+        (VInt (match op with Plus -> i + j | Minus -> i - j | Times -> i * j))
+        body
+  | App ((VFix { name; params; body; _ } as f), _, vs) ->
+      let paramsubs = List.map fst params |> List.map2 (fun v p -> (p, v)) vs in
+      let subs = (name, f) :: paramsubs in
+      List.fold_left (fun body (x, v) -> subst x v body) body subs
+  | If0 (VInt 0, t2, _) -> t2
+  | If0 (VInt _, _, t3) -> t3
+  | t -> evalerr (sprintf "term %s is stuck" (se t))
+
+let rec unwrap_value = function
+  | VVar x -> evalerr ("unresolved variable " ^ x)
+  | VAnnot (v, _) -> unwrap_value v
+  | v -> v
+
+let rec eval = function Halt (_, v) -> unwrap_value v | e -> eval (step e)

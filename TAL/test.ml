@@ -3,6 +3,7 @@ open Tal
 type testcase = {
   name : string;
   input : string;
+  output : string option;
   pretty_f : string;
   typecheck_f : string;
   pretty_k : string;
@@ -18,6 +19,7 @@ let cases =
         rm1 {|
 (fix f (n: int): int.
   if0 n then 1 else n * f (n - 1)) 6|};
+      output = Some "720";
       pretty_f =
         rm1
           {|
@@ -52,6 +54,7 @@ let cases =
 Λa. fix in_f(f: a->a): a->a.
       fix in_x(x: a): a.
         (f (f x))|};
+      output = None;
       pretty_f =
         rm1
           {|
@@ -118,6 +121,16 @@ let f_typecheck_tests =
   in
   List.map (mk_test (fun t -> F.typeof t |> F.string_of_ty)) cases
 
+let f_eval_tests =
+  let cases =
+    List.filter_map
+      (function
+        | { name; input; output = Some output; _ } -> Some (name, input, output)
+        | _ -> None)
+      cases
+  in
+  List.map (mk_test (fun t -> F.(eval t |> string_of_term))) cases
+
 let f_to_k_tests =
   let cases =
     List.map (fun { name; input; pretty_k; _ } -> (name, input, pretty_k)) cases
@@ -132,11 +145,23 @@ let k_typecheck_tests =
          ""))
     cases
 
+let k_eval_tests =
+  let cases =
+    List.filter_map
+      (function
+        | { name; input; output = Some output; _ } -> Some (name, input, output)
+        | _ -> None)
+      cases
+  in
+  List.map (mk_test (fun t -> K.(of_F t |> eval |> string_of_value))) cases
+
 let () =
   Alcotest.run "TAL tests"
     [
       ("[F] Pretty Printing", f_pp_tests);
       ("[F] Typecheck", f_typecheck_tests);
+      ("[F] Eval", f_eval_tests);
       ("[F->K] Closure Conversion", f_to_k_tests);
       ("[K] Typecheck", f_to_k_tests);
+      ("[K] Eval", k_eval_tests);
     ]

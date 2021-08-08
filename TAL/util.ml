@@ -12,3 +12,9 @@ module SSet = Set.Make (struct
 
   let compare = compare
 end)
+
+let rec freshen a used = if SSet.mem a used then freshen (a ^ "'") used else a
+
+exception TyErr of string
+
+exception EvalErr of string
