@@ -14,6 +14,4 @@ TODO
 - [ ] TAL emulation
 - [ ] Cgen TAL to x86
 - [ ] Optimizations
-  - [ ] After CPS
-    - Harper and Lillibridge [1993]
-    - Danvy and Filinski [1992]
+  - [X] CPS: Danvy and Filinski [1992]
