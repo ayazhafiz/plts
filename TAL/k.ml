@@ -193,8 +193,6 @@ let string_of_ty t = with_buffer (fun f -> pp_ty f t) 80
 
 (*** Typecheck ***)
 
-exception TyErr of string
-
 let tyerr what = raise (TyErr ("K type error: " ^ what))
 
 let rec ftv = function
@@ -330,6 +328,18 @@ and term_wf tctx vctx = function
         tyerr (sprintf "halting value %s is not of type %s" (sv v) (st t))
 
 (*** Translation from F ***)
+(*** NB: This uses a translation algorithm that "eliminates administrative
+     redices" as described by Danvy and Filinski (1992). I am not very familiar
+     with and have not closely read the paper so the implementation has been
+     lifted from sweirich's work at
+     https://github.com/sweirich/tal/blob/master/src/Translate.hs.
+     Compared to the CPS conversion algorithm presented in the TAL paper, the
+     only difference of this approach is that continuations [k] are passed as
+     functions in the implementation langauge. Rather than always forcing an
+     [App] where an application is needed, we "fill in" the value to call a
+     continuation with directly.
+     Indeed the result is that we get rid of a number of superfluous beta
+     redices, yielding more readable code. ***)
 
 let rec trans_ty = function
   | F.TName x -> TName x
@@ -383,7 +393,7 @@ let rec trans_exp fresh e k =
               App (x1, [], [ x2; reify_cont fresh k kapp_out_t ])))
   | F.Annot (F.TyAbs (a, (F.Annot (_, t) as ut)), t') ->
       let kct = trans_ty_cont t in
-      let kt' = trans_ty_cont t' in
+      let kt' = trans_ty t' in
       let c = fresh "c" in
       let f = fresh "_" in
       let kfix =
@@ -405,6 +415,16 @@ let rec trans_exp fresh e k =
           App (x, [ ko ], [ reify_cont fresh k ktyapp_out_t ]))
   | F.Annot (F.Tup uts, t) ->
       let kt = trans_ty t in
+      (* Ingenious, tricky piece of code from Weirich's implementation.
+         The idea is that we need to generate
+           Kexp[u1](\x1: ...
+             Kexp[un](\xn:
+               k(x1, ..., xn))...)
+         So we need to walk the tuple values left-to-right to create the nested
+         continuations. But also, at the end we need to continue [k] with the
+         entire tuple. The recursive calls to [go] accomplish the first task.
+         [ktup] accomplishes the latter - we build back up the tuple until we
+         hit the entry [ktup] definition which calls [k]. *)
       let rec go ktup = function
         | [] -> ktup []
         | uti :: uts ->
@@ -564,20 +584,25 @@ let subst x e =
 
 let evalerr what = raise (EvalErr ("K eval error: " ^ what))
 
-(* TODO: deal with fact that all values are annotated *)
+let unannot = function VAnnot (v, _) -> v | _ -> evalerr "value not annotated"
+
 let step = function
-  | Let (DeclVal (x, v), body) -> subst x v body
-  | Let (DeclProj (x, VTup vs, i), body) -> subst x (List.nth vs (i - 1)) body
-  | Let (DeclOp (x, op, VInt i, VInt j), body) ->
+  | Let (DeclVal (x, VAnnot (v, _)), body) -> subst x v body
+  | Let (DeclProj (x, VAnnot (VTup vs, _), i), body) ->
+      let vi = unannot (List.nth vs (i - 1)) in
+      subst x vi body
+  | Let (DeclOp (x, op, VAnnot (VInt i, _), VAnnot (VInt j, _)), body) ->
       subst x
         (VInt (match op with Plus -> i + j | Minus -> i - j | Times -> i * j))
         body
-  | App ((VFix { name; params; body; _ } as f), _, vs) ->
-      let paramsubs = List.map fst params |> List.map2 (fun v p -> (p, v)) vs in
+  | App (VAnnot ((VFix { name; params; body; _ } as f), _), _, vs) ->
+      let paramsubs =
+        List.map fst params |> List.map2 (fun v p -> (p, unannot v)) vs
+      in
       let subs = (name, f) :: paramsubs in
       List.fold_left (fun body (x, v) -> subst x v body) body subs
-  | If0 (VInt 0, t2, _) -> t2
-  | If0 (VInt _, _, t3) -> t3
+  | If0 (VAnnot (VInt 0, _), t2, _) -> t2
+  | If0 (VAnnot (VInt _, _), _, t3) -> t3
   | t -> evalerr (sprintf "term %s is stuck" (se t))
 
 let rec unwrap_value = function

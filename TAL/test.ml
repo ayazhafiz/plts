@@ -51,7 +51,21 @@ let cases =
   (fix in_f(f: (a -> a)): (a -> a).
     (fix in_x(x: a): a. (f (f x))))|};
       typecheck_f = "∀a.((a -> a) -> (a -> a))";
-      pretty_k = "";
+      pretty_k =
+        rm1
+          {|
+halt<
+  (∀<a>.
+    (((((((a, ((a) -> void)) -> void),
+         ((((a, ((a) -> void)) -> void)) -> void)) -> void)) -> void)) -> void)>
+  (λ<a>.
+    (c:
+       ((((((a, ((a) -> void)) -> void),
+           ((((a, ((a) -> void)) -> void)) -> void)) -> void)) -> void)).
+    (c((fix in_f(f: ((a, ((a) -> void)) -> void),
+         c1: ((((a, ((a) -> void)) -> void)) -> void)).
+         (c1((fix in_x(x: a, c2: ((a) -> void)).
+               (f(x, (λ(v: a). (f(v, (λ(v1: a). (c2(v1)))))))))))))))|};
     };
   ]
 
@@ -61,7 +75,7 @@ let wrap test =
   try test
   with _ as e ->
     Printexc.record_backtrace false;
-    Alcotest.fail (Printexc.to_string e ^ "\n" ^ Printexc.get_backtrace ())
+    Alcotest.fail (Printexc.to_string e ^ "\n\n" ^ Printexc.get_backtrace ())
 
 let mk_test driver (name, input, expect) =
   let test () =
@@ -128,7 +142,7 @@ let () =
       ("[F] Pretty Printing", f_pp_tests);
       ("[F] Typecheck", f_typecheck_tests);
       ("[F] Eval", f_eval_tests);
-      ("[K] Eval", k_eval_tests);
       ("[K] Pretty Printing", k_pp_tests);
       ("[K] Typecheck", k_typecheck_tests);
+      ("[K] Eval", k_eval_tests);
     ]
