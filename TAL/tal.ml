@@ -14,8 +14,6 @@ end
 
 module F = struct
   include F
-
-  let typeof = tyof [] []
 end
 
 module K = struct

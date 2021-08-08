@@ -172,74 +172,82 @@ let tysub a ta t =
   in
   go [ (a, ta) ] t
 
-let rec tyof tctx vctx =
+let rec elab tctx vctx =
   let se = string_of_term in
   let st = string_of_ty in
   let sprintf = Printf.sprintf in
+  let annot e t = (Annot (e, t), t) in
   function
   | Annot (e, t) ->
-      let ety = tyof tctx vctx e in
-      if ety = t then t
+      let e', ety = elab tctx vctx e in
+      if ety = t then annot e' t
       else tyerr (sprintf "%s checks as %s not %s" (se e) (st ety) (st t))
   | Var x -> (
       match List.assoc_opt x vctx with
-      | Some t -> t
+      | Some t -> annot (Var x) t
       | None -> tyerr (sprintf "undeclared variable %s" x))
-  | Int _ -> TInt
-  | Fix { name; param; param_ty; ret_ty; body } ->
+  | Int i -> annot (Int i) TInt
+  | Fix ({ name; param; param_ty; ret_ty; body } as f) ->
       check_wf param_ty tctx;
       check_wf ret_ty tctx;
       let fn_ty = TArrow (param_ty, ret_ty) in
-      let body_ty =
-        tyof tctx ((name, fn_ty) :: (param, param_ty) :: vctx) body
+      let body', body_ty =
+        elab tctx ((name, fn_ty) :: (param, param_ty) :: vctx) body
       in
-      if body_ty = ret_ty then fn_ty
+      if body_ty = ret_ty then annot (Fix { f with body = body' }) ret_ty
       else
         tyerr (sprintf "function checks as %s not %s" (st body_ty) (st ret_ty))
   | App (e1, e2) -> (
-      match tyof tctx vctx e1 with
-      | TArrow (t1, t2) ->
-          let e2_ty = tyof tctx vctx e2 in
-          if e2_ty = t1 then t2
+      match elab tctx vctx e1 with
+      | e1', TArrow (t1, t2) ->
+          let e2', e2_ty = elab tctx vctx e2 in
+          if e2_ty = t1 then annot (App (e1', e2')) t2
           else tyerr (sprintf "argument %s must be of type %s" (se e2) (st t1))
       | _ -> tyerr (sprintf "application target %s is not a function" (se e1)))
   | TyAbs (a, e) ->
-      let t = tyof (a :: tctx) vctx e in
-      TAll (a, t)
+      let e', t = elab (a :: tctx) vctx e in
+      annot (TyAbs (a, e')) (TAll (a, t))
   | TyApp (e, ta) -> (
       check_wf ta tctx;
-      match tyof tctx vctx e with
-      | TAll (a, t) -> tysub a ta t
+      match elab tctx vctx e with
+      | e', TAll (a, t) -> annot (TyApp (e', ta)) (tysub a ta t)
       | _ ->
           tyerr
             (sprintf "type application target %s is not universally quantified"
                (se e)))
-  | Tup es -> TTup (List.map (tyof tctx vctx) es)
+  | Tup es ->
+      let es', tys = List.map (elab tctx vctx) es |> List.split in
+      annot (Tup es') (TTup tys)
   | Proj (e, i) -> (
-      match tyof tctx vctx e with
-      | TTup ts -> (
+      match elab tctx vctx e with
+      | e', TTup ts -> (
           match List.nth_opt ts (i - 1) with
-          | Some t -> t
+          | Some t -> annot (Proj (e', i)) t
           | None ->
               tyerr
                 (sprintf "tuple type of %s cannot be indexed at \"%d\"" (se e) i)
           )
       | _ -> tyerr (sprintf "projection target %s is not a tuple" (se e)))
-  | Op (_, e1, e2) as op -> (
-      match (tyof tctx vctx e1, tyof tctx vctx e2) with
-      | TInt, TInt -> TInt
+  | Op (o, e1, e2) as op -> (
+      match (elab tctx vctx e1, elab tctx vctx e2) with
+      | (e1', TInt), (e2', TInt) -> annot (Op (o, e1', e2')) TInt
       | _ ->
           tyerr (sprintf "both arguments in operation %s must be ints" (se op)))
   | If0 (test, then', else') -> (
       match
-        (tyof tctx vctx test, tyof tctx vctx then', tyof tctx vctx else')
+        (elab tctx vctx test, elab tctx vctx then', elab tctx vctx else')
       with
-      | TInt, tt, te when tt = te -> tt
-      | TInt, tt, te ->
+      | (test', TInt), (t', tt), (e', te) when tt = te ->
+          annot (If0 (test', t', e')) tt
+      | (_, TInt), (_, tt), (_, te) ->
           tyerr
             (sprintf "then/else branches of if0 have different types (%s/%s)"
                (st tt) (st te))
       | _ -> tyerr (sprintf "if0 test %s must be an int" (se test)))
+
+let elaborate e =
+  let e', _ = elab [] [] e in
+  e'
 
 (*** Eval ***)
 

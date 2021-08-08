@@ -12,7 +12,8 @@ end
 module F : sig
   include Lang
 
-  val typeof : term -> ty
+  val elaborate : term -> term
+  (** Elaborate subterms with their types. *)
 
   val eval : term -> term
 end
