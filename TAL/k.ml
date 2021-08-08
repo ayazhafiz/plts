@@ -322,7 +322,7 @@ and term_wf tctx vctx = function
               if arg_ty <> inst_param_ty then
                 tyerr
                   (sprintf
-                     "in application to %s,expected argument %s to be of type \
+                     "in application to %s, expected argument %s to be of type \
                       %s (found type %s)"
                      (sv fn) (sv arg) (st inst_param_ty) (st arg_ty)))
             vargs body
@@ -538,13 +538,14 @@ let trans_top u =
   (* Kprog[u^t] = Kexp[u](λx:K[τ].halt[K[τ]]x) *)
   let t = F.tyof [] [] u in
   let k_t = trans_ty t in
+  let x = fresh "x" in
   let toplevel_cont =
     VFix
       {
         name = fresh "tl_halt";
         typarams = [];
-        params = [ (fresh "x", k_t) ];
-        body = Halt (k_t, VVar "x");
+        params = [ (x, k_t) ];
+        body = Halt (k_t, VVar x);
       }
   in
   trans_exp fresh [] [] u toplevel_cont

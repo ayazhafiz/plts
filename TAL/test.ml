@@ -6,7 +6,6 @@ type testcase = {
   output : string option;
   pretty_f : string;
   typecheck_f : string;
-  pretty_k : string;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -27,24 +26,6 @@ let cases =
    (if0 n then 1 else
      (n * (f (n - 1))))) 6)|};
       typecheck_f = "int";
-      pretty_k =
-        rm1
-          {|
-((λ(x1: ((int, ((int) -> void)) -> void)).
-   ((λ(x2: int). (x1(x2, (fix
-        tl_halt(x: int). halt<int>x))))(6)))(
-  (fix
-        f(n: int, c: ((int) -> void)).
-    ((λ(x3: int).
-       (if0 x3 then (c(1)) else
-         ((λ(x11: int).
-            ((λ(x12: ((int, ((int) -> void)) -> void)).
-               ((λ(x13: int).
-                  ((λ(x23: int).
-                     (let y1 = x13 - x23 in
-                       ((λ(x22: int).
-                          (x12(x22,
-                            (λ(x21: int). (let y = x11 * x21 in (c(y)))))))(y1))))(1)))(n)))(f)))(n))))(n)))))|};
     };
     {
       name = "twice";
@@ -62,33 +43,6 @@ let cases =
   (fix in_f(f: (a -> a)): (a -> a).
     (fix in_x(x: a): a. (f (f x))))|};
       typecheck_f = "∀a.((a -> a) -> (a -> a))";
-      pretty_k =
-        rm1
-          {|
-((fix
-        tl_halt(x1:
-                        (∀<a>.
-                          (((((((a, ((a) -> void)) -> void),
-                               ((((a, ((a) -> void)) -> void)) -> void))
-                               -> void)) -> void)) -> void)).
-   halt<
-     (∀<a>.
-       (((((((a, ((a) -> void)) -> void),
-            ((((a, ((a) -> void)) -> void)) -> void)) -> void)) -> void))
-       -> void)>x)((λ<a>.
-                     (c:
-                        ((((((a, ((a) -> void)) -> void),
-                            ((((a, ((a) -> void)) -> void)) -> void)) -> void))
-                          -> void)).
-                     (c((fix
-        in_f(f: ((a, ((a) -> void)) -> void),
-                          c1: ((((a, ((a) -> void)) -> void)) -> void)).
-                          (c((fix
-        in_x(x: a, c2: ((a) -> void)).
-                               ((λ(x11: ((a, ((a) -> void)) -> void)).
-                                  ((λ(x12: ((a, ((a) -> void)) -> void)).
-                                     ((λ(x21: a).
-                                        (x12(x21, (λ(x2: a). (x11(x2, c))))))(x)))(f)))(f)))))))))))|};
     };
   ]
 
@@ -131,12 +85,6 @@ let f_eval_tests =
   in
   List.map (mk_test (fun t -> F.(eval t |> string_of_term))) cases
 
-let f_to_k_tests =
-  let cases =
-    List.map (fun { name; input; pretty_k; _ } -> (name, input, pretty_k)) cases
-  in
-  List.map (mk_test (fun t -> K.of_F t |> K.string_of_term)) cases
-
 let k_typecheck_tests =
   let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
   List.map
@@ -161,7 +109,6 @@ let () =
       ("[F] Pretty Printing", f_pp_tests);
       ("[F] Typecheck", f_typecheck_tests);
       ("[F] Eval", f_eval_tests);
-      ("[F->K] Closure Conversion", f_to_k_tests);
-      ("[K] Typecheck", f_to_k_tests);
+      ("[K] Typecheck", k_typecheck_tests);
       ("[K] Eval", k_eval_tests);
     ]
