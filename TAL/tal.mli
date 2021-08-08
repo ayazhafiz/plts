@@ -12,8 +12,12 @@ end
 module F : sig
   include Lang
 
-  val elaborate : term -> term
+  type elaborated_term
+
+  val elaborate : term -> elaborated_term
   (** Elaborate subterms with their types. *)
+
+  val typeof : elaborated_term -> ty
 
   val eval : term -> term
 end
@@ -26,7 +30,7 @@ module K : sig
 
   val string_of_value : value -> string
 
-  val of_F : F.term -> term
+  val of_F : F.elaborated_term -> term
 
   val check_well_typed : term -> unit
 

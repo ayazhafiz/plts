@@ -73,7 +73,7 @@ let f_typecheck_tests =
       (fun { name; input; typecheck_f; _ } -> (name, input, typecheck_f))
       cases
   in
-  List.map (mk_test (fun t -> F.typeof t |> F.string_of_ty)) cases
+  List.map (mk_test (fun t -> F.(elaborate t |> typeof |> string_of_ty))) cases
 
 let f_eval_tests =
   let cases =
@@ -89,7 +89,7 @@ let k_typecheck_tests =
   let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
   List.map
     (mk_test (fun t ->
-         K.of_F t |> K.check_well_typed;
+         F.elaborate t |> K.of_F |> K.check_well_typed;
          ""))
     cases
 
@@ -101,7 +101,9 @@ let k_eval_tests =
         | _ -> None)
       cases
   in
-  List.map (mk_test (fun t -> K.(of_F t |> eval |> string_of_value))) cases
+  List.map
+    (mk_test (fun t -> K.(F.elaborate t |> of_F |> eval |> string_of_value)))
+    cases
 
 let () =
   Alcotest.run "TAL tests"

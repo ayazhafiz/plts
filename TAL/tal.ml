@@ -14,6 +14,10 @@ end
 
 module F = struct
   include F
+
+  type elaborated_term = term
+
+  let typeof = function Annot (_, t) -> t | _ -> failwith "not elaborated"
 end
 
 module K = struct

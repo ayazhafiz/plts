@@ -10,8 +10,6 @@ type ty =
   | TAll of string * ty
   | TTup of ty list
 
-type op = Plus | Minus | Times
-
 type term =
   | Var of string
   | Int of int

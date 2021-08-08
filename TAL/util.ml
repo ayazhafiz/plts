@@ -1,3 +1,5 @@
+type op = Plus | Minus | Times
+
 let with_buffer cb width =
   let open Format in
   let b = Buffer.create 32 in

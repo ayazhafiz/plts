@@ -6,8 +6,6 @@ type ty =
   | TFn of { typarams : string list; body : ty list }  (** ∀<as>.(ts)->void *)
   | TTup of ty list
 
-type op = Plus | Minus | Times
-
 type value =
   | VVar of string
   | VInt of int
@@ -339,161 +337,99 @@ and term_wf tctx vctx = function
 (*** Translation from F ***)
 
 let rec trans_ty = function
-  | F.TName n -> TName n
+  | F.TName x -> TName x
   | F.TInt -> TInt
   | F.TArrow (t1, t2) ->
-      (* Idea: translate a function f: A -> B into a continuation-based function
-         given by f: (A, B -> void) -> void. Where as in F we would do something
-         like [f(x: A): B = h(x) in f 1], this will now become
-         [f(x, cont) = (let x' = h(x) in cont(x)) in f(1, \x. halt<B>x)]. *)
-      TFn { typarams = []; body = [ trans_ty t1; trans_cont t2 ] }
-  | F.TAll (a, t) -> TFn { typarams = [ a ]; body = [ trans_cont t ] }
+      TFn { typarams = []; body = [ trans_ty t1; trans_ty_cont t2 ] }
+  | F.TAll (a, t) -> TFn { typarams = [ a ]; body = [ trans_ty_cont t ] }
   | F.TTup ts -> TTup (List.map trans_ty ts)
 
-(** Makes a type a parameter to a continuation. *)
-and trans_cont t = TFn { typarams = []; body = [ trans_ty t ] }
+and trans_ty_cont t = TFn { typarams = []; body = [ trans_ty t ] }
 
-let rec trans_exp fresh tctx vctx u k =
-  match u with
-  | F.Var y -> App (k, [], [ VVar y ])
-  | F.Int i -> App (k, [], [ VInt i ])
-  | F.Tup us ->
-      (* Kexp[⟨u1 ,...,un ⟩ ]k = Kexp[u1](λx1:K[τ1].
-                                   ...
-                                     Kexp[un](λxn:K[τn].
-                                       k((x1, ..., xn)))) *)
-      let kts = List.map (F.tyof tctx vctx) us |> List.map trans_ty in
-      let xs = List.map (fun _ -> fresh "x") us in
-      let tup = VTup (List.map (fun x -> VVar x) xs) in
-      let final = App (k, [], [ tup ]) in
-      List.fold_right2
-        (fun u (x, t) body ->
-          trans_exp fresh tctx vctx u
-            (VFix { name = fresh "_"; typarams = []; params = [ (x, t) ]; body }))
-        us (List.combine xs kts) final
-  | F.Fix { name = x; param = x1; param_ty = t1; ret_ty = t2; body = e } ->
-      (* Kexp[(fixx(x1:τ1):τ2.e) ]k = k((fix x(x1:K[τ1], c:Kcont[τ2]).Kexp[e]c ) ) *)
+let reify_cont fresh k inty =
+  let cont = fresh "cont" in
+  let v = fresh "v" in
+  let body = k (VAnnot (VVar v, inty)) in
+  VAnnot
+    ( VFix { name = cont; typarams = []; params = [ (v, inty) ]; body },
+      TFn { typarams = []; body = [ inty ] } )
+
+let rec trans_exp fresh e k =
+  match e with
+  | F.Annot (F.Var y, t) ->
+      let kt = trans_ty t in
+      k (VAnnot (VVar y, kt))
+  | F.Annot (F.Int i, t) ->
+      let kt = trans_ty t in
+      k (VAnnot (VInt i, kt))
+  | F.Annot
+      (F.Fix { name = x; param = x1; param_ty = t1; ret_ty = t2; body = e }, t)
+    ->
+      let kt = trans_ty t in
+      let kt1 = trans_ty t1 in
+      let kct2 = trans_ty_cont t2 in
       let c = fresh "c" in
-      let vctx' = (x, F.TArrow (t1, t2)) :: (x1, t1) :: vctx in
-      let k_body = trans_exp fresh tctx vctx' e (VVar "c") in
-      App
-        ( k,
-          [],
-          [
-            VFix
-              {
-                name = x;
-                typarams = [];
-                params = [ (x1, trans_ty t1); (c, trans_cont t2) ];
-                body = k_body;
-              };
-          ] )
-  | F.App (u1, u2) ->
-      (* Kexp[(u1^t1 u2^t2)]k = Kexp[u1](λx1:K[τ1].
-                                  Kexp[u2](λx2:K[τ2].
-                                    x1(x2,k))) *)
-      let kt1 = F.tyof tctx vctx u1 |> trans_ty in
-      let kt2 = F.tyof tctx vctx u2 |> trans_ty in
-      let x1 = fresh "x1" in
-      let x2 = fresh "x2" in
-      trans_exp fresh tctx vctx u1
-        (VFix
-           {
-             name = fresh "_";
-             typarams = [];
-             params = [ (x1, kt1) ];
-             body =
-               trans_exp fresh tctx vctx u2
-                 (VFix
-                    {
-                      name = fresh "_";
-                      typarams = [];
-                      params = [ (x2, kt2) ];
-                      body = App (VVar x1, [], [ VVar x2; k ]);
-                    });
-           })
-  | F.TyAbs (a, u) ->
-      (* Kexp[(Λα.u^τ)]k = k(λ[α](c:Kcont[τ]).Kexp[u]c) *)
-      let t = F.tyof (a :: tctx) vctx u in
-      let c = fresh "c" in
-      App
-        ( k,
-          [],
-          [
-            VFix
-              {
-                name = fresh "_";
-                typarams = [ a ];
-                params = [ (c, trans_cont t) ];
-                body = trans_exp fresh tctx vctx u (VVar c);
-              };
-          ] )
-  | F.TyApp (u, o) ->
-      (* Kexp[(u^τ[σ])]k = Kexp[u](λx:K[τ]. x[K[σ]](k)) *)
-      let t = F.tyof tctx vctx u in
-      let x = fresh "x" in
-      trans_exp fresh tctx vctx u
-        (VFix
-           {
-             name = fresh "_";
-             typarams = [];
-             params = [ (x, trans_ty t) ];
-             body = App (VVar x, [ trans_ty o ], [ k ]);
-           })
-  | F.Proj (u, i) ->
-      (* Kexp[(u^t).i]k = Kexp[u](\x:K[t]. let y = x.i in k(y)) *)
-      let t = F.tyof tctx vctx u in
-      let x = fresh "x" in
-      let y = fresh "y" in
-      trans_exp fresh tctx vctx u
-        (VFix
-           {
-             name = fresh "_";
-             typarams = [];
-             params = [ (x, trans_ty t) ];
-             body = Let (DeclProj (y, VVar x, i), App (k, [], [ VVar y ]));
-           })
-  | F.Op (op, e1, e2) ->
-      let x1 = fresh "x1" in
-      let x2 = fresh "x2" in
-      let y = fresh "y" in
-      let op =
-        match op with F.Plus -> Plus | F.Minus -> Minus | F.Times -> Times
+      let kfix =
+        VFix
+          {
+            name = x;
+            typarams = [];
+            params = [ (x1, kt1); (c, kct2) ];
+            body =
+              trans_exp fresh e (fun v ->
+                  App (VAnnot (VVar c, kct2), [], [ v ]));
+          }
       in
-      trans_exp fresh tctx vctx e1
-        (VFix
-           {
-             name = fresh "_";
-             typarams = [];
-             params = [ (x1, TInt) ];
-             body =
-               trans_exp fresh tctx vctx e2
-                 (VFix
-                    {
-                      name = fresh "_";
-                      typarams = [];
-                      params = [ (x2, TInt) ];
-                      body =
-                        Let
-                          ( DeclOp (y, op, VVar x1, VVar x2),
-                            App (k, [], [ VVar y ]) );
-                    });
-           })
-  | F.If0 (e1, e2, e3) ->
-      let x = fresh "x" in
-      trans_exp fresh tctx vctx e1
-        (VFix
-           {
-             name = fresh "_";
-             typarams = [];
-             params = [ (x, TInt) ];
-             body =
-               If0
-                 ( VVar x,
-                   trans_exp fresh tctx vctx e2 k,
-                   trans_exp fresh tctx vctx e3 k );
-           })
-  | Annot (e, _) -> trans_exp fresh tctx vctx e k
+      k (VAnnot (kfix, kt))
+  | F.Annot (F.App (ut1, ut2), t) ->
+      let kapp_out_t = trans_ty t in
+      trans_exp fresh ut1 (fun x1 ->
+          trans_exp fresh ut2 (fun x2 ->
+              App (x1, [], [ x2; reify_cont fresh k kapp_out_t ])))
+  | F.Annot (F.TyAbs (a, (F.Annot (_, t) as ut)), t') ->
+      let kct = trans_ty_cont t in
+      let kt' = trans_ty_cont t' in
+      let c = fresh "c" in
+      let f = fresh "_" in
+      let kfix =
+        VFix
+          {
+            name = f;
+            typarams = [ a ];
+            params = [ (c, kct) ];
+            body =
+              trans_exp fresh ut (fun v ->
+                  App (VAnnot (VVar c, kct), [], [ v ]));
+          }
+      in
+      k (VAnnot (kfix, kt'))
+  | F.Annot (F.TyApp (ut, o), t') ->
+      let ko = trans_ty o in
+      let ktyapp_out_t = trans_ty t' in
+      trans_exp fresh ut (fun x ->
+          App (x, [ ko ], [ reify_cont fresh k ktyapp_out_t ]))
+  | F.Annot (F.Tup uts, t) ->
+      let kt = trans_ty t in
+      let rec go ktup = function
+        | [] -> ktup []
+        | uti :: uts ->
+            trans_exp fresh uti (fun v -> go (fun vs -> ktup (v :: vs)) uts)
+      in
+      go (fun vs -> k (VAnnot (VTup vs, kt))) uts
+  | F.Annot (F.Proj (ut, i), t') ->
+      let y = fresh "y" in
+      let kt' = trans_ty t' in
+      trans_exp fresh ut (fun x ->
+          Let (DeclProj (y, x, i), k (VAnnot (VVar y, kt'))))
+  | F.Annot (F.Op (op, e1, e2), _) ->
+      let y = fresh "y" in
+      trans_exp fresh e1 (fun x1 ->
+          trans_exp fresh e2 (fun x2 ->
+              Let (DeclOp (y, op, x1, x2), k (VAnnot (VVar y, TInt)))))
+  | F.Annot (F.If0 (e1, e2, e3), _) ->
+      trans_exp fresh e1 (fun x ->
+          If0 (x, trans_exp fresh e2 k, trans_exp fresh e3 k))
+  | _ -> failwith "unelaborated F expression"
 
 let all_names =
   let open SSet in
@@ -535,20 +471,11 @@ let trans_top u =
       in
       gen 0
   in
-  (* Kprog[u^t] = Kexp[u](λx:K[τ].halt[K[τ]]x) *)
-  let t = F.tyof [] [] u in
-  let k_t = trans_ty t in
-  let x = fresh "x" in
-  let toplevel_cont =
-    VFix
-      {
-        name = fresh "tl_halt";
-        typarams = [];
-        params = [ (x, k_t) ];
-        body = Halt (k_t, VVar x);
-      }
-  in
-  trans_exp fresh [] [] u toplevel_cont
+  match u with
+  | F.Annot (_, t) ->
+      let kt = trans_ty t in
+      trans_exp fresh u (fun x -> Halt (kt, x))
+  | _ -> failwith "unelaborated F expression"
 
 (*** Eval ***)
 
