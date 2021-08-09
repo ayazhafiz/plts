@@ -7,7 +7,7 @@ TODO
 
 - [x] Frontend
 - [x] CPS Conversion
-- [ ] Closure Conversion
+- [X] Closure Conversion
   - [ ] Hoisting
 - [ ] Allocation
 - [ ] Cgen System A to TAL
