@@ -58,13 +58,6 @@ let pp_ty f =
   in
   go
 
-let pp_op f =
-  let open Format in
-  function
-  | Plus -> pp_print_string f "+"
-  | Minus -> pp_print_string f "-"
-  | Times -> pp_print_string f "*"
-
 let pp_term f =
   let open Format in
   let rec go = function

@@ -27,3 +27,11 @@ module K = struct
 
   let of_F = trans_top
 end
+
+module C = struct
+  include C
+
+  let check_well_typed = term_wf [] []
+
+  let of_K = trans_top
+end

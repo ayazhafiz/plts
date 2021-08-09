@@ -67,13 +67,6 @@ let pp_ty f =
   in
   go
 
-let pp_op f =
-  let open Format in
-  function
-  | Plus -> pp_print_string f "+"
-  | Minus -> pp_print_string f "-"
-  | Times -> pp_print_string f "*"
-
 let rec pp_value f =
   let open Format in
   let rec go = function
@@ -474,18 +467,7 @@ let all_names =
   gotm
 
 let trans_top u =
-  let fresh =
-    let used = ref (all_names u) in
-    fun hint ->
-      let rec gen i =
-        let cand = if i = 0 then hint else hint ^ string_of_int i in
-        if SSet.mem cand !used then gen (i + 1)
-        else (
-          used := SSet.add cand !used;
-          cand)
-      in
-      gen 0
-  in
+  let fresh = fresh_generator (all_names u) in
   match u with
   | F.Annot (_, t) ->
       let kt = trans_ty t in

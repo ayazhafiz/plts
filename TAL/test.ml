@@ -7,6 +7,7 @@ type testcase = {
   pretty_f : string;
   typecheck_f : string;
   pretty_k : string;
+  pretty_c : string option;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -34,6 +35,7 @@ let cases =
    (if0 n then (c(1)) else
      (let y1 = n - 1 in (f(y1, (λ(v: int). (let y = n * v in (c(y)))))))))(6,
   (λ(v1: int). halt<int>v1)))|};
+      pretty_c = None;
     };
     {
       name = "twice";
@@ -66,6 +68,7 @@ halt<
          c1: ((((a, ((a) -> void)) -> void)) -> void)).
          (c1((fix in_x(x: a, c2: ((a) -> void)).
                (f(x, (λ(v: a). (f(v, (λ(v1: a). (c2(v1)))))))))))))))|};
+      pretty_c = None;
     };
   ]
 
@@ -127,13 +130,44 @@ let k_typecheck_tests =
 let k_eval_tests =
   let cases =
     List.filter_map
+      (fun { name; input; output; _ } ->
+        Option.map (fun o -> (name, input, o)) output)
+      cases
+  in
+  List.map
+    (mk_test (fun t -> K.(F.elaborate t |> of_F |> eval |> string_of_value)))
+    cases
+
+let c_pp_tests =
+  let cases =
+    List.filter_map
+      (fun { name; input; pretty_c; _ } ->
+        Option.map (fun o -> (name, input, o)) pretty_c)
+      cases
+  in
+  List.map
+    (mk_test (fun t -> F.elaborate t |> K.of_F |> C.of_K |> C.string_of_term))
+    cases
+
+let c_typecheck_tests =
+  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
+  List.map
+    (mk_test (fun t ->
+         F.elaborate t |> K.of_F |> C.of_K |> C.check_well_typed;
+         ""))
+    cases
+
+let c_eval_tests =
+  let cases =
+    List.filter_map
       (function
         | { name; input; output = Some output; _ } -> Some (name, input, output)
         | _ -> None)
       cases
   in
   List.map
-    (mk_test (fun t -> K.(F.elaborate t |> of_F |> eval |> string_of_value)))
+    (mk_test (fun t ->
+         C.(F.elaborate t |> K.of_F |> of_K |> eval |> string_of_value)))
     cases
 
 let () =
@@ -145,4 +179,7 @@ let () =
       ("[K] Pretty Printing", k_pp_tests);
       ("[K] Typecheck", k_typecheck_tests);
       ("[K] Eval", k_eval_tests);
+      ("[C] Pretty Printing", c_pp_tests);
+      ("[C] Typecheck", c_typecheck_tests);
+      ("[C] Eval", c_eval_tests);
     ]

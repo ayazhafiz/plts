@@ -37,4 +37,19 @@ module K : sig
   val eval : term -> value
 end
 
+(** Closure converison pass. *)
+module C : sig
+  include Lang
+
+  type value
+
+  val string_of_value : value -> string
+
+  val of_K : K.term -> term
+
+  val check_well_typed : term -> unit
+
+  val eval : term -> value
+end
+
 val parse_term : string -> F.term
