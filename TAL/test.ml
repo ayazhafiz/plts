@@ -9,6 +9,7 @@ type testcase = {
   pretty_k : string;
   pretty_c : string option;
   pretty_h : string option;
+  pretty_a : string option;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -38,6 +39,7 @@ let cases =
   (λ(v1: int). halt<int>v1)))|};
       pretty_c = None;
       pretty_h = None;
+      pretty_a = None;
     };
     {
       name = "twice";
@@ -72,6 +74,7 @@ halt<
                (f(x, (λ(v: a). (f(v, (λ(v1: a). (c2(v1)))))))))))))))|};
       pretty_c = None;
       pretty_h = None;
+      pretty_a = None;
     };
   ]
 
@@ -208,6 +211,43 @@ let h_eval_tests =
            |> string_of_value)))
     cases
 
+let a_pp_tests =
+  let cases =
+    List.filter_map
+      (fun { name; input; pretty_a; _ } ->
+        Option.map (fun o -> (name, input, o)) pretty_a)
+      cases
+  in
+  List.map
+    (mk_test (fun t ->
+         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> A.of_H
+         |> A.string_of_term))
+    cases
+
+let a_typecheck_tests =
+  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
+  List.map
+    (mk_test (fun t ->
+         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> A.of_H
+         |> A.check_well_typed;
+         ""))
+    cases
+
+let a_eval_tests =
+  let cases =
+    List.filter_map
+      (function
+        | { name; input; output = Some output; _ } -> Some (name, input, output)
+        | _ -> None)
+      cases
+  in
+  List.map
+    (mk_test (fun t ->
+         A.(
+           F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> of_H |> eval
+           |> string_of_value)))
+    cases
+
 let () =
   Alcotest.run "TAL tests"
     [
@@ -223,4 +263,8 @@ let () =
       ("[H] Pretty Printing", h_pp_tests);
       ("[H] Typecheck", h_typecheck_tests);
       ("[H] Eval", h_eval_tests);
+      ("[A] Pretty Printing", a_pp_tests);
+      ("[A] Typecheck", a_typecheck_tests);
+      (* ("[A] Eval", a_eval_tests); *)
+      (* TODO: fix eval, problem is with runtime heap ): *)
     ]

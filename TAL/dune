@@ -5,7 +5,7 @@
 
 (library
  (name tal)
- (modules tal util f k c h parser lexer)
+ (modules tal util f k c h a parser lexer)
  (inline_tests)
  (js_of_ocaml)
  (preprocess (pps ppx_inline_test ppx_expect)))

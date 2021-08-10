@@ -9,7 +9,7 @@ TODO
 - [x] CPS Conversion
 - [X] Closure Conversion
   - [X] Hoisting
-- [ ] Allocation
+- [X] Allocation
 - [ ] Cgen System A to TAL
 - [ ] TAL emulation
 - [ ] Cgen TAL to x86

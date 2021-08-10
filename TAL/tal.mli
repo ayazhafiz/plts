@@ -67,4 +67,19 @@ module H : sig
   val eval : term -> value
 end
 
+(** Explicit allocation pass. *)
+module A : sig
+  include Lang
+
+  type value
+
+  val string_of_value : value -> string
+
+  val of_H : H.term -> term
+
+  val check_well_typed : term -> unit
+
+  val eval : term -> value
+end
+
 val parse_term : string -> F.term
