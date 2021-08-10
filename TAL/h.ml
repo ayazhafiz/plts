@@ -571,7 +571,7 @@ and trans_val fresh hoist = function
   | C.VPack (t1, v, t2) ->
       VPack (trans_ty t1, trans_annot_val fresh hoist v, trans_ty t2)
   | C.VFix { name; typarams; params; body } ->
-      let fname = fresh ("_" ^ name) in
+      let fname = fresh name in
       let params' = List.map (fun (p, t) -> (p, trans_ty t)) params in
       let body' = trans_term fresh hoist body |> subst name (VVar fname) in
       let code = Code { typarams; params = params'; body = body' } in
