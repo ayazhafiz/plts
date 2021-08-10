@@ -35,3 +35,17 @@ module C = struct
 
   let of_K = trans_top
 end
+
+module H = struct
+  include H
+
+  type term = program
+
+  let string_of_term = string_of_program
+
+  let eval = eval_top
+
+  let check_well_typed = check_program
+
+  let of_C = trans_top
+end

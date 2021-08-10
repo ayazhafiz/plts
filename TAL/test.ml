@@ -8,6 +8,7 @@ type testcase = {
   typecheck_f : string;
   pretty_k : string;
   pretty_c : string option;
+  pretty_h : string option;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -36,6 +37,7 @@ let cases =
      (let y1 = n - 1 in (f(y1, (λ(v: int). (let y = n * v in (c(y)))))))))(6,
   (λ(v1: int). halt<int>v1)))|};
       pretty_c = None;
+      pretty_h = None;
     };
     {
       name = "twice";
@@ -69,6 +71,7 @@ halt<
          (c1((fix in_x(x: a, c2: ((a) -> void)).
                (f(x, (λ(v: a). (f(v, (λ(v1: a). (c2(v1)))))))))))))))|};
       pretty_c = None;
+      pretty_h = None;
     };
   ]
 
@@ -170,6 +173,41 @@ let c_eval_tests =
          C.(F.elaborate t |> K.of_F |> of_K |> eval |> string_of_value)))
     cases
 
+let h_pp_tests =
+  let cases =
+    List.filter_map
+      (fun { name; input; pretty_h; _ } ->
+        Option.map (fun o -> (name, input, o)) pretty_h)
+      cases
+  in
+  List.map
+    (mk_test (fun t ->
+         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> H.string_of_term))
+    cases
+
+let h_typecheck_tests =
+  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
+  List.map
+    (mk_test (fun t ->
+         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> H.check_well_typed;
+         ""))
+    cases
+
+let h_eval_tests =
+  let cases =
+    List.filter_map
+      (function
+        | { name; input; output = Some output; _ } -> Some (name, input, output)
+        | _ -> None)
+      cases
+  in
+  List.map
+    (mk_test (fun t ->
+         H.(
+           F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> eval
+           |> string_of_value)))
+    cases
+
 let () =
   Alcotest.run "TAL tests"
     [
@@ -182,4 +220,7 @@ let () =
       ("[C] Pretty Printing", c_pp_tests);
       ("[C] Typecheck", c_typecheck_tests);
       ("[C] Eval", c_eval_tests);
+      ("[H] Pretty Printing", h_pp_tests);
+      ("[H] Typecheck", h_typecheck_tests);
+      ("[H] Eval", h_eval_tests);
     ]
