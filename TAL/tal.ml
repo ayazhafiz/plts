@@ -12,6 +12,22 @@ module type Lang = sig
   val string_of_ty : ty -> string
 end
 
+module type Lower = sig
+  include Lang
+
+  type source
+
+  type value
+
+  val string_of_value : value -> string
+
+  val convert : source -> term
+
+  val check_well_typed : term -> unit
+
+  val eval : term -> value
+end
+
 module F = struct
   include F
 
@@ -23,22 +39,28 @@ end
 module K = struct
   include K
 
+  type source = F.elaborated_term
+
   let check_well_typed = term_wf [] []
 
-  let of_F = trans_top
+  let convert = trans_top
 end
 
 module C = struct
   include C
 
+  type source = K.term
+
   let check_well_typed = term_wf [] []
 
-  let of_K = trans_top
+  let convert = trans_top
 end
 
 module H = struct
   include H
 
+  type source = C.term
+
   type term = program
 
   let string_of_term = string_of_program
@@ -47,12 +69,14 @@ module H = struct
 
   let check_well_typed = check_program
 
-  let of_C = trans_top
+  let convert = trans_top
 end
 
 module A = struct
   include A
 
+  type source = H.term
+
   type term = program
 
   let string_of_term = string_of_program
@@ -61,5 +85,5 @@ module A = struct
 
   let check_well_typed = check_program
 
-  let of_H = trans_top
+  let convert = trans_top
 end

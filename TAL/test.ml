@@ -93,6 +93,41 @@ let mk_test driver (name, input, expect) =
   in
   (name, `Quick, wrap test)
 
+let to_k parsed = F.elaborate parsed |> K.convert
+
+let to_c parsed = to_k parsed |> C.convert
+
+let to_h parsed = to_c parsed |> H.convert
+
+let to_a parsed = to_h parsed |> A.convert
+
+let mk_typecheck_wf_tests driver =
+  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
+  List.map
+    (mk_test (fun t ->
+         driver t;
+         ""))
+    cases
+
+let mk_opt_pp_tests output driver =
+  let cases =
+    List.filter_map
+      (fun ({ name; input; _ } as c) ->
+        Option.map (fun o -> (name, input, o)) (output c))
+      cases
+  in
+  List.map (mk_test driver) cases
+
+let mk_eval_tests driver =
+  let cases =
+    List.filter_map
+      (function
+        | { name; input; output = Some output; _ } -> Some (name, input, output)
+        | _ -> None)
+      cases
+  in
+  List.map (mk_test driver) cases
+
 let f_pp_tests =
   let cases =
     List.map (fun { name; input; pretty_f; _ } -> (name, input, pretty_f)) cases
@@ -107,146 +142,52 @@ let f_typecheck_tests =
   in
   List.map (mk_test (fun t -> F.(elaborate t |> typeof |> string_of_ty))) cases
 
-let f_eval_tests =
-  let cases =
-    List.filter_map
-      (function
-        | { name; input; output = Some output; _ } -> Some (name, input, output)
-        | _ -> None)
-      cases
-  in
-  List.map (mk_test (fun t -> F.(eval t |> string_of_term))) cases
+let f_eval_tests = mk_eval_tests (fun t -> F.(eval t |> string_of_term))
 
 let k_pp_tests =
   let cases =
     List.map (fun { name; input; pretty_k; _ } -> (name, input, pretty_k)) cases
   in
-  List.map
-    (mk_test (fun t -> F.elaborate t |> K.of_F |> K.string_of_term))
-    cases
+  List.map (mk_test (fun t -> to_k t |> K.string_of_term)) cases
 
 let k_typecheck_tests =
-  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
-  List.map
-    (mk_test (fun t ->
-         F.elaborate t |> K.of_F |> K.check_well_typed;
-         ""))
-    cases
+  mk_typecheck_wf_tests (fun t -> to_k t |> K.check_well_typed)
 
 let k_eval_tests =
-  let cases =
-    List.filter_map
-      (fun { name; input; output; _ } ->
-        Option.map (fun o -> (name, input, o)) output)
-      cases
-  in
-  List.map
-    (mk_test (fun t -> K.(F.elaborate t |> of_F |> eval |> string_of_value)))
-    cases
+  mk_eval_tests (fun t -> to_k t |> K.eval |> K.string_of_value)
 
 let c_pp_tests =
-  let cases =
-    List.filter_map
-      (fun { name; input; pretty_c; _ } ->
-        Option.map (fun o -> (name, input, o)) pretty_c)
-      cases
-  in
-  List.map
-    (mk_test (fun t -> F.elaborate t |> K.of_F |> C.of_K |> C.string_of_term))
-    cases
+  mk_opt_pp_tests
+    (fun { pretty_c; _ } -> pretty_c)
+    (fun t -> to_c t |> C.string_of_term)
 
 let c_typecheck_tests =
-  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
-  List.map
-    (mk_test (fun t ->
-         F.elaborate t |> K.of_F |> C.of_K |> C.check_well_typed;
-         ""))
-    cases
+  mk_typecheck_wf_tests (fun t -> to_c t |> C.check_well_typed)
 
 let c_eval_tests =
-  let cases =
-    List.filter_map
-      (function
-        | { name; input; output = Some output; _ } -> Some (name, input, output)
-        | _ -> None)
-      cases
-  in
-  List.map
-    (mk_test (fun t ->
-         C.(F.elaborate t |> K.of_F |> of_K |> eval |> string_of_value)))
-    cases
+  mk_eval_tests (fun t -> to_c t |> C.eval |> C.string_of_value)
 
 let h_pp_tests =
-  let cases =
-    List.filter_map
-      (fun { name; input; pretty_h; _ } ->
-        Option.map (fun o -> (name, input, o)) pretty_h)
-      cases
-  in
-  List.map
-    (mk_test (fun t ->
-         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> H.string_of_term))
-    cases
+  mk_opt_pp_tests
+    (fun { pretty_h; _ } -> pretty_h)
+    (fun t -> to_h t |> H.string_of_term)
 
 let h_typecheck_tests =
-  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
-  List.map
-    (mk_test (fun t ->
-         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> H.check_well_typed;
-         ""))
-    cases
+  mk_typecheck_wf_tests (fun t -> to_h t |> H.check_well_typed)
 
 let h_eval_tests =
-  let cases =
-    List.filter_map
-      (function
-        | { name; input; output = Some output; _ } -> Some (name, input, output)
-        | _ -> None)
-      cases
-  in
-  List.map
-    (mk_test (fun t ->
-         H.(
-           F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> eval
-           |> string_of_value)))
-    cases
+  mk_eval_tests (fun t -> to_h t |> H.eval |> H.string_of_value)
 
 let a_pp_tests =
-  let cases =
-    List.filter_map
-      (fun { name; input; pretty_a; _ } ->
-        Option.map (fun o -> (name, input, o)) pretty_a)
-      cases
-  in
-  List.map
-    (mk_test (fun t ->
-         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> A.of_H
-         |> A.string_of_term))
-    cases
+  mk_opt_pp_tests
+    (fun { pretty_a; _ } -> pretty_a)
+    (fun t -> to_a t |> A.string_of_term)
 
 let a_typecheck_tests =
-  let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
-  List.map
-    (mk_test (fun t ->
-         F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> A.of_H
-         |> A.check_well_typed;
-         ""))
-    cases
+  mk_typecheck_wf_tests (fun t -> to_a t |> A.check_well_typed)
 
 let a_eval_tests =
-  let cases =
-    List.filter_map
-      (function
-        | { name; input; output = Some output; _ } -> Some (name, input, output)
-        | _ -> None)
-      cases
-  in
-  List.map
-    (mk_test (fun t ->
-         A.(
-           F.elaborate t |> K.of_F |> C.of_K |> H.of_C |> of_H |> eval
-           |> string_of_value)))
-    cases
+  mk_eval_tests (fun t -> to_a t |> A.eval |> A.string_of_value)
 
 let () =
   Alcotest.run "TAL tests"
