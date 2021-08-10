@@ -1,4 +1,4 @@
-open Tal
+open Talc
 
 type testcase = {
   name : string;

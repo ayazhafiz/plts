@@ -4,8 +4,8 @@
   (modules parser))
 
 (library
- (name tal)
- (modules tal util f k c h a parser lexer)
+ (name talc)
+ (modules talc util f k c h a parser lexer)
  (inline_tests)
  (js_of_ocaml)
  (preprocess (pps ppx_inline_test ppx_expect)))
@@ -14,4 +14,4 @@
  (name test)
  (modules Test)
  (modes byte exe)
- (libraries tal alcotest))
+ (libraries talc alcotest))
