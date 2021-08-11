@@ -1,4 +1,4 @@
-Repository: [gh:ayazhafiz/skittles](https://github.com/ayazhafiz/skittles).
+Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
 
 ## Lambda Calculus
 

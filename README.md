@@ -1,9 +1,9 @@
-# Skittles
+# PLTS
 
 This repository contains implementations of type systems and
 programming languages I find interesting.
 
-[Online Playgrounds](https://ayazhafiz.com/skittles)
+[Online Playgrounds](https://ayazhafiz.com/plts)
 
 - [tapl](./tapl/) - Selected implementations of languages formalized in _Types and
   Programming Languages_ (Pierce 2002).
