@@ -10,8 +10,8 @@ TODO
 - [X] Closure Conversion
   - [X] Hoisting
 - [X] Allocation
-- [ ] Cgen System A to TAL
-- [ ] TAL emulation
+- [X] Cgen System A to TAL
+- [X] TAL emulation
 - [ ] Cgen TAL to x86
 - [ ] Optimizations
   - [X] CPS: Danvy and Filinski [1992]

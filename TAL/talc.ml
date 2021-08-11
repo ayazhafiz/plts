@@ -87,3 +87,25 @@ module A = struct
 
   let convert = trans_top
 end
+
+module TAL = struct
+  include Tal
+
+  type value = word_value
+
+  let string_of_value = swv
+
+  let string_of_ty = sty
+
+  type source = A.term
+
+  type term = program
+
+  let string_of_term = sprog
+
+  let eval = eval
+
+  let check_well_typed = check_prog
+
+  let convert = trans_prog
+end

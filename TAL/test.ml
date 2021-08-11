@@ -10,6 +10,7 @@ type testcase = {
   pretty_c : string option;
   pretty_h : string option;
   pretty_a : string option;
+  pretty_tal : string option;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -40,6 +41,7 @@ let cases =
       pretty_c = None;
       pretty_h = None;
       pretty_a = None;
+      pretty_tal = None;
     };
     {
       name = "twice";
@@ -75,6 +77,7 @@ halt<
       pretty_c = None;
       pretty_h = None;
       pretty_a = None;
+      pretty_tal = None;
     };
   ]
 
@@ -100,6 +103,8 @@ let to_c parsed = to_k parsed |> C.convert
 let to_h parsed = to_c parsed |> H.convert
 
 let to_a parsed = to_h parsed |> A.convert
+
+let to_tal parsed = to_a parsed |> TAL.convert
 
 let mk_typecheck_wf_tests driver =
   let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
@@ -189,6 +194,17 @@ let a_typecheck_tests =
 let a_eval_tests =
   mk_eval_tests (fun t -> to_a t |> A.eval |> A.string_of_value)
 
+let tal_pp_tests =
+  mk_opt_pp_tests
+    (fun { pretty_tal; _ } -> pretty_tal)
+    (fun t -> to_tal t |> TAL.string_of_term)
+
+let tal_typecheck_tests =
+  mk_typecheck_wf_tests (fun t -> to_tal t |> TAL.check_well_typed)
+
+let tal_eval_tests =
+  mk_eval_tests (fun t -> to_tal t |> TAL.eval |> TAL.string_of_value)
+
 let () =
   Alcotest.run "TAL tests"
     [
@@ -208,4 +224,7 @@ let () =
       ("[A] Typecheck", a_typecheck_tests);
       (* ("[A] Eval", a_eval_tests); *)
       (* TODO: fix eval, problem is with runtime heap ): *)
+      ("[TAL] Pretty Printing", tal_pp_tests);
+      ("[TAL] Typecheck", tal_typecheck_tests);
+      ("[TAL] Eval", tal_eval_tests);
     ]

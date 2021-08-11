@@ -50,4 +50,7 @@ module H : Lower with type source = C.term
 module A : Lower with type source = H.term
 (** Explicit allocation pass. *)
 
+module TAL : Lower with type source = A.term
+(** Typed assembly language. *)
+
 val parse_term : string -> F.term
