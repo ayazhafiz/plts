@@ -15,3 +15,17 @@
  (modules Test)
  (modes byte exe)
  (libraries talc alcotest))
+
+(executable
+  (name js)
+  (modules js)
+  (libraries talc str js_of_ocaml)
+  (modes byte)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(rule
+  (mode (promote (into www)))
+  (targets tal.js)
+  (deps (glob_files prim.js))
+  (action
+    (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o tal.js)))

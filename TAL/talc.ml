@@ -109,3 +109,7 @@ module TAL = struct
 
   let convert = trans_prog
 end
+
+exception TyError = Util.TyErr
+
+exception EvalError = Util.EvalErr

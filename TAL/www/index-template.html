@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<head>
+  <meta name="viewport" content="width=device-width" />
+  <meta charset="UTF-8" />
+  <meta name="description" content="A TAL compiler (Morrisett, et.al. 1998)." />
+  <title>TAL Playground</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/@primer/css/dist/primer.css" />
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .h100 {
+      height: 100%;
+    }
+    .editor {
+      overflow: hidden;
+    }
+    pre.inner {
+      padding: 0;
+      font-size: 100%;
+      margin: 0;
+    }
+  </style>
+
+  <script src="./tal.js?CACHE_BUST"></script>
+  <script src="./systemf.syntax.js?CACHE_BUST"></script>
+  <script src="./tal.syntax.js?CACHE_BUST"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
+</head>
+
+<body>
+  <article id="app" class="markdown-body h100">
+    <div class="d-flex flex-row flex-justify-around h100">
+      <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
+        <h1>
+          Input (<a href="https://github.com/ayazhafiz/skittles/blob/base/TAL/parser.mly">grammar</a
+          >)
+        </h1>
+        <div id="playground" class="editor flex-1"></div>
+      </div>
+      <div class="col-6 float-left pt-2 pb-4 px-6 h100" id="output">
+        <div id="error" style="display: none">
+          <h1 class="Subhead-heading--danger">Error</h1>
+          <pre id="errormsg"></pre>
+        </div>
+        <div id="results" class="d-flex flex-column flex-justify-around h100">
+          <div class="d-flex flex-column flex-auto">
+            <h1>{{ compileTitle }}</h1>
+            <div id="compilationEditor" class="editor flex-auto"></div>
+          </div>
+          <div class="d-flex flex-column flex-1">
+            <h1>TAL Execution</h1>
+            <div id="execEditor" class="editor flex-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+  <script type="text/javascript">
+    const DEFAULT_EXAMPLE = `
+(fix f (n: int): int.
+  if0 n then 1
+  else n * f (n - 1)) 6
+`.trim();
+    const $ = document.querySelector.bind(document);
+
+    const backends = {
+      compile: talCompile,
+      eval: talEval,
+    };
+
+    function show(id) {
+      $(id).setAttribute("style", "display: block");
+    }
+    function hide(id) {
+      $(id).setAttribute("style", "display: none !important");
+    }
+
+    let update1 = undefined;
+    function update(pg, compilationEditor, execEditor) {
+      const input = pg.getValue();
+      const { result: compiled, error: e1 } = backends.compile(input);
+      const { result: evaled, error: e2 } = backends.eval(input);
+      const error = e1 || e2;
+      if (error) {
+        hide("#results");
+        show("#error");
+        $("#errormsg").innerText = error;
+      } else {
+        hide("#error");
+        show("#results");
+        compilationEditor.setValue(compiled);
+        execEditor.setValue(evaled);
+      }
+    }
+
+    const proxy = URL.createObjectURL(
+      new Blob(
+        [
+          `self.MonacoEnvironment = { baseUrl: 'https://unpkg.com/monaco-editor@0.21.2/min/' };
+           importScripts('https://unpkg.com/monaco-editor@0.21.2/min/vs/base/worker/workerMain.js');`,
+        ],
+        { type: "text/javascript" }
+      )
+    );
+    require.config({ paths: { vs: "https://unpkg.com/monaco-editor@0.21.2/min/vs" } });
+    window.MonacoEnvironment = {
+      getWorkerUrl: () => proxy,
+    };
+
+    require(["vs/editor/editor.main"], function () {
+      monaco.languages.register({ id: "tal" });
+      monaco.languages.setMonarchTokensProvider("tal", talSyntax);
+      monaco.languages.register({ id: "systemf" });
+
+      // Register a tokens provider for the language
+      monaco.languages.setMonarchTokensProvider("systemf", systemFSyntax);
+
+      const opts = {
+        theme: "vs",
+        fontSize: "15px",
+        padding: {},
+        automaticLayout: true,
+        formatOnType: true,
+        formatOnPaste: true,
+        autoIndent: true,
+      };
+      const pg = monaco.editor.create($("#playground"), {
+        ...opts,
+        value: DEFAULT_EXAMPLE,
+        language: "systemf",
+      });
+      const compilationEditor = monaco.editor.create($("#compilationEditor"), {
+        ...opts,
+        language: "tal",
+        value: "",
+        readOnly: true,
+      });
+      const execEditor = monaco.editor.create($("#execEditor"), {
+        ...opts,
+        language: "tal",
+        value: "",
+        readOnly: true,
+        minimap: { enabled: false },
+      });
+      update1 = () => update(pg, compilationEditor, execEditor);
+      pg.onDidChangeModelContent(update1);
+      update1();
+    });
+
+    new Vue({
+      el: "#app",
+      data: {
+        compileTitle: "TAL",
+      },
+      methods: {
+        updateBackend() {
+          update1();
+        },
+      },
+    });
+  </script>
+</body>

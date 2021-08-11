@@ -21,3 +21,9 @@ described by Pearce and a self-designed inferer is implemented.
   - [Playground](./ft/www/index.html)
   - [Pearce, 2012](https://ecs.wgtn.ac.nz/foswiki/pub/Main/TechnicalReportSeries/ECSTR12-20.pdf)
   - [Blog post](https://ayazhafiz.com/articles/21/type-inference-for-flow-typing): type inference for the calculus
+
+## Typed Assembly
+
+- [TAL](./TAL/www/index.html): A compiler from a System F-like language to the
+    Typed Assembly Language of [Morrisett, et.al. 1998](https://dash.harvard.edu/handle/1/2797451).
+  - [Playground](./TAL/www/index.html)

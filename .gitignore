@@ -6,3 +6,4 @@ _build/
 **/*/www/*.ml
 **/*/www/*.html
 !**/*/www/*-template.html
+!**/*/www/*.syntax.js

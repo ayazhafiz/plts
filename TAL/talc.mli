@@ -54,3 +54,7 @@ module TAL : Lower with type source = A.term
 (** Typed assembly language. *)
 
 val parse_term : string -> F.term
+
+exception TyError of string
+
+exception EvalError of string
