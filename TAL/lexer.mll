@@ -19,6 +19,9 @@ let nat = ['0'-'9']+
 
 let ident = ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
 
+let macro = ['$'] ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
+let tymacro = ['%'] ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
+
 rule read = parse
   | whitespace    { read lexbuf }
   | newline       { next_line lexbuf; read lexbuf }
@@ -28,6 +31,9 @@ rule read = parse
   | "if0"     { IF0 }
   | "then"    { THEN }
   | "else"    { ELSE }
+  | "let"     { LET }
+  | "in"      { IN }
+  | "="       { EQ }
   | "->"      { ARROW }
   | "."       { DOT }
   | ","       { COMMA }
@@ -43,6 +49,8 @@ rule read = parse
   | "∀"       { FORALL }
 
   | ident as id   { IDENT id }
+  | macro as id   { MACRO id }
+  | tymacro as id   { TYMACRO id }
   | nat as n      { NUM (int_of_string n) }
 
   | "#"      { comment lexbuf }

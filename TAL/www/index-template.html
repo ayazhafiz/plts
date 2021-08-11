@@ -39,8 +39,7 @@
     <div class="d-flex flex-row flex-justify-around h100">
       <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
         <h1>
-          Input (<a href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly">grammar</a
-          >)
+          Input (<a href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly">grammar</a>)
         </h1>
         <div id="playground" class="editor flex-1"></div>
       </div>
@@ -64,9 +63,11 @@
   </article>
   <script type="text/javascript">
     const DEFAULT_EXAMPLE = `
-(fix f (n: int): int.
-  if0 n then 1
-  else n * f (n - 1)) 6
+let $fib =
+  (fix f (n: int): int.
+    if0 n then 1
+    else n * f (n - 1)) 6
+in $fib 6
 `.trim();
     const $ = document.querySelector.bind(document);
 

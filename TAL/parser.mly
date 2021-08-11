@@ -2,6 +2,8 @@
   open F
 %}
 
+%token <string> MACRO
+%token <string> TYMACRO
 %token <string> IDENT
 %token <int>    NUM
 
@@ -10,6 +12,9 @@
 %token IF0
 %token THEN
 %token ELSE
+%token LET
+%token IN
+%token EQ
 %token DOT
 %token COMMA
 %token COLON
@@ -29,63 +34,73 @@
 %left TIMES
 
 %start toplevel_term
-%type <term> toplevel_term
+%type <(string * [`VMac of term | `TMac of ty]) list -> term> toplevel_term
 %%
 
 toplevel_term:
-  | term EOF { $1 }
+  | LET MACRO EQ atomic_term IN toplevel_term { fun ctx ->
+      let ctx' = ($2, `VMac ($4 ctx))::ctx in
+      $6 ctx'
+    } 
+  | LET TYMACRO EQ atomic_type IN toplevel_term { fun ctx ->
+      let ctx' = ($2, `TMac ($4 ctx))::ctx in
+      $6 ctx'
+    } 
+  | term EOF { fun ctx -> $1 ctx }
 
 term:
-  | bigterm { $1 }
-  | bigterm COLON ty { Annot($1, $3) }
+  | bigterm { fun ctx -> $1 ctx }
+  | bigterm COLON ty { fun ctx -> Annot($1 ctx, $3 ctx) }
 
 bigterm:
-  | atomic_term LANGLE ty RANGLE { TyApp($1, $3) }
-  | atomic_term DOT NUM { Proj($1, $3) }
-  | binary_expr { $1 }
-  | app_like_term { $1 }
-  | FIX IDENT LPAREN IDENT COLON ty RPAREN COLON ty DOT term { Fix {
+  | atomic_term LANGLE ty RANGLE { fun ctx -> TyApp($1 ctx, $3 ctx) }
+  | atomic_term DOT NUM { fun ctx -> Proj($1 ctx, $3) }
+  | binary_expr { fun ctx -> $1 ctx }
+  | app_like_term { fun ctx -> $1 ctx }
+  | FIX IDENT LPAREN IDENT COLON ty RPAREN COLON ty DOT term { fun ctx -> Fix {
       name=$2;
       param=$4;
-      param_ty=$6;
-      ret_ty=$9;
-      body=$11 } }
-  | BIGLAM IDENT DOT term { TyAbs($2, $4) }
-  | IF0 term THEN term ELSE term { If0($2, $4, $6) }
+      param_ty=$6 ctx;
+      ret_ty=$9 ctx;
+      body=$11 ctx } }
+  | BIGLAM IDENT DOT term { fun ctx -> TyAbs($2, $4 ctx) }
+  | IF0 term THEN term ELSE term { fun ctx -> If0($2 ctx, $4 ctx, $6 ctx) }
 
 app_like_term:
-  | atomic_term { $1 }
-  | app_like_term atomic_term { App ($1, $2) }
+  | atomic_term { fun ctx -> $1 ctx }
+  | app_like_term atomic_term { fun ctx -> App ($1 ctx, $2 ctx) }
 
 binary_expr:
-  | term PLUS term { Op (Plus, $1, $3) }
-  | term MINUS term { Op (Minus, $1, $3) }
-  | term TIMES term { Op (Times, $1, $3) }
+  | term PLUS term { fun ctx -> Op (Plus, $1 ctx, $3 ctx) }
+  | term MINUS term { fun ctx -> Op (Minus, $1 ctx, $3 ctx) }
+  | term TIMES term { fun ctx -> Op (Times, $1 ctx, $3 ctx) }
 
 atomic_term:
-  | LPAREN term RPAREN { $2 }
-  | LPAREN term COMMA tuple_term_rest { Tup ($2::$4) }
-  | IDENT { Var $1 }
-  | NUM { Int $1 }
+  | LPAREN term RPAREN { fun ctx -> $2 ctx }
+  | LPAREN term COMMA tuple_term_rest { fun ctx -> Tup (($2 ctx)::($4 ctx)) }
+  | MACRO { fun ctx -> match List.assoc $1 ctx with `VMac t -> t | _ -> failwith "unreachable" }
+  | IDENT { fun _ -> Var $1 }
+  | NUM { fun _ -> Int $1 }
 
 tuple_term_rest:
-  | term RPAREN { [$1] }
-  | term COMMA tuple_term_rest { $1::$3 }
+  | term RPAREN { fun ctx -> [$1 ctx] }
+  | term COMMA tuple_term_rest { fun ctx -> ($1 ctx)::($3 ctx) }
 
 ty:
-  | arrow_like_type { $1 }
-  | FORALL IDENT DOT ty { TAll ($2, $4) }
+  | arrow_like_type { fun ctx -> $1 ctx }
+  | FORALL IDENT DOT ty { fun ctx -> TAll ($2, $4 ctx) }
 
 arrow_like_type:
-  | atomic_type { $1 }
-  | atomic_type ARROW arrow_like_type { TArrow ($1, $3) }
+  | atomic_type { fun ctx -> $1 ctx }
+  | atomic_type ARROW arrow_like_type { fun ctx -> TArrow ($1 ctx, $3 ctx) }
 
 atomic_type:
-  | LPAREN ty RPAREN { $2 }
-  | LPAREN ty COMMA tuple_type_rest { TTup ($2::$4) }
-  | INT { TInt }
-  | IDENT { TName $1 }
+  | LPAREN ty RPAREN { fun ctx -> $2 ctx }
+  | LPAREN ty COMMA tuple_type_rest { fun ctx -> TTup ($2 ctx::$4 ctx) }
+  | TYMACRO { fun ctx -> match List.assoc $1 ctx with `TMac t -> t | _ -> failwith "unreachable" }
+  | INT { fun _ -> TInt }
+  | IDENT { fun _ -> TName $1 }
 
 tuple_type_rest:
-  | ty RPAREN { [$1] }
-  | ty COMMA tuple_type_rest { $1::$3 }
+  | ty RPAREN { fun ctx -> [$1 ctx] }
+  | ty COMMA tuple_type_rest { fun ctx -> ($1 ctx)::($3 ctx) }

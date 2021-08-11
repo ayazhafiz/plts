@@ -1,6 +1,6 @@
 let lex = Lexing.from_string ~with_positions:true
 
-let parse_term s = lex s |> Parser.toplevel_term Lexer.read
+let parse_term s = lex s |> fun s -> Parser.toplevel_term Lexer.read s []
 
 module type Lang = sig
   type term
