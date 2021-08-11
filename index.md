@@ -20,3 +20,4 @@ Like `lang_narrow`, but smaller and proven sound and complete. A checker as
 described by Pearce and a self-designed inferer is implemented.
   - [Playground](./ft/www/index.html)
   - [Pearce, 2012](https://ecs.wgtn.ac.nz/foswiki/pub/Main/TechnicalReportSeries/ECSTR12-20.pdf)
+  - [Blog post](https://ayazhafiz.com/articles/21/type-inference-for-flow-typing): type inference for the calculus
