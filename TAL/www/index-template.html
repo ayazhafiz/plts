@@ -2,8 +2,8 @@
 <head>
   <meta name="viewport" content="width=device-width" />
   <meta charset="UTF-8" />
-  <meta name="description" content="Playground for typing the FT calculus (Pearce 2012)." />
-  <title>FT Playground</title>
+  <meta name="description" content="A TAL compiler (Morrisett, et.al. 1998)." />
+  <title>TAL Playground</title>
 
   <link rel="stylesheet" href="https://unpkg.com/@primer/css/dist/primer.css" />
   <style>
@@ -27,7 +27,9 @@
     }
   </style>
 
-  <script src="./ft.js?dda4965b4a61e32949321f0bd2452ab32883ac36"></script>
+  <script src="./tal.js?CACHE_BUST"></script>
+  <script src="./systemf.syntax.js?CACHE_BUST"></script>
+  <script src="./tal.syntax.js?CACHE_BUST"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
 </head>
@@ -36,26 +38,25 @@
   <article id="app" class="markdown-body h100">
     <div class="d-flex flex-row flex-justify-around h100">
       <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
-        <div class="d-flex flex-row flex-justify-between flex-items-center">
-          <h1>Input</h1>
-          <div class="d-flex flex-row">
-            <select class="form-select" v-model="backend" v-on:change="updateBackend()">
-              {% raw %}
-              <option v-for="option in backendOptions" v-bind:value="option">{{ option }}</option>
-              {% endraw %}
-            </select>
-          </div>
-        </div>
+        <h1>
+          Input (<a href="https://github.com/ayazhafiz/skittles/blob/base/TAL/parser.mly">grammar</a
+          >)
+        </h1>
         <div id="playground" class="editor flex-1"></div>
       </div>
       <div class="col-6 float-left pt-2 pb-4 px-6 h100" id="output">
+        <div id="error" style="display: none">
+          <h1 class="Subhead-heading--danger">Error</h1>
+          <pre id="errormsg"></pre>
+        </div>
         <div id="results" class="d-flex flex-column flex-justify-around h100">
+          <div class="d-flex flex-column flex-auto">
+            <h1>{{ compileTitle }}</h1>
+            <div id="compilationEditor" class="editor flex-auto"></div>
+          </div>
           <div class="d-flex flex-column flex-1">
-            <h1 id="error-heading" class="Subhead-heading--danger" style="display: none !important">
-              Error
-            </h1>
-            <h1 id="results-heading">{{ resultsTitle }}</h1>
-            <div id="resultsEditor" class="editor flex-auto"></div>
+            <h1>TAL Execution</h1>
+            <div id="execEditor" class="editor flex-auto"></div>
           </div>
         </div>
       </div>
@@ -63,32 +64,39 @@
   </article>
   <script type="text/javascript">
     const DEFAULT_EXAMPLE = `
-fn f(x) = 
-  if x is int then 1 else (0, 0)
-in (f 1, f (1, 2))
+(fix f (n: int): int.
+  if0 n then 1
+  else n * f (n - 1)) 6
 `.trim();
     const $ = document.querySelector.bind(document);
 
     const backends = {
-      "Infer and Typecheck": ["Annotations", (input) => ftCheck(input, true)],
-      "Infer only": ["Annotations", ftInfer],
-      "Typecheck only": ["Annotations", (input) => ftCheck(input, false)],
-      "Subtyping Calculator": ["Result", subtypeCheck],
+      compile: talCompile,
+      eval: talEval,
     };
-    let backendExec = Object.values(backends)[0][1];
+
+    function show(id) {
+      $(id).setAttribute("style", "display: block");
+    }
+    function hide(id) {
+      $(id).setAttribute("style", "display: none !important");
+    }
 
     let update1 = undefined;
-    function update(pg, resultsEditor) {
+    function update(pg, compilationEditor, execEditor) {
       const input = pg.getValue();
-      const { result, error } = backendExec(input);
-      if (error === null) {
-        $("#error-heading").setAttribute("style", "display: none !important");
-        $("#results-heading").setAttribute("style", "display: block");
-        resultsEditor.setValue(result);
+      const { result: compiled, error: e1 } = backends.compile(input);
+      const { result: evaled, error: e2 } = backends.eval(input);
+      const error = e1 || e2;
+      if (error) {
+        hide("#results");
+        show("#error");
+        $("#errormsg").innerText = error;
       } else {
-        $("#results-heading").setAttribute("style", "display: none !important");
-        $("#error-heading").setAttribute("style", "display: block");
-        resultsEditor.setValue(error);
+        hide("#error");
+        show("#results");
+        compilationEditor.setValue(compiled);
+        execEditor.setValue(evaled);
       }
     }
 
@@ -107,6 +115,13 @@ in (f 1, f (1, 2))
     };
 
     require(["vs/editor/editor.main"], function () {
+      monaco.languages.register({ id: "tal" });
+      monaco.languages.setMonarchTokensProvider("tal", talSyntax);
+      monaco.languages.register({ id: "systemf" });
+
+      // Register a tokens provider for the language
+      monaco.languages.setMonarchTokensProvider("systemf", systemFSyntax);
+
       const opts = {
         theme: "vs",
         fontSize: "15px",
@@ -119,14 +134,22 @@ in (f 1, f (1, 2))
       const pg = monaco.editor.create($("#playground"), {
         ...opts,
         value: DEFAULT_EXAMPLE,
+        language: "systemf",
       });
-      const resultsEditor = monaco.editor.create($("#resultsEditor"), {
+      const compilationEditor = monaco.editor.create($("#compilationEditor"), {
         ...opts,
+        language: "tal",
+        value: "",
+        readOnly: true,
+      });
+      const execEditor = monaco.editor.create($("#execEditor"), {
+        ...opts,
+        language: "tal",
         value: "",
         readOnly: true,
         minimap: { enabled: false },
       });
-      update1 = () => update(pg, resultsEditor);
+      update1 = () => update(pg, compilationEditor, execEditor);
       pg.onDidChangeModelContent(update1);
       update1();
     });
@@ -134,13 +157,10 @@ in (f 1, f (1, 2))
     new Vue({
       el: "#app",
       data: {
-        backendOptions: Object.keys(backends),
-        backend: Object.keys(backends)[0],
-        resultsTitle: Object.values(backends)[0][0],
+        compileTitle: "TAL",
       },
       methods: {
         updateBackend() {
-          [this.resultsTitle, backendExec] = backends[this.backend];
           update1();
         },
       },
