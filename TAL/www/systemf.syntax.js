@@ -1,14 +1,14 @@
 const systemFSyntax = {
+  defaultToken: 'invalid',
   keywords: ['fix', 'if0', 'then', 'else', 'Λ', 'let', 'in'],
 
   typeKeywords: ['int', '∀'],
 
-  operators: ['+', '-', '*'],
-  symbols: /[=><!~?:&|+\-*\/\^%]+/,
+  symbols: /[=><!~?:&|+\-*\/\^%.]+/,
   tokenizer: {
     root: [
       [
-        /[a-z_][\w$]*/,
+        /[a-z_A-Z][\w0-9$]*|[∀Λ]/,
         {
           cases: {
             '@typeKeywords': 'keyword',
@@ -20,8 +20,8 @@ const systemFSyntax = {
       {include: '@whitespace'},
       [/[{}()\[\]]/, '@brackets'],
 
-      [/[%$][a-zA-Z_]*/, 'annotation'],
-      [/[<>](?!@symbols)/, '@brackets'],
+      [/[%$][a-z_A-Z0-9]*/, 'annotation'],
+      [/@symbols/, 'operator'],
       // numbers
       [/\d+/, 'number'],
     ],

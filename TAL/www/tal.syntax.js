@@ -18,8 +18,8 @@ const talSyntax = {
       // Constant definition
       [/^[.a-zA-Z0-9_$?@][^=]*=/, {token: 'type.identifier'}],
       // opcode
-      [/[.a-zA-Z_][.a-zA-Z_0-9]*/, {token: 'keyword', next: '@rest'}],
-      [/[(){}\[\]\->]/, {token: 'operator', next: '@rest'}],
+      [/[.a-zA-Z_][.a-zA-Z_0-9']*/, {token: 'keyword', next: '@rest'}],
+      [/[(){}\[\]\-<>]/, {token: 'operator', next: '@rest'}],
       [/\d+/, 'number'],
 
       // whitespace
@@ -34,10 +34,10 @@ const talSyntax = {
 
       [/\d+/, 'number'],
 
-      [/[,\(\):,\[\]\-\>∃∀]/, 'operator'],
+      [/[,\(\):,\[\]\-<>∃∀]/, 'operator'],
       // Assume anything else is a label reference
       [
-        /%?[.?_$a-zA-Z@][.?_$a-zA-Z0-9@]*/,
+        /%?[.?_$a-zA-Z@][.?_$a-zA-Z0-9'@]*/,
         {cases: {'@keywords': 'keyword', '@default': 'type.identifier'}}
       ],
 

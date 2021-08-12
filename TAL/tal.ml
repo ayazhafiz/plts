@@ -316,7 +316,7 @@ let pp_prog f =
           pp_hv f hv;
           fprintf f "@]@]@,")
         h;
-      fprintf f "@[<v 2>__entry:@,@[<v>";
+      fprintf f "@[<v 4>__entry:@,@[<v>";
       pp_is f i;
       fprintf f "@]@]@]"
 
@@ -874,7 +874,7 @@ let rec trans_exp freshr freshl gam tctx rf = function
       in
       let movargs = List.mapi (fun i ri -> Mov (R (i + 1), SVReg ri)) ris in
       let jmp = Jmp (SVReg r0) in
-      ([], seq (mov0 :: movis @ movargs) jmp)
+      ([], seq ((mov0 :: movis) @ movargs) jmp)
   | A.If0 (A.Annot (v, _), e1, e2) ->
       let h1, i1 = trans_exp freshr freshl gam tctx rf e1 in
       let h2, i2 = trans_exp freshr freshl gam tctx rf e2 in
@@ -933,5 +933,5 @@ let trans_prog = function
       in
       let heape, i = trans_exp (make_freshr []) freshl gam [] [] e in
       let hroot = List.map2 (fun li hi -> (li, hi)) deflabels his in
-      let h = List.concat (hroot :: heapis @ [ heape ]) in
+      let h = List.concat ((hroot :: heapis) @ [ heape ]) in
       P (h, [], i)
