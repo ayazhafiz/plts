@@ -22,11 +22,11 @@ let cases =
       input =
         rm1
           {|
-let $fib =
+let $fact =
   (fix f (n: int): int.
     if0 n then 1
     else n * f (n - 1))
-in $fib 6|};
+in $fact 6|};
       output = Some "720";
       pretty_f =
         rm1

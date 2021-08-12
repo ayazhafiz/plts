@@ -63,11 +63,11 @@
   </article>
   <script type="text/javascript">
     const DEFAULT_EXAMPLE = `
-let $fib =
+let $fact =
   (fix f (n: int): int.
     if0 n then 1
     else n * f (n - 1))
-in $fib 6
+in $fact 6
 `.trim();
     const $ = document.querySelector.bind(document);
 
