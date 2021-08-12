@@ -88,8 +88,10 @@ module A = struct
   let convert = trans_top
 end
 
-module TAL = struct
-  include Tal
+module type Int = Tal.Int
+
+module TAL (Int : Int) = struct
+  include Tal.TAL (Int)
 
   type value = word_value
 
@@ -109,6 +111,24 @@ module TAL = struct
 
   let convert = trans_prog
 end
+
+module OCamlInt = struct
+  type t = int
+
+  let ( + ) = ( + )
+
+  let ( - ) = ( - )
+
+  let ( * ) = ( * )
+
+  let ( = ) = ( = )
+
+  let string_of = string_of_int
+
+  let of_ocaml_int = Fun.id
+end
+
+module OCamlTAL = TAL (OCamlInt)
 
 exception TyError = Util.TyErr
 

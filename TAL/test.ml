@@ -1,4 +1,5 @@
 open Talc
+module TAL = OCamlTAL
 
 type testcase = {
   name : string;

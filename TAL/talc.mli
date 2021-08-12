@@ -1,3 +1,5 @@
+module type Int = Tal.Int
+
 module type Lang = sig
   type term
 
@@ -50,8 +52,13 @@ module H : Lower with type source = C.term
 module A : Lower with type source = H.term
 (** Explicit allocation pass. *)
 
-module TAL : Lower with type source = A.term
 (** Typed assembly language. *)
+module TAL (I : Int) : Lower with type source = A.term
+
+module OCamlInt : Int with type t = int
+
+module OCamlTAL : module type of TAL (OCamlInt)
+(** [TAL] with OCaml integers. *)
 
 val parse_term : string -> F.term
 

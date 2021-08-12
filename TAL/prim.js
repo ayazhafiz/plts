@@ -70,3 +70,8 @@ function time_now_nanoseconds_since_unix_epoch_or_zero() {
 function caml_alloc_dummy_infix() {
   return {};
 }
+// Provides: ml_z_mul_overflows
+function ml_z_mul_overflows(x, y) {
+  var z = x * y;
+  return z != (z | 0);
+}

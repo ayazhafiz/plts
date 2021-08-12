@@ -1,6 +1,18 @@
 open Talc
 open Js_of_ocaml
 
+module BigInt = struct
+  include Z
+
+  let ( = ) = equal
+
+  let of_ocaml_int = of_int
+
+  let string_of = to_string
+end
+
+module TAL = TAL (BigInt)
+
 let to_a program =
   try
     parse_term program |> F.elaborate |> K.convert |> C.convert |> H.convert

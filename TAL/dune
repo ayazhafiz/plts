@@ -19,7 +19,7 @@
 (executable
   (name js)
   (modules js)
-  (libraries talc str js_of_ocaml)
+  (libraries talc str js_of_ocaml zarith zarith_stubs_js)
   (modes byte)
   (preprocess (pps js_of_ocaml-ppx)))
 
@@ -28,4 +28,9 @@
   (targets tal.js)
   (deps (glob_files prim.js))
   (action
-    (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o tal.js)))
+    (run %{bin:js_of_ocaml}
+         %{lib:zarith_stubs_js:biginteger.js}
+         %{lib:zarith_stubs_js:runtime.js}
+         prim.js
+         %{dep:js.bc}
+         -o tal.js)))
