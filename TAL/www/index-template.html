@@ -39,9 +39,14 @@
     <div class="d-flex flex-row flex-justify-around h100">
       <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
         <div class="d-flex flex-row flex-justify-between flex-items-center">
-          <h1>
-            Input (<a href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly">grammar</a>)
-          </h1>
+          <div>
+            <h1 class="d-inline-block">Input</h1>
+            <a class="ml-3" href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly"
+              >Language Grammar</a
+            >
+            <a class="ml-3" href="https://www.cs.princeton.edu/~dpw/papers/tal-toplas.pdf">Paper</a>
+            <a class="ml-3" href="https://github.com/ayazhafiz/plts/tree/base/TAL">Source</a>
+          </div>
           <div class="d-flex flex-row">
             <select class="form-select" v-model="backend" v-on:change="updateResult()">
               <option v-for="option in compileOptions" v-bind:value="option">{{ option }}</option>
