@@ -71,6 +71,7 @@ function caml_alloc_dummy_infix() {
   return {};
 }
 // Provides: ml_z_mul_overflows
+// https://github.com/janestreet/zarith_stubs_js/pull/8#issuecomment-830694486
 function ml_z_mul_overflows(x, y) {
   var z = x * y;
   return z != (z | 0);
