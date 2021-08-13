@@ -27,9 +27,9 @@
     }
   </style>
 
-  <script src="./tal.js?c1c2b64592df22d5a3497d9f9c0a7c79e35c591e"></script>
-  <script src="./systemf.syntax.js?c1c2b64592df22d5a3497d9f9c0a7c79e35c591e"></script>
-  <script src="./tal.syntax.js?c1c2b64592df22d5a3497d9f9c0a7c79e35c591e"></script>
+  <script src="./tal.js?0bf12c79e3d1d084357d2989d176880533930742"></script>
+  <script src="./systemf.syntax.js?0bf12c79e3d1d084357d2989d176880533930742"></script>
+  <script src="./tal.syntax.js?0bf12c79e3d1d084357d2989d176880533930742"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
 </head>
@@ -38,9 +38,16 @@
   <article id="app" class="markdown-body h100">
     <div class="d-flex flex-row flex-justify-around h100">
       <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
-        <h1>
-          Input (<a href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly">grammar</a>)
-        </h1>
+        <div class="d-flex flex-row flex-justify-between flex-items-center">
+          <h1>
+            Input (<a href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly">grammar</a>)
+          </h1>
+          <div class="d-flex flex-row">
+            <select class="form-select" v-model="backend" v-on:change="updateResult()">
+              <option v-for="option in compileOptions" v-bind:value="option">{{ option }}</option>
+            </select>
+          </div>
+        </div>
         <div id="playground" class="editor flex-1"></div>
       </div>
       <div class="col-6 float-left pt-2 pb-4 px-6 h100" id="output">
@@ -54,7 +61,7 @@
             <div id="compilationEditor" class="editor flex-auto"></div>
           </div>
           <div class="d-flex flex-column flex-1">
-            <h1>TAL Execution</h1>
+            <h1>{{ evalTitle }}</h1>
             <div id="execEditor" class="editor flex-auto"></div>
           </div>
         </div>
@@ -63,18 +70,27 @@
   </article>
   <script type="text/javascript">
     const DEFAULT_EXAMPLE = `
-let $fact =
-  (fix f (n: int): int.
-    if0 n then 1
-    else n * f (n - 1))
-in $fact 6
+let $fib =
+  (fix fib (n: int): int.
+    if0 n then 0
+    else if0 (n - 1) then 1   # n = 1
+    else fib (n - 1) + fib (n - 2)) in
+let $twice =
+  (Λa. fix inf(f: a->a): a->a.
+       fix inx(x: a): a.
+         f (f x)) in
+let $double =
+  (fix double(n: int): int.
+    ($twice<int>) (fix inx(x: int): int. x + n) 0) in
+$double ($fib 8)
 `.trim();
     const $ = document.querySelector.bind(document);
 
-    const backends = {
-      compile: talCompile,
-      eval: talEval,
+    const compileBackends = {
+      TAL: ["TAL", talCompile, "TAL Execution", talEval],
+      x86: ["x86", x86Compile, "x86 Emulation", x86Emulate],
     };
+    let [compileTitle, compile, evalTitle, doeval] = compileBackends.TAL;
 
     function show(id) {
       $(id).setAttribute("style", "display: block");
@@ -86,8 +102,8 @@ in $fact 6
     let update1 = undefined;
     function update(pg, compilationEditor, execEditor) {
       const input = pg.getValue();
-      const { result: compiled, error: e1 } = backends.compile(input);
-      const { result: evaled, error: e2 } = backends.eval(input);
+      const { result: compiled, error: e1 } = compile(input);
+      const { result: evaled, error: e2 } = doeval(input);
       const error = e1 || e2;
       if (error) {
         hide("#results");
@@ -158,10 +174,14 @@ in $fact 6
     new Vue({
       el: "#app",
       data: {
-        compileTitle: "TAL",
+        compileOptions: Object.keys(compileBackends),
+        backend: Object.keys(compileBackends)[0],
+        compileTitle,
+        evalTitle,
       },
       methods: {
-        updateBackend() {
+        updateResult() {
+          [this.compileTitle, compile, this.evalTitle, doeval] = compileBackends[this.backend];
           update1();
         },
       },
