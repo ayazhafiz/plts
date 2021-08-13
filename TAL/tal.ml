@@ -13,6 +13,8 @@ module type Int = sig
 
   val of_ocaml_int : int -> t
 
+  val to_ocaml_int : t -> int
+
   val string_of : t -> string
 end
 
@@ -531,9 +533,18 @@ module TAL (Int : Int) = struct
         P (h, rf', i'sub)
     | Halt _ -> evalerr "unreachable"
 
+  type eval_value = HeapVal of heap_value | WordVal of word_value
+
   let rec eval = function
-    | P (_, r, Halt _) -> List.assoc (R 1) r
+    | P (h, r, Halt _) -> (
+        match List.assoc (R 1) r with
+        | WVLabel l -> HeapVal (List.assoc l h)
+        | w -> WordVal w)
     | p -> eval (step p)
+
+  let string_of_eval_value = function
+    | HeapVal hv -> shv hv
+    | WordVal wv -> swv wv
 
   (*** Typecheck (7.3) ***)
 

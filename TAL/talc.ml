@@ -93,9 +93,9 @@ module type Int = Tal.Int
 module TAL (Int : Int) = struct
   include Tal.TAL (Int)
 
-  type value = word_value
+  type value = eval_value
 
-  let string_of_value = swv
+  let string_of_value = string_of_eval_value
 
   let string_of_ty = sty
 
@@ -126,9 +126,23 @@ module OCamlInt = struct
   let string_of = string_of_int
 
   let of_ocaml_int = Fun.id
+
+  let to_ocaml_int = Fun.id
 end
 
 module OCamlTAL = TAL (OCamlInt)
+
+module X86 (Int : Int) = struct
+  include X86.X86 (Int)
+
+  type value = rt_value
+
+  let convert = trans_prog
+
+  let print = string_of_prog
+
+  let print_value = string_of_rt_value
+end
 
 exception TyError = Util.TyErr
 
