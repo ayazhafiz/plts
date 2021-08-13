@@ -43,6 +43,15 @@
             Input (<a href="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly">grammar</a>)
           </h1>
           <div class="d-flex flex-row">
+            <a
+              class="btn"
+              role="button"
+              href="https://www.cs.princeton.edu/~dpw/papers/tal-toplas.pdf"
+              >Paper</a
+            >
+            <a class="btn" role="button" href="https://github.com/ayazhafiz/plts/tree/base/TAL"
+              >Source</a
+            >
             <select class="form-select" v-model="backend" v-on:change="updateResult()">
               <option v-for="option in compileOptions" v-bind:value="option">{{ option }}</option>
             </select>
