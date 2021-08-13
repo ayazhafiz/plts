@@ -4,7 +4,7 @@ const systemFSyntax = {
 
   typeKeywords: ['int', '∀'],
 
-  symbols: /[=><!~?:&|+\-*\/\^%.]+/,
+  symbols: /[=><!~?:&|+\-*\/\^%.,]+/,
   tokenizer: {
     root: [
       [

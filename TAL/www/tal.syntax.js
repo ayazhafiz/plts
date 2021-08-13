@@ -34,7 +34,7 @@ const talSyntax = {
 
       [/\d+/, 'number'],
 
-      [/[,\(\):,\[\]\-<>∃∀]/, 'operator'],
+      [/[,\(\):,\[\]\-<>∃∀+]/, 'operator'],
       // Assume anything else is a label reference
       [
         /%?[.?_$a-zA-Z@][.?_$a-zA-Z0-9'@]*/,

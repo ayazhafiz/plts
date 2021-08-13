@@ -61,7 +61,19 @@ module OCamlTAL : module type of TAL (OCamlInt)
 (** [TAL] with OCaml integers. *)
 
 (** x86 assembly language. *)
-module X86 (I : Int) : Lower with type source = TAL(I).term
+module X86 (I : Int) : sig
+  type program
+
+  type value
+
+  val convert : TAL(I).term -> program
+
+  val print : program -> string
+
+  val emulate : program -> value
+
+  val print_value : value -> string
+end
 
 val parse_term : string -> F.term
 

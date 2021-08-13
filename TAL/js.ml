@@ -6,12 +6,15 @@ module BigInt = struct
 
   let ( = ) = equal
 
+  let string_of = to_string
+
   let of_ocaml_int = of_int
 
-  let string_of = to_string
+  let to_ocaml_int = to_int
 end
 
 module TAL = TAL (BigInt)
+module X86 = X86 (BigInt)
 
 let to_a program =
   try
@@ -59,5 +62,18 @@ let _ =
              to_a (Js.to_string program)
              |> Result.map TAL.eval
              |> Result.map TAL.string_of_value)
+         |> ret
+
+       method x86Compile program =
+         wrap (fun () ->
+             to_a (Js.to_string program)
+             |> Result.map X86.convert |> Result.map X86.print)
+         |> ret
+
+       method x86Emulate program =
+         wrap (fun () ->
+             to_a (Js.to_string program)
+             |> Result.map X86.convert |> Result.map X86.emulate
+             |> Result.map X86.print_value)
          |> ret
     end)

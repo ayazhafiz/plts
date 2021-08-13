@@ -1,5 +1,6 @@
 open Talc
 module TAL = OCamlTAL
+module X86 = X86 (OCamlInt)
 
 type testcase = {
   name : string;
@@ -111,6 +112,8 @@ let to_a parsed = to_h parsed |> A.convert
 
 let to_tal parsed = to_a parsed |> TAL.convert
 
+let to_x86 parsed = to_tal parsed |> X86.convert
+
 let mk_typecheck_wf_tests driver =
   let cases = List.map (fun { name; input; _ } -> (name, input, "")) cases in
   List.map
@@ -210,6 +213,9 @@ let tal_typecheck_tests =
 let tal_eval_tests =
   mk_eval_tests (fun t -> to_tal t |> TAL.eval |> TAL.string_of_value)
 
+let x86_eval_tests =
+  mk_eval_tests (fun t -> to_x86 t |> X86.emulate |> X86.print_value)
+
 let () =
   Alcotest.run "TAL tests"
     [
@@ -232,4 +238,5 @@ let () =
       ("[TAL] Pretty Printing", tal_pp_tests);
       ("[TAL] Typecheck", tal_typecheck_tests);
       ("[TAL] Eval", tal_eval_tests);
+      ("[X86] Emulate", x86_eval_tests);
     ]
