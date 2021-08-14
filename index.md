@@ -26,4 +26,7 @@ described by Pearce and a self-designed inferer is implemented.
 
 - [TAL](./TAL/www/index.html): A compiler from a System F-like language to the
     Typed Assembly Language of [Morrisett, et.al. 1998](https://dash.harvard.edu/handle/1/2797451).
+    Also includes a compiler to x86 assembly using [Linear Scan Register
+    Allocation](http://web.cs.ucla.edu/~palsberg/course/cs132/linearscan.pdf)
+    (Poletto & Sarkar 1999).
   - [Playground](./TAL/www/index.html)
