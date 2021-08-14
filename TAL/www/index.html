@@ -27,9 +27,9 @@
     }
   </style>
 
-  <script src="./tal.js?324dddf3e0561e542f48a84cfd6ac72ed0b8cda5"></script>
-  <script src="./systemf.syntax.js?324dddf3e0561e542f48a84cfd6ac72ed0b8cda5"></script>
-  <script src="./tal.syntax.js?324dddf3e0561e542f48a84cfd6ac72ed0b8cda5"></script>
+  <script src="./tal.js?725b7fd0d4bd65e15f12cc1fec80fa7402dec167"></script>
+  <script src="./systemf.syntax.js?725b7fd0d4bd65e15f12cc1fec80fa7402dec167"></script>
+  <script src="./tal.syntax.js?725b7fd0d4bd65e15f12cc1fec80fa7402dec167"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
 </head>
@@ -56,16 +56,20 @@
         <div id="playground" class="editor flex-1"></div>
       </div>
       <div class="col-6 float-left pt-2 pb-4 px-6 h100" id="output">
-        <div id="error" style="display: none">
-          <h1 class="Subhead-heading--danger">Error</h1>
-          <pre id="errormsg"></pre>
-        </div>
-        <div id="results" class="d-flex flex-column flex-justify-around h100">
-          <div class="d-flex flex-column flex-auto">
+        <div class="d-flex flex-column flex-justify-around h100">
+          <div id="error-compile" style="display: none">
+            <h1 class="Subhead-heading--danger">Error</h1>
+            <pre id="errormsg-compile"></pre>
+          </div>
+          <div id="results-compile" class="d-flex flex-column flex-auto">
             <h1>{{ compileTitle }}</h1>
             <div id="compilationEditor" class="editor flex-auto"></div>
           </div>
-          <div class="d-flex flex-column flex-1">
+          <div id="error-eval" style="display: none">
+            <h1 class="Subhead-heading--danger">Error</h1>
+            <pre id="errormsg-eval"></pre>
+          </div>
+          <div id="results-eval" class="d-flex flex-column flex-1">
             <h1>{{ evalTitle }}</h1>
             <div id="execEditor" class="editor flex-auto"></div>
           </div>
@@ -107,17 +111,25 @@ $double ($fib 8)
     let update1 = undefined;
     function update(pg, compilationEditor, execEditor) {
       const input = pg.getValue();
-      const { result: compiled, error: e1 } = compile(input);
-      const { result: evaled, error: e2 } = doeval(input);
-      const error = e1 || e2;
-      if (error) {
-        hide("#results");
-        show("#error");
-        $("#errormsg").innerText = error;
+      const { result: compiled, error: ecompile } = compile(input);
+      const { result: evaled, error: eeval } = doeval(input);
+      if (ecompile) {
+        hide("#results-compile");
+        show("#error-compile");
+        $("#errormsg-compile").innerText = ecompile;
       } else {
-        hide("#error");
-        show("#results");
+        hide("#error-compile");
+        show("#results-compile");
         compilationEditor.setValue(compiled);
+      }
+
+      if (eeval) {
+        hide("#results-eval");
+        show("#error-eval");
+        $("#errormsg-eval").innerText = eeval;
+      } else {
+        hide("#error-eval");
+        show("#results-eval");
         execEditor.setValue(evaled);
       }
     }
