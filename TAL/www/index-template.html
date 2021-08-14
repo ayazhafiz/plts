@@ -62,7 +62,33 @@
             <pre id="errormsg-compile"></pre>
           </div>
           <div id="results-compile" class="d-flex flex-column flex-auto">
-            <h1>{{ compileTitle }}</h1>
+            <div>
+              <h1 class="d-inline-block">{{ compileTitle }}</h1>
+              <details
+                v-if="compileTitle==='x86'"
+                class="details-reset position-relative ml-2 mb-0 d-inline-block"
+              >
+                <summary class="btn btn-outline">Codegen info</summary>
+                <div class="Popover right-0 left-0">
+                  <div
+                    class="Popover-message Popover-message--large Popover-message--top-left p-4 mt-2 Box box-shadow-large"
+                  >
+                    Register allocation is based on the
+                    <a href="http://web.cs.ucla.edu/~palsberg/course/cs132/linearscan.pdf"
+                      >Linear Scan Register Allocation</a
+                    >
+                    of Poletto and Sarkar (1999). We number instructions as they appear in the TAL
+                    IR, not in the order they would execute.
+                    <br />This poor ordering is simple to implement but results in many spills, as
+                    can be seen in the generated code. The large number of spills demands multiple
+                    passes of register allocation, slowing down compilation time.
+                    <br />
+                    Spilled variables live at the very top of the stack, with space allocated for
+                    them before any code is executed.
+                  </div>
+                </div>
+              </details>
+            </div>
             <div id="compilationEditor" class="editor flex-auto"></div>
           </div>
           <div id="error-eval" style="display: none">
