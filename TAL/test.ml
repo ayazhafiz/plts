@@ -13,6 +13,7 @@ type testcase = {
   pretty_h : string option;
   pretty_a : string option;
   pretty_tal : string option;
+  pretty_x86 : string option;
 }
 
 let rm1 s = String.sub s 1 (String.length s - 1)
@@ -48,6 +49,7 @@ in $fact 6|};
       pretty_h = None;
       pretty_a = None;
       pretty_tal = None;
+      pretty_x86 = None;
     };
     {
       name = "twice";
@@ -84,6 +86,7 @@ halt<
       pretty_h = None;
       pretty_a = None;
       pretty_tal = None;
+      pretty_x86 = None;
     };
   ]
 
@@ -213,12 +216,18 @@ let tal_typecheck_tests =
 let tal_eval_tests =
   mk_eval_tests (fun t -> to_tal t |> TAL.eval |> TAL.string_of_value)
 
+let x86_pp_tests =
+  mk_opt_pp_tests
+    (fun { pretty_x86; _ } -> pretty_x86)
+    (fun t -> to_x86 t |> X86.print)
+
 let x86_eval_tests =
   mk_eval_tests (fun t -> to_x86 t |> X86.emulate |> X86.print_value)
 
 let () =
   Alcotest.run "TAL tests"
     [
+      ("[X86] Output", x86_pp_tests);
       ("[F] Pretty Printing", f_pp_tests);
       ("[F] Typecheck", f_typecheck_tests);
       ("[F] Eval", f_eval_tests);

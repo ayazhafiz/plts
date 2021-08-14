@@ -133,13 +133,16 @@ end
 module OCamlTAL = TAL (OCamlInt)
 
 module X86 (Int : Int) = struct
-  include X86.X86 (Int)
+  include X86
+  include X86 (Int)
+
+  type program = reified_program
 
   type value = rt_value
 
   let convert = trans_prog
 
-  let print = string_of_prog
+  let print = string_of_prog string_of_x86_register
 
   let print_value = string_of_rt_value
 end

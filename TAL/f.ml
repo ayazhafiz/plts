@@ -315,6 +315,7 @@ let rec step = function
   | App ((Fix { name; param; body; _ } as f), e2) when isvalue e2 ->
       subst param e2 body |> subst name f
   | App (e1, e2) when isvalue e1 -> App (e1, step e2)
+  | App (e1, e2) -> App (step e1, e2)
   | TyApp (TyAbs (_, body), _) -> body
   | TyApp (e, t) -> TyApp (step e, t)
   | Tup es ->

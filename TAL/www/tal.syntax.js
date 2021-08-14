@@ -5,7 +5,7 @@ const talSyntax = {
   // Set defaultToken to invalid to see what you do not tokenize yet
   defaultToken: 'invalid',
 
-  registers: /%?\b(r[0-9]+)\b/,
+  registers: /%?\b(r[0-9a-z]+)\b/,
 
   keywords: ['pack', 'code', 'halt', 'as'],
 

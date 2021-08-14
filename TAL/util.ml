@@ -1,5 +1,9 @@
 type op = Plus | Minus | Times
 
+type label = Lab of string
+
+type register = R of int
+
 let pp_op f =
   let open Format in
   function
@@ -10,6 +14,14 @@ let pp_op f =
 let do_op op i j =
   match op with Plus -> i + j | Minus -> i - j | Times -> i * j
 
+let pp_r f =
+  let open Format in
+  function R i -> fprintf f "r%d" i
+
+let pp_l f =
+  let open Format in
+  function Lab l -> fprintf f "%s" l
+
 let with_buffer cb width =
   let open Format in
   let b = Buffer.create 32 in
@@ -18,6 +30,18 @@ let with_buffer cb width =
   cb f;
   pp_print_flush f ();
   Buffer.to_seq b |> String.of_seq
+
+module IntSet = Set.Make (struct
+  type t = int
+
+  let compare = compare
+end)
+
+module IntMap = Map.Make (struct
+  type t = int
+
+  let compare = compare
+end)
 
 module SSet = Set.Make (struct
   type t = string

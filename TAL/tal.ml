@@ -22,10 +22,6 @@ module TAL (Int : Int) = struct
   (*** Syntax: Figure 13 (page 20) of the paper ***)
   type iflag = Uninit | Init
 
-  type label = Lab of string
-
-  type register = R of int
-
   and register_file_ty = (register * ty) list
 
   and ty =
@@ -107,14 +103,6 @@ module TAL (Int : Int) = struct
     | SVPack (t1, v, t2) -> union (ftv_ty t1) (ftv_ty t2) |> union (ftv_sv v)
 
   (*** Pretty printing ***)
-
-  let pp_r f =
-    let open Format in
-    function R i -> fprintf f "r%d" i
-
-  let pp_l f =
-    let open Format in
-    function Lab l -> fprintf f "%s" l
 
   let pp_ty f =
     let open Format in

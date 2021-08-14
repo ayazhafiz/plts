@@ -602,12 +602,6 @@ let unwrap_value = function
   | VVar x -> evalerr ("unresolved variable " ^ x)
   | v -> v
 
-module IntMap = Map.Make (struct
-  type t = int
-
-  let compare = compare
-end)
-
 type rt_heap_val = RTup of value IntMap.t
 
 let print_val = function
