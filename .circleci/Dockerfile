@@ -14,3 +14,4 @@ RUN opam install -y ocamlgraph
 RUN sudo apt install -y libgmp-dev
 RUN opam install -y zarith
 RUN opam install -y zarith_stubs_js
+RUN opam install -y camomile

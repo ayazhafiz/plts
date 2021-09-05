@@ -6,6 +6,7 @@
 (library
  (name ho21)
  (modules ho21 language parser lexer duotyping print)
+ (libraries camomile)
  (inline_tests)
  (js_of_ocaml)
  (preprocess (pps ppx_inline_test ppx_expect)))
