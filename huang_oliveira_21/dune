@@ -1,0 +1,25 @@
+(ocamllex lexer)
+(menhir
+  (flags --explain --fixed-exception)
+  (modules parser))
+
+(library
+ (name ho21)
+ (modules ho21 language parser lexer duotyping print)
+ (inline_tests)
+ (js_of_ocaml)
+ (preprocess (pps ppx_inline_test ppx_expect)))
+
+(executable
+  (name js)
+  (modules js)
+  (libraries ho21 str js_of_ocaml)
+  (modes byte)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(rule
+  (mode (promote (into www)))
+  (targets ho21.js)
+  (deps (glob_files prim.js))
+  (action
+    (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o ho21.js)))
