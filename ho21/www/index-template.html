@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<head>
+  <meta name="viewport" content="width=device-width" />
+  <meta charset="UTF-8" />
+  <meta name="description" content="Playground for typing the FT calculus (Pearce 2012)." />
+  <title>Huang-Oliveira (2021) Playground</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/@primer/css/dist/primer.css" />
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .h100 {
+      height: 100%;
+    }
+    .editor {
+    }
+    pre.inner {
+      padding: 0;
+      font-size: 100%;
+      margin: 0;
+    }
+  </style>
+
+  <script src="./ho21.js?CACHE_BUST"></script>
+  <script src="./ho21.syntax.js?CACHE_BUST"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
+</head>
+
+<body>
+  <article id="app" class="markdown-body h100">
+    <div class="d-flex flex-row flex-justify-around h100">
+      <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
+        <div class="d-flex flex-row flex-justify-between flex-items-center">
+          <div>
+            <h1 class="d-inline-block">Input</h1>
+            <details class="details-reset position-relative ml-3 mb-0 d-inline-block">
+              <summary class="btn-link">Language Grammar</summary>
+              <div class="Popover right-0 left-0">
+                <div
+                  class="Popover-message Popover-message--large Popover-message--top-left p-4 mt-2 Box box-shadow-large"
+                  id="language-docs"
+                ></div>
+              </div>
+            </details>
+            <a class="ml-3" href="https://dl.acm.org/doi/pdf/10.1145/3473594">Paper</a>
+            <a class="ml-3" href="https://github.com/ayazhafiz/plts/tree/base/huang_oliveira_21"
+              >Source</a
+            >
+            <label class="ml-3">
+              <input type="checkbox" v-model="prettifySymbols" v-on:change="updateBackend()" />
+              Prettify Symbols
+            </label>
+          </div>
+        </div>
+        <div id="playground" class="editor flex-1"></div>
+      </div>
+      <div class="col-6 float-left pt-2 pb-4 px-6 h100" id="output">
+        <div class="d-flex flex-column flex-justify-around h100">
+          <div class="d-flex flex-column flex-1">
+            <div id="error-heading" style="display: none !important">
+              <h1 class="Subhead-heading--danger">Error</h1>
+            </div>
+            <div id="results-heading">
+              <h1 class="d-inline-block">Judgements</h1>
+              <label class="ml-3">
+                <input type="checkbox" v-model="printDebug" v-on:change="updateBackend()" />
+                Print derivations
+              </label>
+            </div>
+            <div id="resultsEditor" class="editor flex-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+  <script type="text/javascript">
+    const DEFAULT_EXAMPLE = `
+! ?? *
+P&Q ?? P|Q
+P&(Q|R) ?? P&Q|P&R|P&Q&R
+(A1->A2)&(B1->B2) ?? A1&B1->A2&B2
+(A1->B)&(A2->B) ?? A1|A2->B
+(A|B)&Int ?? A|(Int&B)
+Int ?? Double
+`.trim();
+    let printDebug = true;
+    let prettifySymbols = true;
+    const $ = document.querySelector.bind(document);
+    $("#language-docs").innerHTML = getLanguageGrammarInfo();
+    function show(id) {
+      $(id).setAttribute("style", "display: block");
+    }
+    function hide(id) {
+      $(id).setAttribute("style", "display: none !important");
+    }
+
+    let update1 = undefined;
+    let reformatInputEditor = undefined;
+    function update(pg, resultsEditor) {
+      const queries = pg.getValue();
+      const { result, error } = judge(queries, printDebug, prettifySymbols);
+      if (error === null) {
+        hide("#error-heading");
+        show("#results-heading");
+        resultsEditor.setValue(result);
+      } else {
+        hide("#results-heading");
+        show("#error-heading");
+        resultsEditor.setValue(error);
+      }
+    }
+
+    const proxy = URL.createObjectURL(
+      new Blob(
+        [
+          `self.MonacoEnvironment = { baseUrl: 'https://unpkg.com/monaco-editor@0.21.2/min/' };
+           importScripts('https://unpkg.com/monaco-editor@0.21.2/min/vs/base/worker/workerMain.js');`,
+        ],
+        { type: "text/javascript" }
+      )
+    );
+    require.config({ paths: { vs: "https://unpkg.com/monaco-editor@0.21.2/min/vs" } });
+    window.MonacoEnvironment = {
+      getWorkerUrl: () => proxy,
+    };
+
+    require(["vs/editor/editor.main"], function () {
+      monaco.languages.register({ id: "ho21" });
+      monaco.languages.setMonarchTokensProvider("ho21", ho21Syntax);
+      monaco.languages.registerHoverProvider("ho21", { provideHover: ho21Hover });
+      monaco.languages.registerDocumentFormattingEditProvider("ho21", {
+        provideDocumentFormattingEdits: ho21FormatQueries,
+      });
+      monaco.languages.registerOnTypeFormattingEditProvider("ho21", {
+        autoFormatTriggerCharacters: getHo21AutoFormatCharacters(),
+        provideOnTypeFormattingEdits: ho21OnTypeFormatQueries,
+      });
+      monaco.editor.defineTheme("ho21Theme", ho21Theme);
+      const opts = {
+        theme: "ho21Theme",
+        fontSize: "15px",
+        padding: {},
+        automaticLayout: true,
+        formatOnType: true,
+        formatOnPaste: true,
+        autoIndent: true,
+        language: "ho21",
+        minimap: { enabled: false },
+      };
+      const pg = monaco.editor.create($("#playground"), {
+        ...opts,
+        value: DEFAULT_EXAMPLE,
+      });
+      const resultsEditor = monaco.editor.create($("#resultsEditor"), {
+        ...opts,
+        value: "",
+        readOnly: true,
+      });
+      update1 = () => update(pg, resultsEditor);
+      reformatInputEditor = () => {
+        pg.setValue(formatQueries(pg.getValue(), prettifySymbols));
+      };
+      pg.onDidChangeModelContent(update1);
+      update1();
+      reformatInputEditor();
+    });
+
+    new Vue({
+      el: "#app",
+      data: {
+        printDebug,
+        prettifySymbols,
+      },
+      methods: {
+        updateBackend() {
+          printDebug = this.printDebug;
+          prettifySymbols = this.prettifySymbols;
+          reformatInputEditor();
+          update1();
+        },
+      },
+    });
+  </script>
+</body>
