@@ -7,14 +7,21 @@ type ty =
   | TArrow of ty * ty
   | TOp of mode * ty * ty  (** Sub -> A & B; Sup -> A | B *)
 
+type split =
+  | SpAnd of ty * ty * ty
+  | SpArrowR of ty * ty * ty * split (* C <| B |> D *)
+  | SpArrowL of ty * ty * ty * split (* B <| A |> C *)
+  | SpOrL of ty * ty * ty * split
+  | SpOrR of ty * ty * ty * split
+
 type derivation =
   | ADPrim of mode * ty * ty
   | ADBound of mode * ty * ty
-  | ADArrow of mode * ty * ty * ty * ty (* a1, a2, b1, b2 *) * derivation list
+  | ADArrow of mode * ty * ty (* a1 -> a2 <> b1 -> b2 *) * derivation list
   | ADDual of mode * ty * ty * derivation
-  | ADAnd of mode * ty * ty * (ty * ty) * (* a, b, (b1, b2) *) derivation list
-  | ADAndL of mode * ty * (ty * ty) * ty (* a, (a1, a2), b *) * derivation
-  | ADAndR of mode * ty * (ty * ty) * ty (* a, (a1, a2), b *) * derivation
+  | ADAnd of mode * ty * ty (* a <> b *) * split * derivation list
+  | ADAndL of mode * ty * ty (* a <> b *) * split * derivation
+  | ADAndR of mode * ty * ty (* a <> b *) * split * derivation
 
 type debug_data = { steps : int; derivation_trees : derivation list }
 

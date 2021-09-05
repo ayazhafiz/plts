@@ -19,6 +19,8 @@ let maybe_prettify s pretty =
   | "->", true -> "\u{2192}" (* → *)
   | "<:", true -> "\u{227A}" (* ≺ *)
   | ":>", true -> "\u{227B}" (* ≻ *)
+  | "<|", true -> "\u{25C1}" (* ◁ *)
+  | "|>", true -> "\u{25B7}" (* ▷ *)
   | "~=", true -> "\u{2245}" (* ≅ *)
   | s, _ -> s
 
@@ -58,6 +60,34 @@ let string_of_mode_rel pretty mode =
   let s = match mode with Sub -> "<:" | Sup -> ":>" in
   maybe_prettify s pretty
 
+let name_of_split = function
+  | SpAnd _ -> "Sp-and"
+  | SpArrowR _ -> "Sp-arrowR"
+  | SpArrowL _ -> "Sp-arrowL"
+  | SpOrL _ -> "Sp-orL"
+  | SpOrR _ -> "Sp-orR"
+
+let string_of_split_result =
+  let open Printf in
+  let ltr = maybe_prettify "<|" true in
+  let rtr = maybe_prettify "|>" true in
+  let sty = string_of_ty true in
+  function
+  | SpAnd (a, ab, b)
+  | SpArrowR (a, ab, b, _)
+  | SpArrowL (a, ab, b, _)
+  | SpOrL (a, ab, b, _)
+  | SpOrR (a, ab, b, _) ->
+      sprintf "%s %s %s %s %s" (sty a) ltr (sty ab) rtr (sty b)
+
+let subsplits_of_split = function
+  | SpAnd _ -> []
+  | SpArrowR (_, _, _, m)
+  | SpArrowL (_, _, _, m)
+  | SpOrL (_, _, _, m)
+  | SpOrR (_, _, _, m) ->
+      [ m ]
+
 let name_of_derivation = function
   | ADPrim _ -> "AD-prim"
   | ADBound _ -> "AD-bound"
@@ -70,7 +100,7 @@ let name_of_derivation = function
 let mode_of_derivation = function
   | ADPrim (m, _, _)
   | ADBound (m, _, _)
-  | ADArrow (m, _, _, _, _, _)
+  | ADArrow (m, _, _, _)
   | ADDual (m, _, _, _)
   | ADAnd (m, _, _, _, _)
   | ADAndL (m, _, _, _, _)
@@ -88,36 +118,26 @@ let string_of_derivation_result pretty =
       sprintf "%s %s %s" (string_of_ty pretty a)
         (string_of_mode_rel pretty m)
         (string_of_ty pretty t)
-  | ADArrow (m, a1, a2, b1, b2, _) ->
-      sprintf "%s %s %s"
-        (string_of_ty pretty (TArrow (a1, a2)))
+  | ADArrow (m, a, b, _) ->
+      sprintf "%s %s %s" (string_of_ty pretty a)
         (string_of_mode_rel pretty m)
-        (string_of_ty pretty (TArrow (b1, b2)))
+        (string_of_ty pretty b)
   | ADDual (m, a, b, _)
   | ADAnd (m, a, b, _, _)
-  | ADAndR (m, a, _, b, _)
-  | ADAndL (m, a, _, b, _) ->
+  | ADAndR (m, a, b, _, _)
+  | ADAndL (m, a, b, _, _) ->
       sprintf "%s %s %s" (string_of_ty pretty a)
         (string_of_mode_rel pretty m)
         (string_of_ty pretty b)
 
-let splits_of_derivation pretty =
-  let open Printf in
-  function
+let splits_of_derivation = function
   | ADPrim _ | ADBound _ | ADArrow _ | ADDual _ -> []
-  | ADAnd (m, _, t, (t1, t2), _)
-  | ADAndL (m, t, (t1, t2), _, _)
-  | ADAndR (m, t, (t1, t2), _, _) ->
-      [
-        sprintf "%s \u{25C1} %s{%s} \u{25B7} %s" (string_of_ty pretty t1)
-          (string_of_ty pretty t)
-          (string_of_mode_rel pretty m)
-          (string_of_ty pretty t2);
-      ]
+  | ADAnd (_, _, _, s, _) | ADAndL (_, _, _, s, _) | ADAndR (_, _, _, s, _) ->
+      [ s ]
 
 let subderivations_of_derivation = function
   | ADPrim _ | ADBound _ -> []
-  | ADArrow (_, _, _, _, _, derivs) | ADAnd (_, _, _, _, derivs) -> derivs
+  | ADArrow (_, _, _, derivs) | ADAnd (_, _, _, _, derivs) -> derivs
   | ADDual (_, _, _, deriv)
   | ADAndL (_, _, _, _, deriv)
   | ADAndR (_, _, _, _, deriv) ->
@@ -125,17 +145,38 @@ let subderivations_of_derivation = function
 
 let vbar = "\u{FF5C}"
 
+let pp_split f =
+  let open Format in
+  let rec go split =
+    let result = string_of_split_result split in
+    let dashes = String.make (UTF8.length result) '-' in
+    let subsplits = subsplits_of_split split in
+    fprintf f "@[<v 2>@[<v 0>%s %s" vbar result;
+    fprintf f "@,%s %s %s@]" vbar dashes (name_of_split split);
+    List.iter
+      (fun subsplit ->
+        fprintf f "@,";
+        go subsplit)
+      subsplits;
+    fprintf f "@]"
+  in
+  go
+
 let pp_derivation_tree f pretty tree =
   let open Format in
   let rec go tree =
     let result = string_of_derivation_result pretty tree in
     let dashes = String.make (UTF8.length result) '-' in
-    let splits = splits_of_derivation pretty tree in
+    let splits = splits_of_derivation tree in
     let subderivations = subderivations_of_derivation tree in
     fprintf f "@[<v 2>@[<v 0>%s %s" vbar result;
     fprintf f "@,%s %s %s (%s)@]" vbar dashes (name_of_derivation tree)
       (string_of_mode_rel pretty (mode_of_derivation tree));
-    List.iter (fun split -> fprintf f "@,%s %s" vbar split) splits;
+    List.iter
+      (fun split ->
+        fprintf f "@,";
+        pp_split f split)
+      splits;
     List.iter
       (fun subderiv ->
         fprintf f "@,";

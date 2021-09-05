@@ -10,23 +10,27 @@ let flipmode = function Sub -> Sup | Sup -> Sub
 let rec split m t =
   match (m, t) with
   (* Sp-and *)
-  | m, TOp (m', a, b) when m = m' -> Some (a, b)
+  | m, TOp (m', a, b) when m = m' -> Some (a, b, SpAnd (a, t, b))
   (* Sp-orL *)
   | m, TOp (m', a, b) when splittable m a ->
-      let a1, a2 = split m a |> Option.get in
-      Some (TOp (m', a1, b), TOp (m', a2, b))
+      let a1, a2, subsplit = split m a |> Option.get in
+      let a1b, a2b = (TOp (m', a1, b), TOp (m', a2, b)) in
+      Some (a1b, a2b, SpOrL (a1b, t, a2b, subsplit))
   (* Sp-orR *)
   | m, TOp (m', a, b) when splittable m b ->
-      let b1, b2 = split m b |> Option.get in
-      Some (TOp (m', a, b1), TOp (m', a, b2))
+      let b1, b2, subsplit = split m b |> Option.get in
+      let ab1, ab2 = (TOp (m', a, b1), TOp (m', a, b2)) in
+      Some (ab1, ab2, SpOrR (ab1, t, ab2, subsplit))
   (* Sp-arrowR *)
   | Sub, TArrow (a, b) when splittable Sub b ->
-      let c, d = split Sub b |> Option.get in
-      Some (TArrow (a, c), TArrow (a, d))
+      let c, d, subsplit = split Sub b |> Option.get in
+      let a_c, a_d = (TArrow (a, c), TArrow (a, d)) in
+      Some (a_c, a_d, SpArrowR (a_c, t, a_d, subsplit))
   (* Sp-arrowL *)
   | Sub, TArrow (a, d) when splittable Sup a ->
-      let b, c = split Sup a |> Option.get in
-      Some (TArrow (b, d), TArrow (c, d))
+      let b, c, subsplit = split Sup a |> Option.get in
+      let b_d, c_d = (TArrow (b, d), TArrow (c, d)) in
+      Some (b_d, c_d, SpArrowR (b_d, t, c_d, subsplit))
   | _ -> None
 
 and splittable m t = Option.is_some (split m t)
@@ -48,23 +52,23 @@ let rec check mode t1 t2 isdual =
   | m, a, t when terminal m == t -> (true, 1, ADBound (m, a, t))
   (* AD-and *)
   | m, a, b when splittable m b ->
-      let b1, b2 = split m b |> Option.get in
+      let b1, b2, split = split m b |> Option.get in
       let ok, steps, derivs = check m a b1 false &&> check m a b2 false in
-      (ok, steps + 1, ADAnd (m, a, b, (b1, b2), derivs))
+      (ok, steps + 1, ADAnd (m, a, b, split, derivs))
   (* AD-andL, AD-andR *)
   | m, a, b when splittable m a ->
-      let a1, a2 = split m a |> Option.get in
+      let a1, a2, split = split m a |> Option.get in
       let okL, stepsL, derivL = check m a1 b false in
-      if okL then (true, stepsL + 1, ADAndL (m, a, (a1, a2), b, derivL))
+      if okL then (true, stepsL + 1, ADAndL (m, a, b, split, derivL))
       else
         let okR, stepsR, derivR = check m a2 b false in
-        (okR, stepsL + stepsR + 1, ADAndR (m, a, (a1, a2), b, derivR))
+        (okR, stepsL + stepsR + 1, ADAndR (m, a, b, split, derivR))
   (* AD-arrow *)
   | m, TArrow (a1, a2), TArrow (b1, b2) ->
       let ok, steps, derivs =
         check (flipmode m) a1 b1 false &&> check m a2 b2 false
       in
-      (ok, steps + 1, ADArrow (m, a1, a2, b1, b2, derivs))
+      (ok, steps + 1, ADArrow (m, t1, t2, derivs))
   (* AD-dual *)
   | m, a, b when not isdual ->
       let ok, steps, deriv = check (flipmode m) b a true in
