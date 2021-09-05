@@ -16,6 +16,7 @@ jobs:
           eval $(opam env)
           ./ft/www/build.sh
           ./TAL/www/build.sh
+          ./huang_oliveira_21/www/build.sh
       - run: |
           mkdir -p /tmp/out
           mkdir -p /tmp/out/ft
