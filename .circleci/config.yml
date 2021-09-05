@@ -20,9 +20,11 @@ jobs:
           mkdir -p /tmp/out
           mkdir -p /tmp/out/ft
           mkdir -p /tmp/out/TAL
+          mkdir -p /tmp/out/ho21
           cp -v index.md /tmp/out
           cp -v -R ft/www /tmp/out/ft
           cp -v -R TAL/www /tmp/out/TAL
+          cp -v -R huang_oliveira_21/www /tmp/out/ho21
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"

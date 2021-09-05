@@ -33,7 +33,7 @@ described by Pearce and a self-designed inferer is implemented.
 
 ## Subtyping
 
-- [HO21](./huang_oliveira_21/www/index.html): An implementation of the
+- [HO21](./ho21/www/index.html): An implementation of the
     algorithmic duotyping calculus invented by Huang and Oliveira in
     [Distributing Intersection and Union Types with Splits and Duality](https://dl.acm.org/doi/pdf/10.1145/3473594) (2021).
     The calculus includes union, intersection, and arrow types in the presence
@@ -41,5 +41,5 @@ described by Pearce and a self-designed inferer is implemented.
     somewhat novel in that it computes subtyping relationship entirely on
     surface types of the language, without normalizing to a form like DNF.
     This implementation includes a type-derivation tree generator.
-    - [Playground](./huang_oliveira_21/www/index.html)
+    - [Playground](./ho21/www/index.html)
     - [Huang and Oliveira, 2021](https://dl.acm.org/doi/pdf/10.1145/3473594)
