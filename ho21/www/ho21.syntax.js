@@ -168,7 +168,7 @@ function getHo21AutoFormatCharacters() {
   all.push(...'abcdefghijklmnopqrstuvwxyz'.split(''));
   all.push(...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
   all.push(...'0123456789'.split(''));
-  all.push(...'() \n\t_\''.split(''));
+  all.push(...'()_\''.split(''));
   all.push(...ho21Syntax.constant_types.join('').split(''));
   all.push(...ho21Syntax.queries.join('').split(''));
   all.push(...ho21Syntax.judgements.join('').split(''));
