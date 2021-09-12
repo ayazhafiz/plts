@@ -14,21 +14,8 @@ jobs:
       - checkout
       - run: |
           eval $(opam env)
-          ./ft/www/build.sh
-          ./TAL/www/build.sh
-          ./huang_oliveira_21/www/build.sh
-          ./gtlc/www/build.sh
-      - run: |
-          mkdir -p /tmp/out
-          mkdir -p /tmp/out/ft
-          mkdir -p /tmp/out/TAL
-          mkdir -p /tmp/out/ho21
-          mkdir -p /tmp/out/gtlc
-          cp -v index.md /tmp/out
-          cp -v -R ft/www /tmp/out/ft
-          cp -v -R TAL/www /tmp/out/TAL
-          cp -v -R huang_oliveira_21/www /tmp/out/ho21
-          cp -v -R gtlc/www /tmp/out/gtlc
+          ./scripts/site.sh build-all
+          ./scripts/site.sh copy-out /tmp/out
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"
