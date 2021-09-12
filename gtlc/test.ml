@@ -49,15 +49,11 @@ let cases =
           ("OK: "
           ^ trim
               {|
-fn gen1(env1: {succ: Clos(nat -> nat)}, x: ?): nat
-  = decl succ: Clos(nat -> nat) = env1.0;
-    decl x1: nat = <nat>x;
-    decl r1: nat = apply(succ, x1);
-    r1
-decl gen1C1: Clos(? -> nat) = pack(gen1, {succ: Clos(nat -> nat)});
+fn gen1(env1: {}, x: ?): nat
+  = decl x1: nat = <nat>x;
+    return apply(succ, x1)
 decl x2: ? = <?>true;
-decl r2: nat = apply(gen1C1, x2);
-r2
+return apply(pack(gen1, {}), x2)
 |}
           );
       eval = Some "ERROR: Cast Error at (<nat>(<?>true))";
@@ -66,19 +62,13 @@ r2
           ("OK: "
           ^ trim
               {|
-function gen1(env1: [v<Clos<v<number>, v<number>>>], x: v<unknown>): v<number> {
-  const succ: v<Clos<v<number>, v<number>>> = env1[0];
+function gen1(env1: [], x: v<unknown>): v<number> {
   const x1: v<number> = _cast(x, _tn);
-  const r1: v<number> = succ.value.apply(x1);
-  return r1;
+  return succ.value.apply(x1);
 }
 function main1(): v<number> {
-  const gen1C1
-          : v<Clos<v<unknown>, v<number>>>
-          = _nf(new Clos(gen1, [succ]), _tf(_tu, _tn));
   const x2: v<unknown> = _cast(_nb(true), _tu);
-  const r2: v<number> = gen1C1.value.apply(x2);
-  return r2;
+  return _nf(new Clos(gen1, []), _tf(_tu, _tn)).value.apply(x2);
 }
 _print(main1());
 |}
@@ -95,17 +85,11 @@ _print(main1());
               {|
 fn gen1(env1: {}, f: Clos(? -> nat)): nat
   = decl x1: ? = <?>1;
-    decl r1: nat = apply(f, x1);
-    r1
-fn gen2(env2: {succ: Clos(nat -> nat)}, x: nat): nat
-  = decl succ: Clos(nat -> nat) = env2.0;
-    decl r2: nat = apply(succ, x);
-    r2
-decl gen1C1: Clos(Clos((? -> nat)) -> nat) = pack(gen1, {});
-decl gen2C1: Clos(nat -> nat) = pack(gen2, {succ: Clos(nat -> nat)});
-decl x2: Clos(? -> nat) = <Clos(? -> nat)>gen2C1;
-decl r3: nat = apply(gen1C1, x2);
-r3
+    return apply(f, x1)
+fn gen2(env2: {}, x: nat): nat
+  = return apply(succ, x)
+decl x2: Clos(? -> nat) = <Clos(? -> nat)>pack(gen2, {});
+return apply(pack(gen1, {}), x2)
 |}
           );
       eval = Some "OK: 2";
@@ -116,24 +100,16 @@ r3
               {|
 function gen1(env1: [], f: v<Clos<v<unknown>, v<number>>>): v<number> {
   const x1: v<unknown> = _cast(_nn(1), _tu);
-  const r1: v<number> = f.value.apply(x1);
-  return r1;
+  return f.value.apply(x1);
 }
-function gen2(env2: [v<Clos<v<number>, v<number>>>], x: v<number>): v<number> {
-  const succ: v<Clos<v<number>, v<number>>> = env2[0];
-  const r2: v<number> = succ.value.apply(x);
-  return r2;
+function gen2(env2: [], x: v<number>): v<number> {
+  return succ.value.apply(x);
 }
 function main1(): v<number> {
-  const gen1C1
-          : v<Clos<v<Clos<v<unknown>, v<number>>>, v<number>>>
-          = _nf(new Clos(gen1, []), _tf(_tf(_tu, _tn), _tn));
-  const gen2C1
-          : v<Clos<v<number>, v<number>>>
-          = _nf(new Clos(gen2, [succ]), _tf(_tn, _tn));
-  const x2: v<Clos<v<unknown>, v<number>>> = _cast(gen2C1, _tf(_tu, _tn));
-  const r3: v<number> = gen1C1.value.apply(x2);
-  return r3;
+  const x2
+          : v<Clos<v<unknown>, v<number>>>
+          = _cast(_nf(new Clos(gen2, []), _tf(_tn, _tn)), _tf(_tu, _tn));
+  return _nf(new Clos(gen1, []), _tf(_tf(_tu, _tn), _tn)).value.apply(x2);
 }
 _print(main1());
 |}
@@ -156,7 +132,8 @@ fact 10
     };
   ]
 
-let into_lifted e = elaborate e |> Result.map (fun e -> insert_casts e |> lift)
+let into_lifted e =
+  elaborate e |> Result.map (fun e -> insert_casts e |> lift ~optimize:true)
 
 let typecheck_tests =
   List.map
