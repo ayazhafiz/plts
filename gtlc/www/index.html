@@ -22,10 +22,21 @@
       font-size: 100%;
       margin: 0;
     }
+    @media (min-width: 1000px) {
+      .Popover-message {
+        width: 600px;
+      }
+    }
   </style>
 
-  <script src="./gtlc.js?6b66dcdb3dd55d249f6a6751aeec05956ea40df1"></script>
-  <script src="./gtlc.syntax.js?6b66dcdb3dd55d249f6a6751aeec05956ea40df1"></script>
+  <script src="./gtlc.js?76df14c2765e449c3770f2b6cd45ecb154b6bb87"></script>
+  <script src="./gtlc.syntax.js?76df14c2765e449c3770f2b6cd45ecb154b6bb87"></script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.2.0/markdown-it.min.js"
+    integrity="sha512-cTQeM/op796Fp1ZUxfech8gSMLT/HvrXMkRGdGZGQnbwuq/obG0UtcL04eByVa99qJik7WlnlQOr5/Fw5B36aw=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
 </head>
@@ -40,9 +51,15 @@
             <select class="form-select ml-3" v-model="curExample" v-on:change="updateExample()">
               <option v-for="example in examples" v-bind:value="example">{{ example }}</option>
             </select>
-            <a class="ml-3" href="https://github.com/ayazhafiz/plts/blob/base/gtlc/parser.mly"
-              >Language Grammar</a
-            >
+            <details class="details-reset position-relative ml-3 mb-0 d-inline-block">
+              <summary class="btn-link">Language Grammar</summary>
+              <div class="Popover right-0 left-0">
+                <div
+                  class="Popover-message Popover-message--large Popover-message--top-left p-4 mt-2 Box box-shadow-large"
+                  id="language-docs"
+                ></div>
+              </div>
+            </details>
             <a class="ml-3" href="https://github.com/ayazhafiz/plts/tree/base/gtlc">Source</a>
           </div>
           <div>
@@ -83,6 +100,7 @@
   </article>
   <div id="fake-sandbox-embed" class="display: none"></div>
   <script type="text/javascript">
+    const md = new markdownit();
     const examples = {
       "Cast Error": `(λx. succ x) #t`,
       "Closure Passing": `
@@ -104,6 +122,7 @@ fact 10
     };
     const DEFAULT_EXAMPLE = "Fixpoint Combinator";
     const $ = document.querySelector.bind(document);
+    $("#language-docs").innerHTML = getLanguageGrammarInfo();
 
     function show(id) {
       $(id).setAttribute("style", "display: block");
