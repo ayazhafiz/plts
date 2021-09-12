@@ -94,22 +94,41 @@ const gtlcTheme = {
   ],
 };
 
+const grammarInfo = `
+**Expressions**
+
+- \`x\`: variables
+- \`100\`: numbers
+- \`#t|#f\`: the true and false literals
+- \`(\\|λ)x: t. e\`: a lambda expression with \`x\` bound to type \`t\`
+- \`let x: t = e1 in e2\`: binds \`x\` to \`e1\` and then evaluates \`e2\`
+- \`f a\`: application to a lambda
+- \`if e1 then e2 else e3\`: an if-then-else expression
+
+All type annotations of form \`: t\` are optional. If not specified, the
+type defaults to the unknown type \`?\`.
+
+**Types**
+
+- \`?\`: the unknown type, admitting any value
+- \`nat\`: the type of natural numbers
+- \`bool\`: the type of booleans
+- \`t1 -> t2\`: function type
+
+**Builtin Functions**
+
+${
+                        builtin_docs
+                            .map(({name, ty, doc}) => {
+                              return `- \`${name}: ${ty}\`\n\t- ${doc}`;
+                            })
+                            .join('\n')}
+
+[Full Parser Specification](https://github.com/ayazhafiz/plts/blob/base/gtlc/parser.mly)
+`.trim();
+
 function getLanguageGrammarInfo() {
-  const inputItems = languageContent.filter(lc => !lc.outputOnly);
-  const itemDocs = inputItems.map(({aliases, text, binary}) => {
-    const examples = aliases
-                         .map(alias => {
-                           const example = binary ? `A${alias}B` : alias;
-                           return `<code>${example}</code>`;
-                         })
-                         .join('/');
-    return `<li>${examples}: ${text}</li>`;
-  });
-  itemDocs.push(
-      `<li>Other types: Identifiers beginning with an uppercase letter are treated as primitive types.</li>`);
-  const listDocs = `<ul>${itemDocs.join('\n')}</ul>`;
-  return `${
-      listDocs}\n<a class="ml-3" href="https://github.com/ayazhafiz/plts/blob/base/huang_oliveira_21/parser.mly">Full Parser Specification</a>`;
+  return md.render(grammarInfo);
 }
 
 function getHoverContent(word) {
