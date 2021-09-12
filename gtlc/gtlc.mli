@@ -30,7 +30,7 @@ val string_of_cast_expr : cast_expr -> string
 
 type lifted_program
 
-val lift : cast_expr -> lifted_program
+val lift : optimize:bool -> cast_expr -> lifted_program
 
 val string_of_lifted_program : lifted_program -> string
 

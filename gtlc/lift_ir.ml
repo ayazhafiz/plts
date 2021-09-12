@@ -17,23 +17,24 @@ type expr =
   | Bool of bool
   | Name of string
   | Apply of elaborated * elaborated
-  (* A projection of a variable stored in a closure env *)
-  | Proj of string * int
-  (* Packages a function pointer and its environment into a closure *)
-  | Pack of elaborated * (string * ty) list
+  | Proj of elaborated * int
+      (** A projection of a variable stored in a closure env *)
+  | Pack of elaborated * elaborated list
+      (** Packages a function pointer and its environment into a closure *)
 
 and env = Tup of (string * ty) list
 
 and elaborated = Elab of expr * ty
 
 type stmt =
-  | Decl of string * ty
-  | DeclInit of string * ty * elaborated
+  | Decl of string * ty  (** Mutable declaration. *)
+  | DeclInit of string * ty * elaborated  (** Constant declaration. *)
   | DeclCast of string * ty * elaborated
   | Assign of string * elaborated
   | If of elaborated * stmt list * stmt list
+  | Return of elaborated
 
-type body = Body of stmt list * elaborated
+type body = Body of stmt list
 
 type fn = { name : string; params : (string * ty) list; body : body; ret : ty }
 
@@ -92,7 +93,9 @@ let pp_expr f =
         fprintf f ",@ ";
         go arg;
         fprintf f "@])@]"
-    | Proj (s, i) -> fprintf f "%s.%d" s i
+    | Proj (s, i) ->
+        go s;
+        fprintf f ".%d" i
     | Pack (s, ps) ->
         fprintf f "@[<hov 2>pack(";
         go s;
@@ -100,9 +103,9 @@ let pp_expr f =
         fprintf f "{@[<hv 0>";
         let lasti = List.length ps - 1 in
         List.iteri
-          (fun i (p, t) ->
-            fprintf f "@[<hov 2>%s:@ " p;
-            pp_ty f t;
+          (fun i p ->
+            fprintf f "@[<hov 2>";
+            go p;
             fprintf f "@]";
             if i <> lasti then fprintf f ",@ ")
           ps;
@@ -153,18 +156,22 @@ let pp_stmt f =
             if i <> lasti then fprintf f "@,")
           e;
         fprintf f "@]@]"
+    | Return e ->
+        fprintf f "@[<hov 2>return@ ";
+        pp_expr f e;
+        fprintf f "@]"
   in
   go
 
-let pp_body f (Body (stmts, e)) =
+let pp_body f (Body stmts) =
   let open Format in
   fprintf f "@[<v 0>";
-  List.iter
-    (fun s ->
+  let lasti = List.length stmts - 1 in
+  List.iteri
+    (fun i s ->
       pp_stmt f s;
-      fprintf f "@,")
+      if i <> lasti then fprintf f "@,")
     stmts;
-  pp_expr f e;
   fprintf f "@]"
 
 let pp_fn f { name; params; body; ret } =
@@ -279,9 +286,10 @@ let translate expr =
         let gen = fresh "gen" in
         let env = fresh "env" in
         let envT = TNamedTup free in
+        let envE = Elab (Name env, envT) in
         let envUnpack =
           List.mapi
-            (fun i (v, t) -> DeclInit (v, t, Elab (Proj (env, i), t)))
+            (fun i (v, t) -> DeclInit (v, t, Elab (Proj (envE, i), t)))
             free
         in
         let _, ret = split_arrow t in
@@ -290,14 +298,15 @@ let translate expr =
           {
             name = gen;
             params = [ (env, envT); (x, translate_ty t') ];
-            body = Body (envUnpack @ body_s, body_e);
+            body = Body (envUnpack @ body_s @ [ Return body_e ]);
             ret;
           }
         in
         toplevels := fn :: !toplevels;
         let genC = fresh (gen ^ "C") in
         let genCTy = t in
-        let clos = Elab (Pack (Elab (Name gen, genCTy), free), genCTy) in
+        let freeLst = List.map (fun (x, t) -> Elab (Name x, t)) free in
+        let clos = Elab (Pack (Elab (Name gen, genCTy), freeLst), genCTy) in
         let genCDecl = DeclInit (genC, genCTy, clos) in
         ([ genCDecl ], Elab (Name genC, genCTy))
     | CE.If (c, thn, els) ->
@@ -319,5 +328,123 @@ let translate expr =
     | CE.Loc _ | CE.Builtin _ -> failwith "untranslatable (only for eval)"
   in
   let stmts, e = go expr in
-  let body = Body (stmts, e) in
+  let body = Body (stmts @ [ Return e ]) in
   { toplevels = List.rev !toplevels; body; fresh; ty = tyof e }
+
+(** An optimization pass. *)
+module type Opt = sig
+  val apply : program -> program
+end
+
+(** Collapses variables where their declaration is redundant (e.g. for constants.) *)
+module CollapseVars : Opt = struct
+  let collect_decls stmts =
+    let seen = ref [] in
+    (* On average, almost all the statements are declarations. *)
+    let decls = Hashtbl.create (List.length stmts) in
+    List.iter
+      (function
+        | DeclInit (x, _, _) when List.mem x !seen ->
+            (* Variable is shadowed. For sake of simplicity, do not attempt to
+               collapse any instance of this name. *)
+            Hashtbl.remove decls x
+        | DeclInit (x, _, e) ->
+            Hashtbl.add decls x e;
+            seen := x :: !seen
+        (* We can only eliminate constant variables. Don't attempt to eliminate
+           casts as that makes the generated code harder to read. *)
+        | _ -> ())
+      stmts;
+    decls
+
+  let vars_to_collapse cand_vars stmts =
+    let usages =
+      List.map (fun v -> (v, 0)) cand_vars |> List.to_seq |> Hashtbl.of_seq
+    in
+    let rec goe (Elab (e, _)) =
+      match e with
+      | Nat _ | Bool _ -> ()
+      | Name x -> (
+          match Hashtbl.find_opt usages x with
+          | Some n -> Hashtbl.add usages x (n + 1)
+          | None -> ())
+      | Apply (e1, e2) ->
+          goe e1;
+          goe e2
+      | Pack (e, es) ->
+          goe e;
+          List.iter goe es
+      | Proj (e, _) -> goe e
+    in
+    let rec gos = function
+      | Decl _ -> ()
+      | DeclInit (_, _, e) | DeclCast (_, _, e) | Assign (_, e) -> goe e
+      | Return e -> goe e
+      | If (e, s1, s2) ->
+          goe e;
+          List.iter gos s1;
+          List.iter gos s2
+    in
+    List.iter gos stmts;
+    List.filter (fun v -> Hashtbl.find usages v <= 1) cand_vars
+
+  let subst_elim_vars decls stmts =
+    let rec goe (Elab (e, t)) =
+      let e' =
+        match e with
+        | Nat _ | Bool _ -> e
+        | Apply (e1, e2) -> Apply (goe e1, goe e2)
+        | Pack (e, es) -> Pack (goe e, List.map goe es)
+        | Proj (e, i) -> Proj (goe e, i)
+        | Name x -> (
+            match Hashtbl.find_opt decls x with
+            | Some (Elab (e', _)) -> e'
+            | None -> Name x)
+      in
+      Elab (e', t)
+    in
+    let rec gos s =
+      match s with
+      | Decl _ -> Some s
+      | DeclInit (x, _, e) when Hashtbl.mem decls x ->
+          (* We have to be a bit careful here, since the decl expression could
+             itself have variables we are eliminating. So update the expression
+             first, then update the binding, and finally mark the declaration
+             for elimination. *)
+          let e' = goe e in
+          Hashtbl.add decls x e';
+          None
+      | DeclInit (x, t, e) -> Some (DeclInit (x, t, goe e))
+      | DeclCast (x, t, e) -> Some (DeclCast (x, t, goe e))
+      | Assign (x, e) -> Some (Assign (x, goe e))
+      | If (e, s1, s2) ->
+          Some (If (goe e, List.filter_map gos s1, List.filter_map gos s2))
+      | Return e -> Some (Return (goe e))
+    in
+    List.filter_map gos stmts
+
+  let rec do_stmtlist stmts =
+    let stmts = List.map scope_recurse stmts in
+    let decls = collect_decls stmts in
+    let cand_vars = Hashtbl.to_seq_keys decls |> List.of_seq in
+    let vars = vars_to_collapse cand_vars stmts in
+    Hashtbl.filter_map_inplace
+      (fun v e -> if List.mem v vars then Some e else None)
+      decls;
+    let stmts' = subst_elim_vars decls stmts in
+    stmts'
+
+  and scope_recurse s =
+    match s with
+    | Decl _ | DeclInit _ | DeclCast _ | Assign _ | Return _ -> s
+    | If (e, s1, s2) -> If (e, do_stmtlist s1, do_stmtlist s2)
+
+  let do_body (Body stmts) = Body (do_stmtlist stmts)
+
+  let apply_fn (fn : fn) = { fn with body = do_body fn.body }
+
+  let apply { toplevels; body; fresh; ty } =
+    let toplevels = List.map apply_fn toplevels in
+    let body = do_body body in
+    { toplevels; body; fresh; ty }
+end

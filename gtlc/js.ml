@@ -7,7 +7,8 @@ let ( >+ ) v f = Result.map f v
 
 let to_elab program = Js.to_string program |> parse >>= elaborate
 
-let to_lifted program = to_elab program >+ insert_casts >+ lift
+let to_lifted program opt =
+  to_elab program >+ insert_casts >+ lift ~optimize:(Js.to_bool opt)
 
 let ok s =
   object%js
@@ -46,11 +47,12 @@ let wrap doit =
 let _ =
   Js.export_all
     (object%js
-       method irCompile program =
-         wrap (fun () -> to_lifted program >+ string_of_lifted_program) |> ret
+       method irCompile program opt =
+         wrap (fun () -> to_lifted program opt >+ string_of_lifted_program)
+         |> ret
 
-       method tsCompile program =
-         wrap (fun () -> to_lifted program >+ Cgen.typescript) |> ret
+       method tsCompile program opt =
+         wrap (fun () -> to_lifted program opt >+ Cgen.typescript) |> ret
 
        method doEval program =
          wrap (fun () -> to_elab program >>= eval >+ string_of_value) |> ret

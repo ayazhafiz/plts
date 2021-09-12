@@ -62,6 +62,10 @@
           <div id="results-compile" class="d-flex flex-column flex-auto">
             <div>
               <h1 class="d-inline-block">{{ compileTitle }}</h1>
+              <span class="ml-3">
+                <input id="opt" type="checkbox" v-model="opt" v-on:change="updateResult()" />
+                <label for="opt">Optimize</label>
+              </span>
             </div>
             <div id="compilationEditor" class="editor flex-auto"></div>
           </div>
@@ -69,7 +73,7 @@
             <h1 class="Subhead-heading--danger">Error</h1>
             <pre id="errormsg-eval"></pre>
           </div>
-          <div id="results-eval" class="d-flex flex-column flex-1">
+          <div id="results-eval" class="d-flex flex-column flex-auto">
             <h1>{{ evalTitle }}</h1>
             <div id="execEditor" class="editor flex-auto"></div>
           </div>
@@ -113,7 +117,7 @@ fact 10
     let tsSandbox = undefined;
 
     async function evalTS(input) {
-      const { result, error } = tsCompile(input);
+      const { result, error } = tsCompile(input, opt);
       if (error) return { error };
       tsSandbox.setText(result);
       const jsCode = await tsSandbox.getRunnableJS(result);
@@ -136,12 +140,13 @@ fact 10
       evalLang,
       doeval,
     ] = compileBackends.TypeScript;
+    let opt = true;
 
     async function update(pg, compilationEditor, execEditor) {
       const input = pg.getValue();
       monaco.editor.setModelLanguage(compilationEditor.getModel(), outputLang);
       monaco.editor.setModelLanguage(execEditor.getModel(), evalLang);
-      const { result: compiled, error: ecompile } = compile(input);
+      const { result: compiled, error: ecompile } = compile(input, opt);
       if (ecompile) {
         hide("#results-compile");
         show("#error-compile");
@@ -256,6 +261,7 @@ fact 10
         evalTitle,
         examples: Object.keys(examples),
         curExample: DEFAULT_EXAMPLE,
+        opt,
       },
       methods: {
         async updateResult() {
@@ -267,6 +273,7 @@ fact 10
             evalLang,
             doeval,
           ] = compileBackends[this.backend];
+          opt = this.opt;
           await update1();
         },
         updateExample() {

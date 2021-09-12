@@ -62,7 +62,12 @@ let string_of_cast_expr = Cast_ir.string_of_expr
 
 type lifted_program = Lift_ir.program
 
-let lift = Lift_ir.translate
+let lift ~optimize e =
+  let open Lift_ir in
+  let optimizations = [ CollapseVars.apply ] in
+  let e' = translate e in
+  if optimize then List.fold_left (fun e pass -> pass e) e' optimizations
+  else e'
 
 let string_of_lifted_program = Lift_ir.string_of_program
 

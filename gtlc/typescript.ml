@@ -146,9 +146,11 @@ let pp_expr f =
         fprintf f ".value.apply(@,";
         go arg;
         fprintf f ")@]"
-    | Proj (x, i) -> fprintf f "@[%s[%d]@]" x i
+    | Proj (x, i) ->
+        fprintf f "@[";
+        go x;
+        fprintf f "[%d]@]" i
     | Pack (fn, args) ->
-        let args = List.map fst args in
         fprintf f "@[<hov 2>_nf(@[new Clos(@[<hv 0>";
         go fn;
         fprintf f ",@ ";
@@ -156,7 +158,7 @@ let pp_expr f =
         let lasti = List.length args - 1 in
         List.iteri
           (fun i t ->
-            pp_print_string f t;
+            go t;
             if i <> lasti then fprintf f ",@ ")
           args;
         fprintf f "@]]@])@],@ ";
@@ -208,16 +210,14 @@ let pp_stmt f =
             if i <> lasti then fprintf f "@,")
           e;
         fprintf f "@]@ }@]"
+    | Return e ->
+        fprintf f "@[<hov 2>return ";
+        pp_expr f e;
+        fprintf f ";@]"
   in
   go
 
-let pp_ret f e =
-  let open Format in
-  fprintf f "@[<hov 2>return@ ";
-  pp_expr f e;
-  fprintf f ";@]"
-
-let pp_fn f { name; params; body = Body (stmts, e); ret } =
+let pp_fn f { name; params; body = Body stmts; ret } =
   let open Format in
   fprintf f "@[<v 0>@[<v 2>@[<hov 2>function %s(@[<hv 0>" name;
   let lasti = List.length params - 1 in
@@ -231,12 +231,12 @@ let pp_fn f { name; params; body = Body (stmts, e); ret } =
   fprintf f "@])@,: @[";
   pp_ty f ret;
   fprintf f "@]@] {@,@[<v 0>";
-  List.iter
-    (fun s ->
+  let lasti = List.length stmts - 1 in
+  List.iteri
+    (fun i s ->
       pp_stmt f s;
-      fprintf f "@,")
+      if i <> lasti then fprintf f "@,")
     stmts;
-  pp_ret f e;
   fprintf f "@]@]@ }@]"
 
 let pp_program f { toplevels; body; ty; fresh } =
