@@ -9,7 +9,7 @@ module rec Expr : sig
   type expr =
     | Nat of int
     | Bool of bool
-    | Var of string
+    | Var of [ `Local of string | `Global of string ]
     | App of elaborated_expr * elaborated_expr
     | Lam of string * ty * elaborated_expr
     | If of elaborated_expr * elaborated_expr * elaborated_expr
@@ -34,6 +34,16 @@ end =
 
 open Expr
 
+let rec allvars (Elab (e, _)) =
+  let open S in
+  match e with
+  | Nat _ | Bool _ | Loc _ | Builtin _ -> empty
+  | Var (`Global x | `Local x) -> singleton x
+  | App (e1, e2) -> union (allvars e1) (allvars e2)
+  | Lam (x, _, e) -> add x (allvars e)
+  | If (e1, e2, e3) -> union (allvars e1) (allvars e2) |> union (allvars e3)
+  | Cast (_, e) -> allvars e
+
 let rec freevars_with_tys (Elab (e, t)) =
   let open SMap in
   let check_dup _ t1 t2 =
@@ -41,7 +51,8 @@ let rec freevars_with_tys (Elab (e, t)) =
   in
   match e with
   | Nat _ | Bool _ | Loc _ | Builtin _ -> empty
-  | Var x -> singleton x t
+  | Var (`Local x) -> singleton x t
+  | Var (`Global _) -> empty
   | App (e1, e2) ->
       union check_dup (freevars_with_tys e1) (freevars_with_tys e2)
   | Lam (x, _, e) -> remove x (freevars_with_tys e)
@@ -86,7 +97,7 @@ let pp_expr f =
     match e with
     | Nat n -> pp_print_int f n
     | Bool b -> pp_print_bool f b
-    | Var x -> pp_print_string f x
+    | Var (`Global x | `Local x) -> pp_print_string f x
     | App (e1, e2) ->
         fprintf f "@[<hov 2>(";
         go e1;

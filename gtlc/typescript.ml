@@ -1,111 +1,178 @@
-module Ir = Lift_ir.Linearize
-module L = Language
+open Lift_ir
 open Util
+open Builtin
 
-type ty = TUnknown | TNumber | TBool | TArrow of ty * ty
+let prelude =
+  String.trim
+    (Printf.sprintf
+       {|
+// #region Prelude
+class Clos<P, R> {
+  constructor(private readonly target: (env: any, p: P) => R,
+                private readonly args: unknown[]) {}
 
-type expr =
-  | Number of int
-  | Bool of bool
-  | Name of string
-  | Call of expr * expr list
-
-type stmt =
-  | Decl of string * ty * expr option
-  | DeclCast of string * ty * expr
-  | Assign of string * expr
-  | If of expr * stmt list * stmt list
-  | Ret of expr
-
-type fn = {
-  name : string;
-  params : (string * ty) list;
-  body : stmt list;
-  ret : ty;
+  apply(p: P): R {
+    return this.target(this.args, p);
+  }
 }
 
-type program = { main : string; fns : fn list }
+type ty = 1|2|3|[ty,ty];
+const _tn: 1 = 1;
+const _tb: 2 = 2;
+const _tu: 3 = 3;
+function _tf(left: ty, right: ty): ty {return [left, right];}
+interface v<T> {
+  value: T,
+  tag: ty;
+}
+function _nn(n : number): v<number> {
+  return { value: n, tag: _tn };
+}
+function _nb(b : boolean): v<boolean> {
+  return { value: b, tag: _tb };
+}
+function _nf<L, R>(clos : Clos<L, R>, tag: ty): v<Clos<L,R>> {
+  return { value: clos, tag };
+}
+function _tag2s (tag: ty) : string {
+  if (tag === _tb) return "bool";
+  if (tag === _tn) return "number";
+  if (tag === _tu) return "unknown";
+  return `((_: ${_tag2s(tag[0])}) => ${_tag2s(tag[1])})`
+}
+function _consistent(s: ty, t: ty): boolean {
+  if (s === _tu || t === _tu) return true;
+  if (typeof s === 'number' && typeof t === 'number') return s === t;
+  if (typeof s === 'number' || typeof t === 'number') return false;
+  return _consistent(s[0], t[0]) && _consistent(s[1], t[1]);
+}
+function _cast<T, U>(value: v<T>, tag: ty): v<U> {
+  if (_consistent(value.tag, tag)) return value as unknown as v<U>;
+  throw new Error(`Cast Error: trying to cast ${value.value} as ${_tag2s(tag)}`);
+}
+function _print({value, tag}: v<any>) {
+  if (value instanceof Clos) {
+    return `<Fn${_tag2s(tag)}>`;
+  }
+  return `${value}`;
+}
 
-let rec trans_ty = function
-  | L.TUnknown -> TUnknown
-  | L.TNat -> TNumber
-  | L.TBool -> TBool
-  | L.TArrow (t1, t2) -> TArrow (trans_ty t1, trans_ty t2)
+function _succ(_: [], n: v<number>) {return _nn(n.value + 1);}
+function _pred(_: [], n: v<number>) {return _nn(n.value - 1);}
+function _add_captured(env: [v<number>], m: v<number>) {return _nn(env[0].value + m.value);}
+function _add(_: [], n: v<number>) {
+  return _nf(new Clos(_add_captured, [n]), _tf(_tn, _tn));
+}
+function _mult_captured(env: [v<number>], m: v<number>) {return _nn(env[0].value * m.value);}
+function _mult(_: [], n: v<number>) {
+  return _nf(new Clos(_mult_captured, [n]), _tf(_tn, _tn));
+}
+function _eqn_captured(env: [v<number>], m: v<number>) {return _nb(env[0].value === m.value);}
+function _eqn(_: [], n: v<number>) {
+  return _nf(new Clos(_eqn_captured, [n]), _tf(_tn, _tb));
+}
+function _eqb_captured(env: [v<boolean>], m: v<boolean>) {return _nb(env[0].value === m.value);}
+function _eqb(_: [], n: v<boolean>) {
+  return _nf(new Clos(_eqb_captured, [n]), _tf(_tb, _tb));
+}
+/** %s */
+const succ = _nf(new Clos(_succ, []), _tf(_tn, _tn));
+/** %s */
+const pred = _nf(new Clos(_pred, []), _tf(_tn, _tn));
+/** %s */
+const add = _nf(new Clos(_add, []), _tf(_tn, _tf(_tn, _tn)));
+/** %s */
+const mult = _nf(new Clos(_mult, []), _tf(_tn, _tf(_tn, _tn)));
+/** %s */
+const eqn = _nf(new Clos(_eqn, []), _tf(_tn, _tf(_tn, _tb)));
+/** %s */
+const eqb = _nf(new Clos(_eqb, []), _tf(_tb, _tf(_tb, _tb)));
+// #endregion
+|}
+       (doc_of_builtin "succ") (doc_of_builtin "pred") (doc_of_builtin "add")
+       (doc_of_builtin "mult") (doc_of_builtin "eqn") (doc_of_builtin "eqb"))
 
-let rec trans_expr (Ir.Elab (e, _)) =
-  match e with
-  | Ir.Nat n -> Number n
-  | Ir.Bool b -> Bool b
-  | Ir.Name x -> Name x
-  | Ir.Call (f, ps) -> Call (trans_expr f, List.map trans_expr ps)
-
-let rec trans_stmt = function
-  | Ir.Decl (x, t) -> Decl (x, trans_ty t, None)
-  | Ir.DeclInit (x, t, e) -> Decl (x, trans_ty t, Some (trans_expr e))
-  | Ir.DeclCast (x, t, e) -> DeclCast (x, trans_ty t, trans_expr e)
-  | Ir.Assign (x, e) -> Assign (x, trans_expr e)
-  | Ir.If (c, t, e) ->
-      If (trans_expr c, List.map trans_stmt t, List.map trans_stmt e)
-
-let rec trans_seq = function
-  | Ir.Expr e -> [ Ret (trans_expr e) ]
-  | Ir.Seq (s, rest) -> trans_stmt s :: trans_seq rest
-
-let trans_fn ({ name; params; body; ret } : Ir.fn) =
-  let params = List.map (fun (p, t) -> (p, trans_ty t)) params in
-  let body = trans_seq body in
-  let ret = trans_ty ret in
-  { name; params; body; ret }
-
-let trans_program ({ toplevels; body; ty; fresh } : Ir.program) =
-  let fns = List.map trans_fn toplevels in
-  let main = fresh "main" in
-  let main_fn = trans_fn { name = main; params = []; body; ret = ty } in
-  { main; fns = fns @ [ main_fn ] }
+let pp_tag f =
+  let open Format in
+  let rec go = function
+    | TUnknown -> pp_print_string f "_tu"
+    | TNat -> pp_print_string f "_tn"
+    | TBool -> pp_print_string f "_tb"
+    | TClos (t, t') ->
+        fprintf f "@[<hov 2>_tf(";
+        go t;
+        fprintf f ",@ ";
+        go t';
+        fprintf f ")@]"
+    | TNamedTup _ -> failwith "unreachable"
+  in
+  go
 
 let pp_ty f =
   let open Format in
   let rec go = function
-    | TUnknown -> pp_print_string f "unknown"
-    | TNumber -> pp_print_string f "number"
-    | TBool -> pp_print_string f "boolean"
-    | TArrow (t, t') ->
-        fprintf f "@[<hov 2>((_: ";
+    | TUnknown -> pp_print_string f "v<unknown>"
+    | TNat -> pp_print_string f "v<number>"
+    | TBool -> pp_print_string f "v<boolean>"
+    | TClos (t, t') ->
+        fprintf f "v<@[<hov 2>Clos<";
         go t;
-        fprintf f ") =>@ ";
+        fprintf f ",@ ";
         go t';
-        fprintf f ")@]"
+        fprintf f ">@]>"
+    | TNamedTup ps ->
+        let ts = List.map snd ps in
+        fprintf f "[@[<hov 0>";
+        let lasti = List.length ps - 1 in
+        List.iteri
+          (fun i t ->
+            go t;
+            if i <> lasti then fprintf f ",@ ")
+          ts;
+        fprintf f "@]]"
   in
   go
 
 let pp_expr f =
   let open Format in
-  let rec go = function
-    | Number n -> pp_print_int f n
-    | Bool b -> pp_print_bool f b
+  let rec go (Elab (e, _)) =
+    match e with
+    | Nat n -> fprintf f "_nn(%d)" n
+    | Bool b -> fprintf f "_nb(%b)" b
     | Name x -> pp_print_string f x
-    | Call (head, params) ->
+    | Apply (head, arg) ->
         fprintf f "@[<hov 2>";
         go head;
-        fprintf f "(@[<hv 0>";
-        let lasti = List.length params - 1 in
+        fprintf f ".value.apply(@,";
+        go arg;
+        fprintf f ")@]"
+    | Proj (x, i) -> fprintf f "@[%s[%d]@]" x i
+    | Pack (fn, args) ->
+        let args = List.map fst args in
+        fprintf f "@[<hov 2>_nf(@[new Clos(@[<hv 0>";
+        go fn;
+        fprintf f ",@ ";
+        fprintf f "[@[<hov 0>";
+        let lasti = List.length args - 1 in
         List.iteri
-          (fun i p ->
-            go p;
+          (fun i t ->
+            pp_print_string f t;
             if i <> lasti then fprintf f ",@ ")
-          params;
-        fprintf f "@])@]"
+          args;
+        fprintf f "@]]@])@],@ ";
+        pp_tag f (Lift_ir.tyof fn);
+        fprintf f ")@]"
   in
   go
 
 let pp_stmt f =
   let open Format in
   let rec go = function
-    | Decl (x, t, None) ->
+    | Decl (x, t) ->
         fprintf f "let @[<hov 2>%s@,: " x;
         pp_ty f t;
         fprintf f ";@]"
-    | Decl (x, t, Some e) ->
+    | DeclInit (x, t, e) ->
         fprintf f "const @[<hv 2>%s@,: " x;
         pp_ty f t;
         fprintf f "@ = ";
@@ -114,26 +181,26 @@ let pp_stmt f =
     | DeclCast (x, t, e) ->
         fprintf f "const @[<hv 2>%s@,: " x;
         pp_ty f t;
-        fprintf f "@ = @[<hov 2>";
+        fprintf f "@ = @[<hov 2>_cast(";
         pp_expr f e;
-        fprintf f "@ as ";
-        pp_ty f t;
-        fprintf f "@];@]"
+        fprintf f ",@ ";
+        pp_tag f t;
+        fprintf f ")@];@]"
     | Assign (x, e) ->
         fprintf f "@[<hv 2>%s@ = " x;
         pp_expr f e;
         fprintf f ";@]"
     | If (c, t, e) ->
-        fprintf f "@[<v 0>@[<v 2>@[<v 2>if@ (";
+        fprintf f "@[<v 0>@[<v 2>@[<v 2>if (@[<hov 2>";
         pp_expr f c;
-        fprintf f ")@] {@ ";
+        fprintf f "@,.value@])@] {@ ";
         let lasti = List.length t - 1 in
         List.iteri
           (fun i s ->
             go s;
             if i <> lasti then fprintf f "@,")
           t;
-        fprintf f "@]@ }@]@[<v 1> else {@ ";
+        fprintf f "@]@ }@[<v 1> else {@ ";
         let lasti = List.length e - 1 in
         List.iteri
           (fun i s ->
@@ -141,14 +208,16 @@ let pp_stmt f =
             if i <> lasti then fprintf f "@,")
           e;
         fprintf f "@]@ }@]"
-    | Ret e ->
-        fprintf f "@[<hv 2>return@ ";
-        pp_expr f e;
-        fprintf f ";@]"
   in
   go
 
-let pp_fn f { name; params; body; ret } =
+let pp_ret f e =
+  let open Format in
+  fprintf f "@[<hov 2>return@ ";
+  pp_expr f e;
+  fprintf f ";@]"
+
+let pp_fn f { name; params; body = Body (stmts, e); ret } =
   let open Format in
   fprintf f "@[<v 0>@[<v 2>@[<hov 2>function %s(@[<hv 0>" name;
   let lasti = List.length params - 1 in
@@ -162,15 +231,17 @@ let pp_fn f { name; params; body; ret } =
   fprintf f "@])@,: @[";
   pp_ty f ret;
   fprintf f "@]@] {@,@[<v 0>";
-  let lasti = List.length body - 1 in
-  List.iteri
-    (fun i s ->
+  List.iter
+    (fun s ->
       pp_stmt f s;
-      if i <> lasti then fprintf f "@,")
-    body;
+      fprintf f "@,")
+    stmts;
+  pp_ret f e;
   fprintf f "@]@]@ }@]"
 
-let pp_program f { main; fns } =
+let pp_program f { toplevels; body; ty; fresh } =
+  let main = fresh "main" in
+  let fns = toplevels @ [ { name = main; params = []; body; ret = ty } ] in
   let open Format in
   fprintf f "@[<v 0>";
   List.iter
@@ -178,6 +249,8 @@ let pp_program f { main; fns } =
       pp_fn f s;
       fprintf f "@,")
     fns;
-  fprintf f "%s();@]" main
+  fprintf f "_print(%s());@]" main
 
-let string_of_program p = with_buffer (fun f -> pp_program f p) 80
+let string_of_program with_prelude p =
+  let prog = with_buffer (fun f -> pp_program f p) 80 in
+  if with_prelude then prelude ^ "\n" ^ prog else prog

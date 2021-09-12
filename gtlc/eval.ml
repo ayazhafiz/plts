@@ -19,7 +19,9 @@ let subst x (Elab (v, _) as velab) =
     let e' =
       match e with
       | Nat _ | Bool _ | Loc _ | Builtin _ -> e
-      | Var y -> ( match List.assoc_opt y subs with Some e' -> e' | None -> e)
+      | Var (`Local y) -> (
+          match List.assoc_opt y subs with Some e' -> e' | None -> e)
+      | Var (`Global _) -> e
       | App (e1, e2) -> App (go subs e1, go subs e2)
       | If (c, t, e) -> If (go subs c, go subs t, go subs e)
       | Cast (t', e') -> Cast (t', go subs e')
@@ -27,7 +29,7 @@ let subst x (Elab (v, _) as velab) =
           if x = y then e
           else
             let y' = freshen y (S.union (freevars velab) (freevars e')) in
-            Lam (y', t', go ((y, Var y') :: subs) e')
+            Lam (y', t', go ((y, Var (`Local y')) :: subs) e')
     in
     Elab (e', t)
   in
@@ -104,7 +106,8 @@ let rec eval (Elab (e, te) as input) : (elaborated_expr, error) result =
           let e3' = subst x e2 e3 in
           eval e3'
       (* EDelta *)
-      | Var fn -> eval e2 >>= fun (Elab (e2, _)) -> Ok (builtin_eval fn e2)
+      | Var (`Global fn) ->
+          eval e2 >>= fun (Elab (e2, _)) -> Ok (builtin_eval fn e2)
       | Builtin builtin -> eval e2 >>= fun e2 -> Ok (builtin#eval e2)
       | _ -> type_error input)
   (* EIf (new) *)
@@ -136,7 +139,7 @@ let rec eval (Elab (e, te) as input) : (elaborated_expr, error) result =
           (* λ z:σ. (⟨σ′⟩ (unbox v (⟨τ⟩ z))) *)
           let z = fresh "z" in
           let inner_app =
-            Elab (App (uv, Elab (Cast (t, Elab (Var z, s)), t)), t')
+            Elab (App (uv, Elab (Cast (t, Elab (Var (`Local z), s)), t)), t')
           in
           let body = Elab (Cast (s', inner_app), s') in
           let res = Lam (z, s, body) in
@@ -146,3 +149,5 @@ let rec eval (Elab (e, te) as input) : (elaborated_expr, error) result =
   | Cast (TUnknown, e) ->
       eval e >>= fun v -> Ok (Elab (Cast (TUnknown, unbox v), TUnknown))
   | Var _ | Loc _ | Builtin _ -> Ok input
+
+let eval_top e = eval e |> Result.map unbox

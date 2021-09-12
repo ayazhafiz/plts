@@ -6,7 +6,8 @@
 %token <int>    NUM
 %token <bool>   BOOL
 
-%token NAT
+%token TNAT
+%token TBOOL
 %token LAM
 %token LPAREN
 %token RPAREN
@@ -43,7 +44,7 @@ app_like_expr:
 
 atomic_expr:
   | LPAREN expr RPAREN { $2 }
-  | IDENT { Just(Var $1) }
+  | IDENT { Just(Var (`Local $1)) }
   | NUM { Just(Nat $1) }
   | BOOL { Just(Bool $1) }
 
@@ -56,6 +57,6 @@ arrow_like_type:
 
 atomic_type:
   | LPAREN ty RPAREN { $2 }
-  | NAT   { TNat }
-  | BOOL  { TBool }
+  | TNAT   { TNat }
+  | TBOOL  { TBool }
   | QMARK { TUnknown }

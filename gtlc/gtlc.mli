@@ -14,6 +14,10 @@ val ty_of_elaborated_expr : elaborated_expr -> ty
 
 val string_of_ty : ty -> string
 
+type builtin = { name : string; ty : string; doc : string }
+
+val builtin_docs : builtin list
+
 (*** IR ***)
 
 type cast_expr
@@ -43,5 +47,5 @@ val string_of_value : value -> string
 (*** Codegen ***)
 
 module Cgen : sig
-  val typescript : lifted_program -> string
+  val typescript : ?with_prelude:bool -> lifted_program -> string
 end

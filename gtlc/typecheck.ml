@@ -30,9 +30,10 @@ let rec elaborate ctx (Just e) =
   match e with
   | Nat n -> Ok (Elab (Nat n, TNat))
   | Bool b -> Ok (Elab (Bool b, TBool))
-  | Var x -> (
+  | Var (`Local x | `Global x) -> (
       match List.assoc_opt x ctx with
-      | Some t -> Ok (Elab (Var x, t))
+      | Some (t, true) -> Ok (Elab (Var (`Global x), t))
+      | Some (t, false) -> Ok (Elab (Var (`Local x), t))
       | None -> Error (x ^ " is not declared"))
   | App (e1, e2) -> (
       elaborate ctx e1 >>= fun (Elab (_, t1) as e1) ->
@@ -45,7 +46,7 @@ let rec elaborate ctx (Just e) =
           else Error "Argument is not consistent with domain of application"
       | _ -> Error "Cannot apply argument to non-function type")
   | Lam (x, t, e) ->
-      elaborate ((x, t) :: ctx) e >>= fun (Elab (_, t') as e) ->
+      elaborate ((x, (t, false)) :: ctx) e >>= fun (Elab (_, t') as e) ->
       Ok (Elab (Lam (x, t, e), TArrow (t, t')))
   | If (c, thn, els) ->
       elaborate ctx c >>= fun (Elab (_, tc) as c) ->

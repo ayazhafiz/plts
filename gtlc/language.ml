@@ -5,7 +5,7 @@ type ty = TUnknown | TNat | TBool | TArrow of ty * ty
 type 'sub expr =
   | Nat of int
   | Bool of bool
-  | Var of string
+  | Var of [ `Global of string | `Local of string ]
   | App of 'sub * 'sub
   | Lam of string * ty * 'sub
   | If of 'sub * 'sub * 'sub

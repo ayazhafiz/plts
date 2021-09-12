@@ -2,369 +2,322 @@
 
 module C = Cast_ir
 module CE = Cast_ir.Expr
+module L = Language
 open Util
 
-module ClosConv = struct
-  open Language
+type ty =
+  | TUnknown
+  | TNat
+  | TBool
+  | TClos of ty * ty
+  | TNamedTup of (string * ty) list
 
-  type ty = Language.ty
+type expr =
+  | Nat of int
+  | Bool of bool
+  | Name of string
+  | Apply of elaborated * elaborated
+  (* A projection of a variable stored in a closure env *)
+  | Proj of string * int
+  (* Packages a function pointer and its environment into a closure *)
+  | Pack of elaborated * (string * ty) list
 
-  type closed_expr =
-    | Nat of int
-    | Bool of bool
-    | Var of string
-    | App of elaborated * elaborated
-    | Lam of (string * ty) list * elaborated
-    | If of elaborated * elaborated * elaborated
-    | Cast of ty * elaborated
+and env = Tup of (string * ty) list
 
-  and elaborated = Elab of closed_expr * ty
+and elaborated = Elab of expr * ty
 
-  let rec apply_fvs base base_ty fvs =
-    match (base_ty, fvs) with
-    | _, [] -> base
-    | TArrow (_, ty'), (fv, t) :: fvs' ->
-        apply_fvs (Elab (App (base, Elab (Var fv, t)), ty')) ty' fvs'
-    | _ -> failwith "not arrow type"
+type stmt =
+  | Decl of string * ty
+  | DeclInit of string * ty * elaborated
+  | DeclCast of string * ty * elaborated
+  | Assign of string * elaborated
+  | If of elaborated * stmt list * stmt list
 
-  let rec clos_conv (CE.Elab (e, t)) =
-    let e' =
-      match e with
-      | CE.Nat n -> Nat n
-      | CE.Bool b -> Bool b
-      | CE.Var x -> Var x
-      | CE.App (e1, e2) -> App (clos_conv e1, clos_conv e2)
-      | CE.If (e1, e2, e3) -> If (clos_conv e1, clos_conv e2, clos_conv e3)
-      | CE.Cast (t, e) -> Cast (t, clos_conv e)
-      | CE.Lam (x, t', e) ->
-          let free =
-            SMap.remove x (C.freevars_with_tys e) |> SMap.to_seq |> List.of_seq
-          in
-          let freetys = List.map snd free in
-          let lamt = t in
-          let closed_lam_ty =
-            List.fold_right (fun fvt rest -> TArrow (fvt, rest)) freetys lamt
-          in
-          let closed_lam =
-            Elab (Lam (free @ [ (x, t') ], clos_conv e), closed_lam_ty)
-          in
-          let (Elab (applied_lam, lamt')) =
-            apply_fvs closed_lam closed_lam_ty free
-          in
-          (* correctness check *)
-          if lamt <> lamt' then failwith "lambda closure conversion incorrect";
-          applied_lam
-      | CE.Builtin _ | CE.Loc _ -> failwith "untranslatable; only for eval"
-    in
-    Elab (e', t)
-end
+type body = Body of stmt list * elaborated
 
-module Hoist = struct
-  open Language
+type fn = { name : string; params : (string * ty) list; body : body; ret : ty }
 
-  type ty = Language.ty
+type program = {
+  toplevels : fn list;
+  body : body;
+  ty : ty;
+  fresh : string -> string;
+}
 
-  type expr =
-    | Nat of int
-    | Bool of bool
-    | Name of string
-    | Call of elaborated * elaborated list
-    | If of elaborated * elaborated * elaborated
-    | Cast of ty * elaborated
+let pp_ty f =
+  let open Format in
+  let rec go ?(left_arrow_child = false) = function
+    | TUnknown -> pp_print_string f "?"
+    | TNat -> pp_print_string f "nat"
+    | TBool -> pp_print_string f "bool"
+    | TClos (t1, t2) ->
+        fprintf f "@[<hov 2>Clos(";
+        if left_arrow_child then pp_print_string f "(";
+        go ~left_arrow_child:true t1;
+        fprintf f " ->@ ";
+        go t2;
+        if left_arrow_child then pp_print_string f ")";
+        fprintf f ")@]"
+    (*
+       | TClos (t1, t2) ->
+           fprintf f "@[<hov 2>Clos@,(@[<hov 2>";
+           go t1;
+           fprintf f ")@]@,(@[<hov 2>";
+           go t2;
+           fprintf f "@])@]" *)
+    | TNamedTup fs ->
+        fprintf f "@[{@[<hv 0>";
+        let lasti = List.length fs - 1 in
+        List.iteri
+          (fun i (x, t) ->
+            fprintf f "@[<hov 2>%s:@ " x;
+            go t;
+            fprintf f "@]";
+            if i <> lasti then fprintf f ",@ ")
+          fs;
+        fprintf f "@]}@]"
+  in
+  go
 
-  and elaborated = Elab of expr * ty
-
-  type fn = {
-    name : string;
-    params : (string * ty) list;
-    body : elaborated;
-    ret : ty;
-  }
-
-  type program = {
-    toplevels : fn list;
-    body : elaborated;
-    fresh : string -> string;
-  }
-
-  module CC = ClosConv
-
-  let rec unroll_arrow t n =
-    match (t, n) with
-    | t, 0 -> t
-    | TArrow (_, t'), n -> unroll_arrow t' (n - 1)
-    | _ -> failwith "not an arrow"
-
-  let rec allvars (CC.Elab (e, _)) =
-    let open CC in
-    let open S in
+let pp_expr f =
+  let open Format in
+  let rec go (Elab (e, _)) =
     match e with
-    | Nat _ | Bool _ -> empty
-    | Var x -> singleton x
-    | App (e1, e2) -> union (allvars e1) (allvars e2)
-    | Lam (ps, e) -> List.map fst ps |> S.of_list |> union (allvars e)
-    | If (e1, e2, e3) -> union (allvars e1) (allvars e2) |> union (allvars e3)
-    | Cast (_, e) -> allvars e
+    | Nat n -> pp_print_int f n
+    | Bool b -> pp_print_bool f b
+    | Name x -> pp_print_string f x
+    | Apply (head, arg) ->
+        fprintf f "@[<hov 2>apply(@[<hv 0>";
+        go head;
+        fprintf f ",@ ";
+        go arg;
+        fprintf f "@])@]"
+    | Proj (s, i) -> fprintf f "%s.%d" s i
+    | Pack (s, ps) ->
+        fprintf f "@[<hov 2>pack(";
+        go s;
+        fprintf f ", ";
+        fprintf f "{@[<hv 0>";
+        let lasti = List.length ps - 1 in
+        List.iteri
+          (fun i (p, t) ->
+            fprintf f "@[<hov 2>%s:@ " p;
+            pp_ty f t;
+            fprintf f "@]";
+            if i <> lasti then fprintf f ",@ ")
+          ps;
+        fprintf f "@]})@]"
+  in
+  go
 
-  let hoist e =
-    let fresh = fresh_generator ~used:(allvars e) () in
-    let toplevels = ref [] in
-    let rec go (CC.Elab (e, t)) =
-      let e' =
-        match e with
-        | CC.Nat n -> Nat n
-        | CC.Bool b -> Bool b
-        | CC.Var x -> Name x
-        | CC.App (e1, e2) ->
-            (* Keep as a binary list for now. We will unroll this in the compaction phase. *)
-            Call (go e1, [ go e2 ])
-        | CC.If (e1, e2, e3) -> If (go e1, go e2, go e3)
-        | CC.Cast (t, e) -> Cast (t, go e)
-        | CC.Lam (params, body) ->
-            let body' = go body in
-            let name = fresh "gen" in
-            let ret = unroll_arrow t (List.length params) in
-            let fn = { name; params; body = body'; ret } in
-            toplevels := fn :: !toplevels;
-            Name name
-      in
-      Elab (e', t)
-    in
-    let body = go e in
-    { toplevels = List.rev !toplevels; body; fresh }
-
-  (** [compact expr] collapses applications into a proper sequence. *)
-  let rec compact (Elab (e, t)) =
-    let e' =
-      match e with
-      | Call (target, [ p ]) -> (
-          (* Our parsing convention is such that
-               f p1 p2 (f2 p3)
-               becomes
-               ((f p1) p2) (f2 p3)
-               ^^^^^^^^^^^ ^^^^^^^
-               target      p
-             Unroll `target` to yield the sequence [f; p1; p2]; unroll p
-             independently but keep it as a separate parameter, as we cannot unroll
-             its components. *)
-          let rec unroll = function
-            | Elab (Call (f, [ p ]), _) ->
-                let fs = unroll f in
-                let p' = compact p in
-                fs @ [ p' ]
-            | f -> [ f ]
-          in
-          let target = unroll target in
-          let p' = compact p in
-          match target @ [ p' ] with
-          | hd :: args -> Call (hd, args)
-          | _ -> failwith "impossible")
-      | Call _ -> failwith "impossible"
-      | Nat n -> Nat n
-      | Bool b -> Bool b
-      | Name x -> Name x
-      | If (e1, e2, e3) -> If (compact e1, compact e2, compact e3)
-      | Cast (t, e) -> Cast (t, compact e)
-    in
-    Elab (e', t)
-
-  let compact_program { toplevels; body; fresh } =
-    let toplevels =
-      List.map (fun (fn : fn) -> { fn with body = compact fn.body }) toplevels
-    in
-    { toplevels; body = compact body; fresh }
-end
-
-module Linearize = struct
-  open Language
-  module H = Hoist
-
-  type ty = Language.ty
-
-  type expr =
-    | Nat of int
-    | Bool of bool
-    | Name of string
-    | Call of elaborated * elaborated list
-
-  and elaborated = Elab of expr * ty
-
-  type stmt =
-    | Decl of string * ty
-    | DeclInit of string * ty * elaborated
-    | DeclCast of string * ty * elaborated
-    | Assign of string * elaborated
-    | If of elaborated * stmt list * stmt list
-
-  type seq = Expr of elaborated | Seq of stmt * seq
-
-  type fn = { name : string; params : (string * ty) list; body : seq; ret : ty }
-
-  type program = {
-    toplevels : fn list;
-    body : seq;
-    ty : ty;
-    fresh : string -> string;
-  }
-
-  let translate fresh expr =
-    let rec go (H.Elab (e, t)) =
-      match e with
-      | H.Nat n -> ([], Elab (Nat n, t))
-      | H.Bool b -> ([], Elab (Bool b, t))
-      | H.Name x -> ([], Elab (Name x, t))
-      | H.Call (target, params) ->
-          let stmts, fn = go target in
-          let stmts', params =
-            List.fold_right
-              (fun p (stmts, params) ->
-                let s, p = go p in
-                (s @ stmts, p :: params))
-              params ([], [])
-          in
-          let x = fresh "x" in
-          let call = Elab (Call (fn, params), t) in
-          let declx = DeclInit (x, t, call) in
-          (stmts @ stmts' @ [ declx ], Elab (Name x, t))
-      | If (c, thn, els) ->
-          let r = fresh "res" in
-          let declr = Decl (r, t) in
-          let stmts_c, c = go c in
-          let stmts_thn, thn = go thn in
-          let stmts_els, els = go els in
-          let if' =
-            If
-              ( c,
-                stmts_thn @ [ Assign (r, thn) ],
-                stmts_els @ [ Assign (r, els) ] )
-          in
-          (stmts_c @ [ declr; if' ], Elab (Name r, t))
-      | Cast (t, e) ->
-          let stmts, e = go e in
-          let x = fresh "x" in
-          (stmts @ [ DeclCast (x, t, e) ], Elab (Name x, t))
-    in
-    let stmts, e = go expr in
-    List.fold_right (fun s seq -> Seq (s, seq)) stmts (Expr e)
-
-  let translate_fn fresh ({ name; params; body; ret } : H.fn) =
-    { name; params; body = translate fresh body; ret }
-
-  let translate_program
-      ({ toplevels; body = H.Elab (_, t) as body; fresh } : H.program) =
-    let toplevels = List.map (translate_fn fresh) toplevels in
-    let body = translate fresh body in
-    { toplevels; body; ty = t; fresh }
-
-  let pp_expr f =
-    let open Format in
-    let rec go (Elab (e, _)) =
-      match e with
-      | Nat n -> pp_print_int f n
-      | Bool b -> pp_print_bool f b
-      | Name x -> pp_print_string f x
-      | Call (head, params) ->
-          fprintf f "@[<hov 2>";
-          go head;
-          fprintf f "(@[<hv 0>";
-          let lasti = List.length params - 1 in
-          List.iteri
-            (fun i p ->
-              go p;
-              if i <> lasti then fprintf f ",@ ")
-            params;
-          fprintf f "@])@]"
-    in
-    go
-
-  let pp_stmt f =
-    let open Format in
-    let rec go = function
-      | Decl (x, t) ->
-          fprintf f "decl @[<hov 2>%s@,: " x;
-          pp_ty f t;
-          fprintf f ";@]"
-      | DeclInit (x, t, e) ->
-          fprintf f "decl @[<hv 2>%s@,: " x;
-          pp_ty f t;
-          fprintf f "@ = ";
-          pp_expr f e;
-          fprintf f ";@]"
-      | DeclCast (x, t, e) ->
-          fprintf f "decl @[<hv 2>%s@,: " x;
-          pp_ty f t;
-          fprintf f "@ = <";
-          pp_ty f t;
-          fprintf f ">";
-          pp_expr f e;
-          fprintf f ";@]"
-      | Assign (x, e) ->
-          fprintf f "@[<hv 2>%s@ = " x;
-          pp_expr f e;
-          fprintf f ";@]"
-      | If (c, t, e) ->
-          fprintf f "@[<hv 0>@[<hov 2>if@ ";
-          pp_expr f c;
-          fprintf f "@]@ @[<v 2>then@ ";
-          let lasti = List.length t - 1 in
-          List.iteri
-            (fun i s ->
-              go s;
-              if i <> lasti then fprintf f "@,")
-            t;
-          fprintf f "@]@ @[<hov 2>else@ ";
-          let lasti = List.length t - 1 in
-          List.iteri
-            (fun i s ->
-              go s;
-              if i <> lasti then fprintf f "@,")
-            e;
-          fprintf f "@]@]"
-    in
-    go
-
-  let pp_seq f =
-    let open Format in
-    let rec go = function
-      | Expr e -> pp_expr f e
-      | Seq (stmt, rest) ->
-          pp_stmt f stmt;
-          fprintf f "@,";
-          go rest
-    in
-    go
-
-  let pp_fn f { name; params; body; ret } =
-    let open Format in
-    fprintf f "@[<hov 2>fn %s(@[<hv 0>" name;
-    let lasti = List.length params - 1 in
-    List.iteri
-      (fun i (p, t) ->
-        fprintf f "@[<hov 2>%s:@ " p;
+let pp_stmt f =
+  let open Format in
+  let rec go = function
+    | Decl (x, t) ->
+        fprintf f "decl @[<hov 2>%s@,: " x;
         pp_ty f t;
-        fprintf f "@]";
-        if i <> lasti then fprintf f ",@ ")
-      params;
-    fprintf f "@])@,: @[";
-    pp_ty f ret;
-    fprintf f "@]@ = @[<v 0>";
-    pp_seq f body;
-    fprintf f "@]@]"
+        fprintf f ";@]"
+    | DeclInit (x, t, e) ->
+        fprintf f "decl @[<hv 2>%s@,: " x;
+        pp_ty f t;
+        fprintf f "@ = ";
+        pp_expr f e;
+        fprintf f ";@]"
+    | DeclCast (x, t, e) ->
+        fprintf f "decl @[<hv 2>%s@,: " x;
+        pp_ty f t;
+        fprintf f "@ = <";
+        pp_ty f t;
+        fprintf f ">";
+        pp_expr f e;
+        fprintf f ";@]"
+    | Assign (x, e) ->
+        fprintf f "@[<hv 2>%s@ = " x;
+        pp_expr f e;
+        fprintf f ";@]"
+    | If (c, t, e) ->
+        fprintf f "@[<hv 0>@[<hov 2>if@ ";
+        pp_expr f c;
+        fprintf f "@]@ @[<v 2>then@ ";
+        let lasti = List.length t - 1 in
+        List.iteri
+          (fun i s ->
+            go s;
+            if i <> lasti then fprintf f "@,")
+          t;
+        fprintf f "@]@ @[<v 2>else@ ";
+        let lasti = List.length e - 1 in
+        List.iteri
+          (fun i s ->
+            go s;
+            if i <> lasti then fprintf f "@,")
+          e;
+        fprintf f "@]@]"
+  in
+  go
 
-  let pp_program f { toplevels; body; _ } =
-    let open Format in
-    fprintf f "@[<v 0>";
-    List.iter
-      (fun fn ->
-        pp_fn f fn;
-        fprintf f "@,")
-      toplevels;
-    pp_seq f body;
-    fprintf f "@]"
+let pp_body f (Body (stmts, e)) =
+  let open Format in
+  fprintf f "@[<v 0>";
+  List.iter
+    (fun s ->
+      pp_stmt f s;
+      fprintf f "@,")
+    stmts;
+  pp_expr f e;
+  fprintf f "@]"
 
-  let string_of_program prog = with_buffer (fun f -> pp_program f prog) 80
-end
+let pp_fn f { name; params; body; ret } =
+  let open Format in
+  fprintf f "@[<v 2>@[<hov 2>fn %s(@[<hv 0>" name;
+  let lasti = List.length params - 1 in
+  List.iteri
+    (fun i (p, t) ->
+      fprintf f "@[<hov 2>%s:@ " p;
+      pp_ty f t;
+      fprintf f "@]";
+      if i <> lasti then fprintf f ",@ ")
+    params;
+  fprintf f "@])@,: @[";
+  pp_ty f ret;
+  fprintf f "@]@]@,= @[<v 0>";
+  pp_body f body;
+  fprintf f "@]@]"
 
-let translate cast_expr =
-  cast_expr |> ClosConv.clos_conv |> Hoist.hoist |> Hoist.compact_program
-  |> Linearize.translate_program
+let pp_program f { toplevels; body; _ } =
+  let open Format in
+  fprintf f "@[<v 0>";
+  List.iter
+    (fun fn ->
+      pp_fn f fn;
+      fprintf f "@,")
+    toplevels;
+  pp_body f body;
+  fprintf f "@]"
+
+let se e = with_buffer (fun f -> pp_expr f e) 80
+
+let sty t = with_buffer (fun f -> pp_ty f t) 80
+
+let string_of_program prog = with_buffer (fun f -> pp_program f prog) 80
+
+let rec translate_ty = function
+  | L.TUnknown -> TUnknown
+  | L.TNat -> TNat
+  | L.TBool -> TBool
+  | L.TArrow (t, t') -> TClos (translate_ty t, translate_ty t')
+
+let split_arrow = function
+  | TClos (l, r) -> (l, r)
+  | _ -> failwith "not an arrow"
+
+let tyof (Elab (_, t)) = t
+
+(** Does three things:
+      1. Linearize expressions into statements
+      2. Convert inline lambdas into closures
+      3. Hoist closure definitions *)
+let translate expr =
+  let fresh = fresh_generator ~used:(C.allvars expr) () in
+  let toplevels = ref [] in
+  let rec go (CE.Elab (e, t)) =
+    let t = translate_ty t in
+    match e with
+    | CE.Nat n -> ([], Elab (Nat n, t))
+    | CE.Bool b -> ([], Elab (Bool b, t))
+    | CE.Var (`Global x | `Local x) ->
+        (* In this pass we will have converted all functions to closures, so the
+           distinction between locally and globally defined variables no longer
+           matters as much. *)
+        ([], Elab (Name x, t))
+    | CE.App (fn, arg) -> (
+        (* Two cases here.
+           1. Closures
+                fn arg
+              becomes
+                let r = apply(fn, arg) in
+                r
+           2. Closed functions
+              TODO
+        *)
+        let stmts1, fn = go fn in
+        let stmts2, arg = go arg in
+        match tyof fn with
+        | TClos (_, rT) ->
+            let r = fresh "r" in
+            let rDecl = DeclInit (r, rT, Elab (Apply (fn, arg), rT)) in
+            (stmts1 @ stmts2 @ [ rDecl ], Elab (Name r, rT))
+        (*
+        | TArrow (_, rT) ->
+            let r = fresh "r" in
+            let target =
+              match target with
+              | Elab (Name x, _) -> x
+              | _ -> failwith (se target ^ " is not a name")
+            in
+            let rDecl = DeclInit (r, rT, Elab (Call (target, [ arg ]), rT)) in
+            (stmts1 @ stmts2 @ [ rDecl ], Elab (Name r, rT))
+        *)
+        | t ->
+            failwith
+              ("applying to non-closure and non-function type: found " ^ sty t))
+    | CE.Lam (x, t', e) ->
+        (* \x: nat. add (add x y) z becomes
+           fn gen1(env: (x: .., y: ..), x: nat) -> nat
+             = let x = env.0 in
+               let y = env.1 in
+               add (add x y) z
+           ...
+           let gen1C = pack(gen1, (y, z)) in
+           gen1C
+        *)
+        let free =
+          SMap.remove x (C.freevars_with_tys e)
+          |> SMap.to_seq |> List.of_seq
+          |> List.map (fun (v, t) -> (v, translate_ty t))
+        in
+        let gen = fresh "gen" in
+        let env = fresh "env" in
+        let envT = TNamedTup free in
+        let envUnpack =
+          List.mapi
+            (fun i (v, t) -> DeclInit (v, t, Elab (Proj (env, i), t)))
+            free
+        in
+        let _, ret = split_arrow t in
+        let body_s, body_e = go e in
+        let fn =
+          {
+            name = gen;
+            params = [ (env, envT); (x, translate_ty t') ];
+            body = Body (envUnpack @ body_s, body_e);
+            ret;
+          }
+        in
+        toplevels := fn :: !toplevels;
+        let genC = fresh (gen ^ "C") in
+        let genCTy = t in
+        let clos = Elab (Pack (Elab (Name gen, genCTy), free), genCTy) in
+        let genCDecl = DeclInit (genC, genCTy, clos) in
+        ([ genCDecl ], Elab (Name genC, genCTy))
+    | CE.If (c, thn, els) ->
+        let r = fresh "res" in
+        let declr = Decl (r, t) in
+        let stmts_c, c = go c in
+        let stmts_thn, thn = go thn in
+        let stmts_els, els = go els in
+        let if' =
+          If
+            (c, stmts_thn @ [ Assign (r, thn) ], stmts_els @ [ Assign (r, els) ])
+        in
+        (stmts_c @ [ declr; if' ], Elab (Name r, t))
+    | CE.Cast (t, e) ->
+        let stmts, e = go e in
+        let x = fresh "x" in
+        let t = translate_ty t in
+        (stmts @ [ DeclCast (x, t, e) ], Elab (Name x, t))
+    | CE.Loc _ | CE.Builtin _ -> failwith "untranslatable (only for eval)"
+  in
+  let stmts, e = go expr in
+  let body = Body (stmts, e) in
+  { toplevels = List.rev !toplevels; body; fresh; ty = tyof e }

@@ -23,7 +23,8 @@ rule read = parse
   | whitespace    { read lexbuf }
   | newline       { next_line lexbuf; read lexbuf }
 
-  | "nat"      { NAT }
+  | "nat"      { TNAT }
+  | "bool"     { TBOOL }
   | "\\"       { LAM }
   | "λ"        { LAM }
   | "("        { LPAREN }
