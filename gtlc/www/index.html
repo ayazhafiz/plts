@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<head>
+  <meta name="viewport" content="width=device-width" />
+  <meta charset="UTF-8" />
+  <meta name="description" content="A compiler of the Gradually Typed Lambda Calculus" />
+  <title>Gradually Typed Lambda Calculus Playground</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/@primer/css/dist/primer.css" />
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .h100 {
+      height: 100%;
+    }
+    pre.inner {
+      padding: 0;
+      font-size: 100%;
+      margin: 0;
+    }
+  </style>
+
+  <script src="./gtlc.js?6b66dcdb3dd55d249f6a6751aeec05956ea40df1"></script>
+  <script src="./gtlc.syntax.js?6b66dcdb3dd55d249f6a6751aeec05956ea40df1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.20.0/min/vs/loader.min.js"></script>
+</head>
+
+<body>
+  <article id="app" class="markdown-body h100">
+    <div class="d-flex flex-row flex-justify-around h100">
+      <div class="d-flex flex-column col-6 float-left pt-2 pb-4 px-6 h100">
+        <div class="d-flex flex-row flex-justify-between flex-items-center">
+          <div class="d-flex flex-row flex-items-center">
+            <h1 class="d-inline-block">Input</h1>
+            <select class="form-select ml-3" v-model="curExample" v-on:change="updateExample()">
+              <option v-for="example in examples" v-bind:value="example">{{ example }}</option>
+            </select>
+            <a class="ml-3" href="https://github.com/ayazhafiz/plts/blob/base/gtlc/parser.mly"
+              >Language Grammar</a
+            >
+            <a class="ml-3" href="https://github.com/ayazhafiz/plts/tree/base/gtlc">Source</a>
+          </div>
+          <div>
+            <select class="form-select" v-model="backend" v-on:change="updateResult()">
+              <option v-for="option in compileOptions" v-bind:value="option">{{ option }}</option>
+            </select>
+          </div>
+        </div>
+        <div id="playground" class="editor flex-1"></div>
+      </div>
+      <div class="col-6 float-left pt-2 pb-4 px-6 h100" id="output">
+        <div class="d-flex flex-column flex-justify-around h100">
+          <div id="error-compile" style="display: none">
+            <h1 class="Subhead-heading--danger">Error</h1>
+            <pre id="errormsg-compile"></pre>
+          </div>
+          <div id="results-compile" class="d-flex flex-column flex-auto">
+            <div>
+              <h1 class="d-inline-block">{{ compileTitle }}</h1>
+              <span class="ml-3">
+                <input id="opt" type="checkbox" v-model="opt" v-on:change="updateResult()" />
+                <label for="opt">Optimize</label>
+              </span>
+            </div>
+            <div id="compilationEditor" class="editor flex-auto"></div>
+          </div>
+          <div id="error-eval" style="display: none">
+            <h1 class="Subhead-heading--danger">Error</h1>
+            <pre id="errormsg-eval"></pre>
+          </div>
+          <div id="results-eval" class="d-flex flex-column flex-auto">
+            <h1>{{ evalTitle }}</h1>
+            <div id="execEditor" class="editor flex-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+  <div id="fake-sandbox-embed" class="display: none"></div>
+  <script type="text/javascript">
+    const examples = {
+      "Cast Error": `(λx. succ x) #t`,
+      "Closure Passing": `
+let apply1To = λf: ? -> nat. f 1 in
+apply1To (λx: nat. succ x)
+`.trim(),
+      "Large Closures": `
+let add8 =
+  \\a. \\b. \\c. \\d. \\e. \\f. \\g. \\h.
+  add a (add b (add c (add d (add e (add f (add g h)))))) in
+add8 1 2 3 4 5 6 7 8
+`.trim(),
+      "Fixpoint Combinator": `
+let fix = λf. (λx. f (λy. x x y)) (λx. f (λy. x x y)) in
+let fact: nat -> nat =
+  fix (λfact. λn. if eqn n 0 then 1 else (mult n (fact (pred n)))) in
+fact 10
+`.trim(),
+    };
+    const DEFAULT_EXAMPLE = "Fixpoint Combinator";
+    const $ = document.querySelector.bind(document);
+
+    function show(id) {
+      $(id).setAttribute("style", "display: block");
+    }
+    function hide(id) {
+      $(id).setAttribute("style", "display: none !important");
+    }
+
+    let updatePgValue = undefined;
+    let update1 = undefined;
+    let tsSandbox = undefined;
+
+    async function evalTS(input) {
+      const { result, error } = tsCompile(input, opt);
+      if (error) return { error };
+      tsSandbox.setText(result);
+      const jsCode = await tsSandbox.getRunnableJS(result);
+      try {
+        return { result: eval(jsCode) };
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+
+    const compileBackends = {
+      "Compiler IR": ["Lift IR", irCompile, "liftIr", "Interpreter Execution", "gtlc", doEval],
+      TypeScript: ["TypeScript", tsCompile, "typescript", "JS Execution", "typescript", evalTS],
+    };
+    let [
+      compileTitle,
+      compile,
+      outputLang,
+      evalTitle,
+      evalLang,
+      doeval,
+    ] = compileBackends.TypeScript;
+    let opt = true;
+
+    async function update(pg, compilationEditor, execEditor) {
+      const input = pg.getValue();
+      monaco.editor.setModelLanguage(compilationEditor.getModel(), outputLang);
+      monaco.editor.setModelLanguage(execEditor.getModel(), evalLang);
+      const { result: compiled, error: ecompile } = compile(input, opt);
+      if (ecompile) {
+        hide("#results-compile");
+        show("#error-compile");
+        $("#errormsg-compile").innerText = ecompile;
+      } else {
+        hide("#error-compile");
+        show("#results-compile");
+        compilationEditor.setValue(compiled);
+        compilationEditor.trigger("gtlc", "editor.foldAllMarkerRegions");
+      }
+
+      hide("#error-eval");
+      show("#results-eval");
+      execEditor.setValue("Evaluating...");
+      const { result: evaled, error: eeval } = await doeval(input);
+      if (eeval) {
+        hide("#results-eval");
+        show("#error-eval");
+        $("#errormsg-eval").innerText = eeval;
+      } else {
+        hide("#error-eval");
+        show("#results-eval");
+        execEditor.setValue(evaled);
+      }
+    }
+
+    const getLoaderScript = document.createElement("script");
+    getLoaderScript.src = "https://www.typescriptlang.org/js/vs.loader.js";
+    getLoaderScript.async = true;
+    require.config({
+      paths: {
+        vs: "https://unpkg.com/monaco-editor@0.21.2/min/vs",
+        sandbox: "https://www.typescriptlang.org/js/sandbox",
+      },
+      // This is something you need for monaco to work
+      ignoreDuplicateModules: ["vs/editor/editor.main"],
+    });
+    // Grab a copy of monaco, TypeScript and the sandbox
+    require(["vs/editor/editor.main", "vs/language/typescript/tsWorker", "sandbox/index"], async (
+      main,
+      _tsWorker,
+      sandboxFactory
+    ) => {
+      const isOK = main && window.ts && sandboxFactory;
+      if (!isOK) {
+        console.error("Could not get all the dependencies of sandbox set up!");
+        console.error("main", !!main, "ts", !!window.ts, "sandbox", !!sandbox);
+        return;
+      }
+      const sandboxConfig = {
+        text: "",
+        compilerOptions: {},
+        domID: "fake-sandbox-embed",
+      };
+      tsSandbox = sandboxFactory.createTypeScriptSandbox(sandboxConfig, main, window.ts);
+      document
+        .getElementById("fake-sandbox-embed")
+        .parentNode.removeChild(document.getElementById("fake-sandbox-embed"));
+
+      monaco.languages.register({ id: "gtlc" });
+      monaco.languages.setMonarchTokensProvider("gtlc", gtlcSyntax);
+      monaco.languages.registerHoverProvider("gtlc", { provideHover: gtlcHover });
+
+      monaco.languages.register({ id: "liftIr" });
+      monaco.languages.setMonarchTokensProvider("liftIr", liftIrSyntax);
+
+      monaco.editor.defineTheme("gtlcTheme", gtlcTheme);
+      const opts = {
+        theme: "vs",
+        fontSize: "15px",
+        padding: {},
+        automaticLayout: true,
+        formatOnType: true,
+        formatOnPaste: true,
+        autoIndent: true,
+      };
+      const pg = monaco.editor.create($("#playground"), {
+        ...opts,
+        theme: "gtlcTheme",
+        value: examples[DEFAULT_EXAMPLE],
+        language: "gtlc",
+        minimap: { enabled: false },
+      });
+      const compilationEditor = monaco.editor.create($("#compilationEditor"), {
+        ...opts,
+        language: outputLang,
+        value: "",
+        readOnly: true,
+      });
+      const execEditor = monaco.editor.create($("#execEditor"), {
+        ...opts,
+        theme: "gtlcTheme",
+        language: evalLang,
+        value: "",
+        readOnly: true,
+        minimap: { enabled: false },
+      });
+      updatePgValue = (value) => {
+        pg.setValue(value);
+      };
+      update1 = async () => update(pg, compilationEditor, execEditor);
+      pg.onDidChangeModelContent(update1);
+      await update1();
+    });
+
+    new Vue({
+      el: "#app",
+      data: {
+        compileOptions: Object.keys(compileBackends),
+        backend: "TypeScript",
+        compileTitle,
+        evalTitle,
+        examples: Object.keys(examples),
+        curExample: DEFAULT_EXAMPLE,
+        opt,
+      },
+      methods: {
+        async updateResult() {
+          [
+            this.compileTitle,
+            compile,
+            outputLang,
+            this.evalTitle,
+            evalLang,
+            doeval,
+          ] = compileBackends[this.backend];
+          opt = this.opt;
+          await update1();
+        },
+        updateExample() {
+          updatePgValue(examples[this.curExample]);
+        },
+      },
+    });
+  </script>
+</body>
