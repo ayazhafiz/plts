@@ -29,8 +29,8 @@
     }
   </style>
 
-  <script src="./gtlc.js?6fccfdce42ac8c0d15420e9bed940d97e7939dde"></script>
-  <script src="./gtlc.syntax.js?6fccfdce42ac8c0d15420e9bed940d97e7939dde"></script>
+  <script src="./gtlc.js?cbbded1a7326ade98efd96ab6cb3899444c0ff40"></script>
+  <script src="./gtlc.syntax.js?cbbded1a7326ade98efd96ab6cb3899444c0ff40"></script>
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.2.0/markdown-it.min.js"
     integrity="sha512-cTQeM/op796Fp1ZUxfech8gSMLT/HvrXMkRGdGZGQnbwuq/obG0UtcL04eByVa99qJik7WlnlQOr5/Fw5B36aw=="
@@ -115,9 +115,16 @@ add8 1 2 3 4 5 6 7 8
 `.trim(),
       "Fixpoint Combinator": `
 let fix = λf. (λx. f (λy. x x y)) (λx. f (λy. x x y)) in
-let fact: nat -> nat =
-  fix (λfact. λn. if eqn n 0 then 1 else (mult n (fact (pred n)))) in
-fact 10
+let fib = λn.
+  let go' = λgo. λi. λa. λb.
+    if eqn i n
+    then a
+    else go (succ i) b (add a b)
+  in
+  let go = fix go' in
+  go 0 0 1
+in
+fib 23
 `.trim(),
     };
     const DEFAULT_EXAMPLE = "Fixpoint Combinator";
