@@ -30,7 +30,7 @@ case "$1" in
   copy-out)
     OUT="$2"
     mkdir -p "$OUT"
-    cp -v index.md "$OUT"
+    cp -v README.md "$OUT/index.md"
     with_www_dirs copy_out
     ;;
   *)
