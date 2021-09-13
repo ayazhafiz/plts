@@ -133,13 +133,13 @@ let pp_ty f =
   in
   go
 
-let pp_expr f =
+let pp_expr ts_ident f =
   let open Format in
   let rec go (Elab (e, _)) =
     match e with
     | Nat n -> fprintf f "_nn(%d)" n
     | Bool b -> fprintf f "_nb(%b)" b
-    | Name x -> pp_print_string f x
+    | Name x -> pp_print_string f (ts_ident x)
     | Apply (head, arg) ->
         fprintf f "@[<hov 2>";
         go head;
@@ -167,34 +167,34 @@ let pp_expr f =
   in
   go
 
-let pp_stmt f =
+let pp_stmt ts_ident f =
   let open Format in
   let rec go = function
     | Decl (x, t) ->
-        fprintf f "let @[<hov 2>%s@,: " x;
+        fprintf f "let @[<hov 2>%s@,: " (ts_ident x);
         pp_ty f t;
         fprintf f ";@]"
     | DeclInit (x, t, e) ->
-        fprintf f "const @[<hv 2>%s@,: " x;
+        fprintf f "const @[<hv 2>%s@,: " (ts_ident x);
         pp_ty f t;
         fprintf f "@ = ";
-        pp_expr f e;
+        pp_expr ts_ident f e;
         fprintf f ";@]"
     | DeclCast (x, t, e) ->
-        fprintf f "const @[<hv 2>%s@,: " x;
+        fprintf f "const @[<hv 2>%s@,: " (ts_ident x);
         pp_ty f t;
         fprintf f "@ = @[<hov 2>_cast(";
-        pp_expr f e;
+        pp_expr ts_ident f e;
         fprintf f ",@ ";
         pp_tag f t;
         fprintf f ")@];@]"
     | Assign (x, e) ->
-        fprintf f "@[<hv 2>%s@ = " x;
-        pp_expr f e;
+        fprintf f "@[<hv 2>%s@ = " (ts_ident x);
+        pp_expr ts_ident f e;
         fprintf f ";@]"
     | If (c, t, e) ->
         fprintf f "@[<v 0>@[<v 2>@[<v 2>if (@[<hov 2>";
-        pp_expr f c;
+        pp_expr ts_ident f c;
         fprintf f "@,.value@])@] {@ ";
         let lasti = List.length t - 1 in
         List.iteri
@@ -212,18 +212,18 @@ let pp_stmt f =
         fprintf f "@]@ }@]"
     | Return e ->
         fprintf f "@[<hov 2>return ";
-        pp_expr f e;
+        pp_expr ts_ident f e;
         fprintf f ";@]"
   in
   go
 
-let pp_fn f { name; params; body = Body stmts; ret } =
+let pp_fn ts_ident f { name; params; body = Body stmts; ret } =
   let open Format in
-  fprintf f "@[<v 0>@[<v 2>@[<hov 2>function %s(@[<hv 0>" name;
+  fprintf f "@[<v 0>@[<v 2>@[<hov 2>function %s(@[<hv 0>" (ts_ident name);
   let lasti = List.length params - 1 in
   List.iteri
     (fun i (p, t) ->
-      fprintf f "@[<hov 2>%s:@ " p;
+      fprintf f "@[<hov 2>%s:@ " (ts_ident p);
       pp_ty f t;
       fprintf f "@]";
       if i <> lasti then fprintf f ",@ ")
@@ -234,22 +234,36 @@ let pp_fn f { name; params; body = Body stmts; ret } =
   let lasti = List.length stmts - 1 in
   List.iteri
     (fun i s ->
-      pp_stmt f s;
+      pp_stmt ts_ident f s;
       if i <> lasti then fprintf f "@,")
     stmts;
   fprintf f "@]@]@ }@]"
 
+let ts_ident_generator fresh =
+  let mapping = Hashtbl.create 8 in
+  fun ident ->
+    let ident' = Str.global_replace (Str.regexp_string "'") "_" ident in
+    if ident = ident' then ident
+    else
+      match Hashtbl.find_opt mapping ident with
+      | Some ident' -> ident'
+      | None ->
+          let ident'' = fresh ident' in
+          Hashtbl.add mapping ident ident'';
+          ident''
+
 let pp_program f { toplevels; body; ty; fresh } =
+  let ts_ident = ts_ident_generator fresh in
   let main = fresh "main" in
   let fns = toplevels @ [ { name = main; params = []; body; ret = ty } ] in
   let open Format in
   fprintf f "@[<v 0>";
   List.iter
     (fun s ->
-      pp_fn f s;
+      pp_fn ts_ident f s;
       fprintf f "@,")
     fns;
-  fprintf f "_print(%s());@]" main
+  fprintf f "_print(%s());@]" (ts_ident main)
 
 let string_of_program with_prelude p =
   let prog = with_buffer (fun f -> pp_program f p) 80 in
