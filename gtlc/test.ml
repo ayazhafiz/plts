@@ -49,11 +49,11 @@ let cases =
           ("OK: "
           ^ trim
               {|
-fn gen1(env1: {}, x: ?): nat
+fn gen1(x: ?): nat
   = decl x1: nat = <nat>x;
-    return apply(succ, x1)
+    return apply(succ, x1);
 decl x2: ? = <?>true;
-return apply(pack(gen1, {}), x2)
+return apply(fnptr(gen1), x2);
 |}
           );
       eval = Some "ERROR: Cast Error at (<nat>(<?>true))";
@@ -62,13 +62,13 @@ return apply(pack(gen1, {}), x2)
           ("OK: "
           ^ trim
               {|
-function gen1(env1: [], x: v<unknown>): v<number> {
+function gen1(x: v<unknown>): v<number> {
   const x1: v<number> = _cast(x, _tn);
   return succ.value.apply(x1);
 }
 function main1(): v<number> {
   const x2: v<unknown> = _cast(_nb(true), _tu);
-  return _nf(new Clos(gen1, []), _tf(_tu, _tn)).value.apply(x2);
+  return _nf(new FnPtr(gen1), _tf(_tu, _tn).value.apply(x2);
 }
 _print(main1());
 |}
@@ -83,13 +83,13 @@ _print(main1());
           ("OK: "
           ^ trim
               {|
-fn gen1(env1: {}, f: Clos(? -> nat)): nat
+fn gen1(f: Clos(? -> nat)): nat
   = decl x1: ? = <?>1;
-    return apply(f, x1)
-fn gen2(env2: {}, x: nat): nat
-  = return apply(succ, x)
-decl x2: Clos(? -> nat) = <Clos(? -> nat)>pack(gen2, {});
-return apply(pack(gen1, {}), x2)
+    return apply(f, x1);
+fn gen2(x: nat): nat
+  = return apply(succ, x);
+decl x2: Clos(? -> nat) = <Clos(? -> nat)>fnptr(gen2);
+return apply(fnptr(gen1), x2);
 |}
           );
       eval = Some "OK: 2";
@@ -98,18 +98,18 @@ return apply(pack(gen1, {}), x2)
           ("OK: "
           ^ trim
               {|
-function gen1(env1: [], f: v<Clos<v<unknown>, v<number>>>): v<number> {
+function gen1(f: v<Fn<v<unknown>, v<number>>>): v<number> {
   const x1: v<unknown> = _cast(_nn(1), _tu);
   return f.value.apply(x1);
 }
-function gen2(env2: [], x: v<number>): v<number> {
+function gen2(x: v<number>): v<number> {
   return succ.value.apply(x);
 }
 function main1(): v<number> {
   const x2
-          : v<Clos<v<unknown>, v<number>>>
-          = _cast(_nf(new Clos(gen2, []), _tf(_tn, _tn)), _tf(_tu, _tn));
-  return _nf(new Clos(gen1, []), _tf(_tf(_tu, _tn), _tn)).value.apply(x2);
+          : v<Fn<v<unknown>, v<number>>>
+          = _cast(_nf(new FnPtr(gen2), _tf(_tn, _tn), _tf(_tu, _tn));
+  return _nf(new FnPtr(gen1), _tf(_tf(_tu, _tn), _tn).value.apply(x2);
 }
 _print(main1());
 |}

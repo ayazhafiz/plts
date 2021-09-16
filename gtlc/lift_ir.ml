@@ -9,7 +9,8 @@ type ty =
   | TUnknown
   | TNat
   | TBool
-  | TClos of ty * ty
+  | TArrow of ty * ty
+      (** An arrow type, which can either be a closure or raw function pointer. *)
   | TNamedTup of (string * ty) list
 
 type expr =
@@ -19,8 +20,9 @@ type expr =
   | Apply of elaborated * elaborated
   | Proj of elaborated * int
       (** A projection of a variable stored in a closure env *)
-  | Pack of elaborated * elaborated list
+  | PackClos of elaborated * elaborated list
       (** Packages a function pointer and its environment into a closure *)
+  | PackFnPtr of elaborated  (** A raw function pointer *)
 
 and env = Tup of (string * ty) list
 
@@ -51,7 +53,7 @@ let pp_ty f =
     | TUnknown -> pp_print_string f "?"
     | TNat -> pp_print_string f "nat"
     | TBool -> pp_print_string f "bool"
-    | TClos (t1, t2) ->
+    | TArrow (t1, t2) ->
         fprintf f "@[<hov 2>Clos(";
         if left_arrow_child then pp_print_string f "(";
         go ~left_arrow_child:true t1;
@@ -96,7 +98,7 @@ let pp_expr f =
     | Proj (s, i) ->
         go s;
         fprintf f ".%d" i
-    | Pack (s, ps) ->
+    | PackClos (s, ps) ->
         fprintf f "@[<hov 2>pack(";
         go s;
         fprintf f ", ";
@@ -110,6 +112,10 @@ let pp_expr f =
             if i <> lasti then fprintf f ",@ ")
           ps;
         fprintf f "@]})@]"
+    | PackFnPtr s ->
+        fprintf f "@[<hov 2>fnptr(";
+        go s;
+        fprintf f ")"
   in
   go
 
@@ -121,13 +127,13 @@ let pp_stmt f =
         pp_ty f t;
         fprintf f ";@]"
     | DeclInit (x, t, e) ->
-        fprintf f "decl @[<hv 2>%s@,: " x;
+        fprintf f "decl @[<hov 2>%s: " x;
         pp_ty f t;
         fprintf f "@ = ";
         pp_expr f e;
         fprintf f ";@]"
     | DeclCast (x, t, e) ->
-        fprintf f "decl @[<hv 2>%s@,: " x;
+        fprintf f "decl @[<hov 2>%s@,: " x;
         pp_ty f t;
         fprintf f "@ = <";
         pp_ty f t;
@@ -159,7 +165,7 @@ let pp_stmt f =
     | Return e ->
         fprintf f "@[<hov 2>return@ ";
         pp_expr f e;
-        fprintf f "@]"
+        fprintf f ";@]"
   in
   go
 
@@ -169,7 +175,9 @@ let pp_body f (Body stmts) =
   let lasti = List.length stmts - 1 in
   List.iteri
     (fun i s ->
+      fprintf f "@[";
       pp_stmt f s;
+      fprintf f "@]";
       if i <> lasti then fprintf f "@,")
     stmts;
   fprintf f "@]"
@@ -212,10 +220,10 @@ let rec translate_ty = function
   | L.TUnknown -> TUnknown
   | L.TNat -> TNat
   | L.TBool -> TBool
-  | L.TArrow (t, t') -> TClos (translate_ty t, translate_ty t')
+  | L.TArrow (t, t') -> TArrow (translate_ty t, translate_ty t')
 
 let split_arrow = function
-  | TClos (l, r) -> (l, r)
+  | TArrow (l, r) -> (l, r)
   | _ -> failwith "not an arrow"
 
 let tyof (Elab (_, t)) = t
@@ -238,33 +246,18 @@ let translate expr =
            matters as much. *)
         ([], Elab (Name x, t))
     | CE.App (fn, arg) -> (
-        (* Two cases here.
-           1. Closures
-                fn arg
-              becomes
-                let r = apply(fn, arg) in
-                r
-           2. Closed functions
-              TODO
+        (* fn arg
+             becomes
+           let r = apply(fn, arg) in
+           r
         *)
         let stmts1, fn = go fn in
         let stmts2, arg = go arg in
         match tyof fn with
-        | TClos (_, rT) ->
+        | TArrow (_, rT) ->
             let r = fresh "r" in
             let rDecl = DeclInit (r, rT, Elab (Apply (fn, arg), rT)) in
             (stmts1 @ stmts2 @ [ rDecl ], Elab (Name r, rT))
-        (*
-        | TArrow (_, rT) ->
-            let r = fresh "r" in
-            let target =
-              match target with
-              | Elab (Name x, _) -> x
-              | _ -> failwith (se target ^ " is not a name")
-            in
-            let rDecl = DeclInit (r, rT, Elab (Call (target, [ arg ]), rT)) in
-            (stmts1 @ stmts2 @ [ rDecl ], Elab (Name r, rT))
-        *)
         | t ->
             failwith
               ("applying to non-closure and non-function type: found " ^ sty t))
@@ -277,6 +270,9 @@ let translate expr =
            ...
            let gen1C = pack(gen1, (y, z)) in
            gen1C
+
+           unless the environment is empty, in which case the package is a
+           trivial function pointer.
         *)
         let free =
           SMap.remove x (C.freevars_with_tys e)
@@ -284,31 +280,47 @@ let translate expr =
           |> List.map (fun (v, t) -> (v, translate_ty t))
         in
         let gen = fresh "gen" in
-        let env = fresh "env" in
-        let envT = TNamedTup free in
-        let envE = Elab (Name env, envT) in
-        let envUnpack =
-          List.mapi
-            (fun i (v, t) -> DeclInit (v, t, Elab (Proj (envE, i), t)))
-            free
-        in
-        let _, ret = split_arrow t in
+        let _, fnRet = split_arrow t in
         let body_s, body_e = go e in
-        let fn =
-          {
-            name = gen;
-            params = [ (env, envT); (x, translate_ty t') ];
-            body = Body (envUnpack @ body_s @ [ Return body_e ]);
-            ret;
-          }
-        in
-        toplevels := fn :: !toplevels;
         let genC = fresh (gen ^ "C") in
         let genCTy = t in
-        let freeLst = List.map (fun (x, t) -> Elab (Name x, t)) free in
-        let clos = Elab (Pack (Elab (Name gen, genCTy), freeLst), genCTy) in
-        let genCDecl = DeclInit (genC, genCTy, clos) in
-        ([ genCDecl ], Elab (Name genC, genCTy))
+        if List.length free <> 0 then (
+          let env = fresh "env" in
+          let envT = TNamedTup free in
+          let envE = Elab (Name env, envT) in
+          let envUnpack =
+            List.mapi
+              (fun i (v, t) -> DeclInit (v, t, Elab (Proj (envE, i), t)))
+              free
+          in
+          let fn =
+            {
+              name = gen;
+              params = [ (env, envT); (x, translate_ty t') ];
+              body = Body (envUnpack @ body_s @ [ Return body_e ]);
+              ret = fnRet;
+            }
+          in
+          toplevels := fn :: !toplevels;
+          let freeLst = List.map (fun (x, t) -> Elab (Name x, t)) free in
+          let clos =
+            Elab (PackClos (Elab (Name gen, genCTy), freeLst), genCTy)
+          in
+          let genCDecl = DeclInit (genC, genCTy, clos) in
+          ([ genCDecl ], Elab (Name genC, genCTy)))
+        else
+          let fn =
+            {
+              name = gen;
+              params = [ (x, translate_ty t') ];
+              body = Body (body_s @ [ Return body_e ]);
+              ret = fnRet;
+            }
+          in
+          toplevels := fn :: !toplevels;
+          let fnPtr = Elab (PackFnPtr (Elab (Name gen, genCTy)), genCTy) in
+          let genCDecl = DeclInit (genC, genCTy, fnPtr) in
+          ([ genCDecl ], Elab (Name genC, genCTy))
     | CE.If (c, thn, els) ->
         let r = fresh "res" in
         let declr = Decl (r, t) in
@@ -371,9 +383,10 @@ module CollapseVars : Opt = struct
       | Apply (e1, e2) ->
           goe e1;
           goe e2
-      | Pack (e, es) ->
+      | PackClos (e, es) ->
           goe e;
           List.iter goe es
+      | PackFnPtr e -> goe e
       | Proj (e, _) -> goe e
     in
     let rec gos = function
@@ -394,7 +407,8 @@ module CollapseVars : Opt = struct
         match e with
         | Nat _ | Bool _ -> e
         | Apply (e1, e2) -> Apply (goe e1, goe e2)
-        | Pack (e, es) -> Pack (goe e, List.map goe es)
+        | PackClos (e, es) -> PackClos (goe e, List.map goe es)
+        | PackFnPtr e -> PackFnPtr (goe e)
         | Proj (e, i) -> Proj (goe e, i)
         | Name x -> (
             match Hashtbl.find_opt decls x with

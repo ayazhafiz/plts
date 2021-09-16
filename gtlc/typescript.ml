@@ -7,12 +7,25 @@ let prelude =
     (Printf.sprintf
        {|
 // #region Prelude
-class Clos<P, R> {
+/** A package over a function. */
+interface Fn<P, R> {
+  apply(p: P): R
+}
+/** A closure over a function. */
+class Clos<P, R> implements Fn<P, R> {
   constructor(private readonly target: (env: any, p: P) => R,
                 private readonly args: unknown[]) {}
 
   apply(p: P): R {
     return this.target(this.args, p);
+  }
+}
+/** A raw function pointer. */
+class FnPtr<P, R> implements Fn<P, R> {
+  constructor(private readonly target: (p: P) => R) {}
+  
+  apply(p: P): R {
+    return this.target(p);
   }
 }
 
@@ -31,7 +44,7 @@ function _nn(n : number): v<number> {
 function _nb(b : boolean): v<boolean> {
   return { value: b, tag: _tb };
 }
-function _nf<L, R>(clos : Clos<L, R>, tag: ty): v<Clos<L,R>> {
+function _nf<L, R>(clos : Fn<L, R>, tag: ty): v<Fn<L,R>> {
   return { value: clos, tag };
 }
 function _tag2s (tag: ty) : string {
@@ -51,42 +64,42 @@ function _cast<T, U>(value: v<T>, tag: ty): v<U> {
   throw new Error(`Cast Error: trying to cast ${value.value} as ${_tag2s(tag)}`);
 }
 function _print({value, tag}: v<any>) {
-  if (value instanceof Clos) {
+  if (value instanceof Clos || value instanceof FnPtr) {
     return `<Fn${_tag2s(tag)}>`;
   }
   return `${value}`;
 }
 
-function _succ(_: [], n: v<number>) {return _nn(n.value + 1);}
-function _pred(_: [], n: v<number>) {return _nn(n.value - 1);}
+function _succ(n: v<number>) {return _nn(n.value + 1);}
+function _pred(n: v<number>) {return _nn(n.value - 1);}
 function _add_captured(env: [v<number>], m: v<number>) {return _nn(env[0].value + m.value);}
-function _add(_: [], n: v<number>) {
+function _add(n: v<number>) {
   return _nf(new Clos(_add_captured, [n]), _tf(_tn, _tn));
 }
 function _mult_captured(env: [v<number>], m: v<number>) {return _nn(env[0].value * m.value);}
-function _mult(_: [], n: v<number>) {
+function _mult(n: v<number>) {
   return _nf(new Clos(_mult_captured, [n]), _tf(_tn, _tn));
 }
 function _eqn_captured(env: [v<number>], m: v<number>) {return _nb(env[0].value === m.value);}
-function _eqn(_: [], n: v<number>) {
+function _eqn(n: v<number>) {
   return _nf(new Clos(_eqn_captured, [n]), _tf(_tn, _tb));
 }
 function _eqb_captured(env: [v<boolean>], m: v<boolean>) {return _nb(env[0].value === m.value);}
-function _eqb(_: [], n: v<boolean>) {
+function _eqb(n: v<boolean>) {
   return _nf(new Clos(_eqb_captured, [n]), _tf(_tb, _tb));
 }
 /** %s */
-const succ = _nf(new Clos(_succ, []), _tf(_tn, _tn));
+const succ = _nf(new FnPtr(_succ), _tf(_tn, _tn));
 /** %s */
-const pred = _nf(new Clos(_pred, []), _tf(_tn, _tn));
+const pred = _nf(new FnPtr(_pred), _tf(_tn, _tn));
 /** %s */
-const add = _nf(new Clos(_add, []), _tf(_tn, _tf(_tn, _tn)));
+const add = _nf(new FnPtr(_add), _tf(_tn, _tf(_tn, _tn)));
 /** %s */
-const mult = _nf(new Clos(_mult, []), _tf(_tn, _tf(_tn, _tn)));
+const mult = _nf(new FnPtr(_mult), _tf(_tn, _tf(_tn, _tn)));
 /** %s */
-const eqn = _nf(new Clos(_eqn, []), _tf(_tn, _tf(_tn, _tb)));
+const eqn = _nf(new FnPtr(_eqn), _tf(_tn, _tf(_tn, _tb)));
 /** %s */
-const eqb = _nf(new Clos(_eqb, []), _tf(_tb, _tf(_tb, _tb)));
+const eqb = _nf(new FnPtr(_eqb), _tf(_tb, _tf(_tb, _tb)));
 // #endregion
 |}
        (doc_of_builtin "succ") (doc_of_builtin "pred") (doc_of_builtin "add")
@@ -98,7 +111,7 @@ let pp_tag f =
     | TUnknown -> pp_print_string f "_tu"
     | TNat -> pp_print_string f "_tn"
     | TBool -> pp_print_string f "_tb"
-    | TClos (t, t') ->
+    | TArrow (t, t') ->
         fprintf f "@[<hov 2>_tf(";
         go t;
         fprintf f ",@ ";
@@ -114,8 +127,8 @@ let pp_ty f =
     | TUnknown -> pp_print_string f "v<unknown>"
     | TNat -> pp_print_string f "v<number>"
     | TBool -> pp_print_string f "v<boolean>"
-    | TClos (t, t') ->
-        fprintf f "v<@[<hov 2>Clos<";
+    | TArrow (t, t') ->
+        fprintf f "v<@[<hov 2>Fn<";
         go t;
         fprintf f ",@ ";
         go t';
@@ -150,7 +163,7 @@ let pp_expr ts_ident f =
         fprintf f "@[";
         go x;
         fprintf f "[%d]@]" i
-    | Pack (fn, args) ->
+    | PackClos (fn, args) ->
         fprintf f "@[<hov 2>_nf(@[new Clos(@[<hv 0>";
         go fn;
         fprintf f ",@ ";
@@ -162,6 +175,12 @@ let pp_expr ts_ident f =
             if i <> lasti then fprintf f ",@ ")
           args;
         fprintf f "@]]@])@],@ ";
+        pp_tag f (Lift_ir.tyof fn);
+        fprintf f ")@]"
+    | PackFnPtr fn ->
+        fprintf f "@[<hov 2>_nf(@[new FnPtr(@[<hv 0>";
+        go fn;
+        fprintf f "@])@],@ ";
         pp_tag f (Lift_ir.tyof fn);
         fprintf f ")@]"
   in
