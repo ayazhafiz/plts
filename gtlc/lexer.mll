@@ -17,7 +17,7 @@ let newline = '\n' | "\r\n"
 
 let nat = ['0'-'9']+
 
-let ident = ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
+let ident = ['a'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
 
 rule read = parse
   | whitespace    { read lexbuf }
