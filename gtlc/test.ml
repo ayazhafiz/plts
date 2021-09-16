@@ -68,7 +68,7 @@ function gen1(x: v<unknown>): v<number> {
 }
 function main1(): v<number> {
   const x2: v<unknown> = _cast(_nb(true), _tu);
-  return _nf(new FnPtr(gen1), _tf(_tu, _tn).value.apply(x2);
+  return _nf(new FnPtr(gen1), _tf(_tu, _tn)).value.apply(x2);
 }
 _print(main1());
 |}
@@ -108,8 +108,8 @@ function gen2(x: v<number>): v<number> {
 function main1(): v<number> {
   const x2
           : v<Fn<v<unknown>, v<number>>>
-          = _cast(_nf(new FnPtr(gen2), _tf(_tn, _tn), _tf(_tu, _tn));
-  return _nf(new FnPtr(gen1), _tf(_tf(_tu, _tn), _tn).value.apply(x2);
+          = _cast(_nf(new FnPtr(gen2), _tf(_tn, _tn)), _tf(_tu, _tn));
+  return _nf(new FnPtr(gen1), _tf(_tf(_tu, _tn), _tn)).value.apply(x2);
 }
 _print(main1());
 |}
