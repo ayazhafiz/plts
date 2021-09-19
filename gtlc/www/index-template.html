@@ -154,18 +154,48 @@ fib 23
       }
     }
 
+    async function evalC(input) {
+      const { result, error } = cCompile(input, opt);
+      if (error) return { error };
+      const data = await fetch("https://godbolt.org/api/compiler/cclang1201/compile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          source: result,
+          options: {
+            userArguments: "-O3",
+            compilerOptions: {
+              executorRequest: true,
+            },
+            filters: {
+              execute: true,
+            },
+            tools: [],
+          },
+          lang: "c",
+          allowStoreCodeDebug: true,
+        }),
+      }).then((response) => response.json());
+      if (data.code == -1) {
+        return {
+          error: `Unexpected compilation error:\n${JSON.stringify(data.buildResult.stderr)}`,
+        };
+      }
+      return { result: data.stdout[0].text };
+    }
+
     const compileBackends = {
       "Compiler IR": ["Lift IR", irCompile, "liftIr", "Interpreter Execution", "gtlc", doEval],
       TypeScript: ["TypeScript", tsCompile, "typescript", "JS Execution", "typescript", evalTS],
+      C: ["C", cCompile, "c", "Execution (Clang 12.0.1, -O3)", "c", evalC],
     };
-    let [
-      compileTitle,
-      compile,
-      outputLang,
-      evalTitle,
-      evalLang,
-      doeval,
-    ] = compileBackends.TypeScript;
+    const defaultBackend = "C";
+    let [compileTitle, compile, outputLang, evalTitle, evalLang, doeval] = compileBackends[
+      defaultBackend
+    ];
     let opt = true;
 
     async function update(pg, compilationEditor, execEditor) {
@@ -282,7 +312,7 @@ fib 23
       el: "#app",
       data: {
         compileOptions: Object.keys(compileBackends),
-        backend: "TypeScript",
+        backend: defaultBackend,
         compileTitle,
         evalTitle,
         examples: Object.keys(examples),

@@ -92,4 +92,6 @@ let string_of_value = Cast_ir.string_of_expr
 module Cgen = struct
   let typescript ?(with_prelude = true) =
     Typescript.string_of_program with_prelude
+
+  let c ?(with_prelude = true) = C.string_of_program with_prelude
 end

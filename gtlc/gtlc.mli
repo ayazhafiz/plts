@@ -48,4 +48,6 @@ val string_of_value : value -> string
 
 module Cgen : sig
   val typescript : ?with_prelude:bool -> lifted_program -> string
+
+  val c : ?with_prelude:bool -> lifted_program -> string
 end

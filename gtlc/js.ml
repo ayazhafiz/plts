@@ -54,6 +54,9 @@ let _ =
        method tsCompile program opt =
          wrap (fun () -> to_lifted program opt >+ Cgen.typescript) |> ret
 
+       method cCompile program opt =
+         wrap (fun () -> to_lifted program opt >+ Cgen.c) |> ret
+
        method doEval program =
          wrap (fun () -> to_elab program >>= eval >+ string_of_value) |> ret
 

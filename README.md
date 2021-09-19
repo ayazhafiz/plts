@@ -38,8 +38,7 @@ Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
     errors.
 
     The compiler is multi-phase, optimizing, includes an interpretive mode, and
-    provides code generation to TypeScript (C codegen and a type inferer is
-    upcoming).
+    provides code generators to C and TypeScript (a type inferer is upcoming).
     - [Playground](./gtlc/www)
     - [Siek and Taha, 2006](http://www.schemeworkshop.org/2006/13-siek.pdf)
 
