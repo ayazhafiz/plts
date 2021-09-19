@@ -13,6 +13,7 @@ const gtlcSyntax = {
     root: [
       [/(Syntax error.*)/, 'error'],
       [/(Parse error.*)/, 'error'],
+      [/#[tf]/, 'keyword'],
       [
         /[a-z][a-zA-Z0-9_'\w$]*/, {
           cases: {
