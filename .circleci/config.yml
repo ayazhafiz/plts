@@ -18,6 +18,9 @@ jobs:
       - restore_cache:
           keys:
             - gatsby
+      - restore_cache:
+          keys:
+            - node_modules-{{ checksum "yarn.lock" }}
       - run:
           name: Build site
           command: |
@@ -36,6 +39,10 @@ jobs:
           paths:
             www/.cache
             www/public
+      - save_cache:
+          key: node_modules-{{ checksum "yarn.lock" }}
+          paths:
+            node_modules
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"
