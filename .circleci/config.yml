@@ -18,13 +18,16 @@ jobs:
       - restore_cache:
           keys:
             - gatsby
-      - run: |
-          eval $(opam env)
-          source env.sh
-          dune build
-          yarn install
-          cd www && yarn build
-          cp -R public /tmp/out
+      - run:
+          name: Build site
+          command: |
+            eval $(opam env)
+            source env.sh
+            dune build
+            yarn install
+            cd www && yarn build
+            cp -R public /tmp/out
+          no_output_timeout: 20m
       - save_cache:
           key: gatsby
           paths:
