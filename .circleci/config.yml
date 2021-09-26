@@ -35,7 +35,7 @@ jobs:
             GATSBY_CPU_COUNT: 2
             NODE_OPTIONS: "--max_old_space_size=8192"
       - save_cache:
-          key: gatsby
+          key: gatsby-{{epoch}}
           paths:
             www/.cache
             www/public
