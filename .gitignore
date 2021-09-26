@@ -1,9 +1,16 @@
 _build/
 .merlin
 *.real
-**/*/www/*.js
-**/*/www/*.map
-**/*/www/*.ml
-**/*/www/*.html
-!**/*/www/*-template.html
-!**/*/www/*.syntax.js
+**/*/js/*.js
+**/*/js/*.map
+**/*/js/*.ml
+.yarn/*
+# !.yarn/patches
+# !.yarn/releases
+# !.yarn/plugins
+# !.yarn/sdks
+# !.yarn/versions
+.pnp.*
+www/.cache
+www/public
+node_modules/

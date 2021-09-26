@@ -1,0 +1,10 @@
+{
+  "name": "gtlc",
+  "packageManager": "yarn@3.0.2",
+  "main": "gtlc.js",
+  "module": "gtlc",
+  "types": "gtlc.d.ts",
+  "devDependencies": {
+    "www": "workspace:www"
+  }
+}

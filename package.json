@@ -1,0 +1,15 @@
+{
+  "name": "plts",
+  "packageManager": "yarn@3.0.2",
+  "private": true,
+  "workspaces": [
+    "www",
+    "ft/js",
+    "gtlc/js",
+    "TAL/js",
+    "ho21/js"
+  ],
+  "devDependencies": {
+    "typescript": "^4.4.3"
+  }
+}

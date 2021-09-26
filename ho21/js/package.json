@@ -1,0 +1,10 @@
+{
+  "name": "ho21",
+  "packageManager": "yarn@3.0.2",
+  "main": "ho21.js",
+  "module": "ho21",
+  "types": "ho21.d.ts",
+  "devDependencies": {
+    "www": "workspace:www"
+  }
+}

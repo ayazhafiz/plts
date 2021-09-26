@@ -6,16 +6,30 @@ jobs:
       - image: ayazhafiz/skittles
     steps:
       - checkout
-      - run: eval $(opam env) && dune test
+      - run: |
+          eval $(opam env)
+          source env.sh
+          dune test
   publish_site:
     docker:
       - image: ayazhafiz/skittles
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - gatsby
       - run: |
           eval $(opam env)
-          ./scripts/site.sh build-all
-          ./scripts/site.sh copy-out /tmp/out
+          source env.sh
+          dune build
+          yarn install
+          cd www && yarn build
+          cp -R public /tmp/out
+      - save_cache:
+          key: gatsby
+          paths:
+            www/.cache
+            www/public
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"

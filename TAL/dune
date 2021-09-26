@@ -24,7 +24,7 @@
   (preprocess (pps js_of_ocaml-ppx)))
 
 (rule
-  (mode (promote (into www)))
+  (mode (promote (into js)))
   (targets tal.js)
   (deps (glob_files prim.js))
   (action

@@ -1,0 +1,10 @@
+{
+  "name": "ft",
+  "packageManager": "yarn@3.0.2",
+  "main": "ft.js",
+  "module": "ft",
+  "types": "ft.d.ts",
+  "devDependencies": {
+    "www": "workspace:www"
+  }
+}

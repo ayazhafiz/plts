@@ -1,0 +1,38 @@
+{
+  "name": "www",
+  "packageManager": "yarn@3.0.2",
+  "main": "index.js",
+  "scripts": {
+    "develop": "gatsby develop",
+    "start": "gatsby develop",
+    "build": "gatsby build --prefix-paths",
+    "serve": "gatsby serve --prefix-paths",
+    "clean": "gatsby clean"
+  },
+  "dependencies": {
+    "@primer/components": "^29.1.1",
+    "assert": "^2.0.0",
+    "ft": "workspace:ft/js",
+    "gatsby": "^3.14.0",
+    "gtlc": "workspace:gtlc/js",
+    "ho21": "workspace:ho21/js",
+    "monaco-editor": "^0.28.0",
+    "monaco-editor-webpack-plugin": "^4.1.2",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-helmet": "^6.1.0",
+    "react-markdown": "^7.0.1",
+    "styled-components": "^5.3.1",
+    "tal": "workspace:TAL/js",
+    "typescript": "^4.4.3",
+    "www": "^0.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.9.4",
+    "@types/react": "^17.0.22",
+    "@types/react-dom": "^17.0.9",
+    "@types/react-helmet": "^6",
+    "@types/styled-components": "^5",
+    "gatsby-plugin-typescript": "^3.14.0"
+  }
+}

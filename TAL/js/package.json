@@ -1,0 +1,10 @@
+{
+  "name": "tal",
+  "packageManager": "yarn@3.0.2",
+  "main": "tal.js",
+  "module": "tal",
+  "types": "tal.d.ts",
+  "devDependencies": {
+    "www": "workspace:www"
+  }
+}

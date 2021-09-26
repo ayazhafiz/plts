@@ -1,3 +1,5 @@
+# plts
+
 Implementations of type systems and programming languages I find interesting.
 
 Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
@@ -19,41 +21,42 @@ Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
   - [Playground](https://ayazhafiz.com/lang_narrow)
   - [Blog post](https://ayazhafiz.com/articles/21/lang-narrow)
 
-- [FT](./ft/www/index.html): The FT (flow typing) calculus from David
+- [FT][ft-pg]: The FT (flow typing) calculus from David
   Pearce's 2012 paper [_Sound and Complete Flow Typing with Unions,
   Intersections, and Negations_](https://ecs.wgtn.ac.nz/foswiki/pub/Main/TechnicalReportSeries/ECSTR12-20.pdf).
   Like `lang_narrow`, but smaller and proven sound and complete. Includes a
   self-designed type inferer guaranteed to infer principal types.
-  - [Playground](./ft/www/index.html)
+  - [Playground][ft-pg]
   - [Pearce, 2012](https://ecs.wgtn.ac.nz/foswiki/pub/Main/TechnicalReportSeries/ECSTR12-20.pdf)
   - [Blog post](https://ayazhafiz.com/articles/21/type-inference-for-flow-typing): type inference for the calculus
 
 ## Gradual Typing
 
-- [gtlc](./gtlc/www): A compiler for the gradually-typed lambda calculus,
-    employing the type consistency relation of [Siek and Taha](http://www.schemeworkshop.org/2006/13-siek.pdf) (2006).
-    The GTLC allows a developer to omit type annotations during development at
-    the expense of run-time type casts. While the ahead-of-time typechecker will
-    catch any non-sensical type errors, the runtime system will catch any cast
-    errors.
+- [gtlc][gtlc-pg]: A compiler for the gradually-typed lambda calculus,
+  employing the type consistency relation of [Siek and Taha](http://www.schemeworkshop.org/2006/13-siek.pdf) (2006).
+  The GTLC allows a developer to omit type annotations during development at
+  the expense of run-time type casts. While the ahead-of-time typechecker will
+  catch any non-sensical type errors, the runtime system will catch any cast
+  errors.
 
-    The compiler is multi-phase, optimizing, includes an interpretive mode, and
-    provides code generators to C and TypeScript (a type inferer is upcoming).
-    - [Playground](./gtlc/www)
-    - [Siek and Taha, 2006](http://www.schemeworkshop.org/2006/13-siek.pdf)
+  The compiler is multi-phase, optimizing, includes an interpretive mode, and
+  provides code generators to C and TypeScript (a type inferer is upcoming).
+
+  - [Playground][gtlc-pg]
+  - [Siek and Taha, 2006](http://www.schemeworkshop.org/2006/13-siek.pdf)
 
 ## Typed Assembly
 
-- [TAL](./TAL/www/index.html): A compiler from a System F-like language to the
+- [TAL][tal-pg]: A compiler from a System F-like language to the
   Typed Assembly Language of [Morrisett, et.al. 1998](https://dash.harvard.edu/handle/1/2797451).
   Also includes a compiler to x86 assembly using [Linear Scan Register
   Allocation](http://web.cs.ucla.edu/~palsberg/course/cs132/linearscan.pdf)
   (Poletto & Sarkar 1999).
-  - [Playground](./TAL/www/index.html)
+  - [Playground][tal-pg]
 
 ## Subtyping
 
-- [HO21](./ho21/www/index.html): An implementation of the
+- [HO21][ho21-pg]: An implementation of the
   algorithmic duotyping calculus invented by Huang and Oliveira in
   [Distributing Intersection and Union Types with Splits and Duality](https://dl.acm.org/doi/pdf/10.1145/3473594) (2021).
   The calculus includes union, intersection, and arrow types in the presence
@@ -62,7 +65,7 @@ Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
   surface types of the language, without normalizing to a form like DNF.
   This implementation includes a type-derivation tree generator.
 
-  - [Playground](./ho21/www/index.html)
+  - [Playground][ho21-pg]
   - [Huang and Oliveira, 2021](https://dl.acm.org/doi/pdf/10.1145/3473594)
 
 - [simple_sub](https://github.com/ayazhafiz/plts/blob/base/simple_sub): A type system
@@ -79,3 +82,8 @@ Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
 
 - [more deptypes](https://github.com/ayazhafiz/plts/pull/3): Additional,
   alternate implementations of the basic dependently-typed lambda calculus.
+
+[ft-pg]: https://ayazhafiz.com/plts/playground/ft
+[gtlc-pg]: https://ayazhafiz.com/plts/playground/gtlc
+[tal-pg]: https://ayazhafiz.com/plts/playground/tal
+[ho21-pg]: https://ayazhafiz.com/plts/playground/ho21
