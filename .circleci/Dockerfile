@@ -16,18 +16,15 @@ RUN opam install -y zarith
 RUN opam install -y zarith_stubs_js
 RUN opam install -y camomile
 
-USER root
-RUN apt-get update && apt-get install -y \
+RUN sudo apt-get update && sudo apt-get install -y \
   ca-certificates \
   curl
 ARG NODE_VERSION=16.5.0
 ARG NODE_PACKAGE=node-v$NODE_VERSION-linux-x64
-ARG NODE_HOME=/opt/$NODE_PACKAGE
+RUN mkdir $HOME/bin
+ARG NODE_HOME=$HOME/bin/$NODE_PACKAGE
 ENV NODE_PATH $NODE_HOME/lib/node_modules
 ENV PATH $NODE_HOME/bin:$PATH
-RUN curl https://nodejs.org/dist/v$NODE_VERSION/$NODE_PACKAGE.tar.gz | tar -xzC /opt/
+RUN curl https://nodejs.org/dist/v$NODE_VERSION/$NODE_PACKAGE.tar.gz | tar -xzC $HOME/bin/
 RUN npm install -g yarn
 RUN yarn set version berry
-
-USER opam
-ENV PATH $NODE_HOME/bin:$PATH
