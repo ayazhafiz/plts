@@ -22,8 +22,8 @@ jobs:
           eval $(opam env)
           source env.sh
           dune build
-          yarn install
-          cd www && yarn build
+          sudo yarn install
+          cd www && sudo yarn build
           cp -R public /tmp/out
       - save_cache:
           key: gatsby
