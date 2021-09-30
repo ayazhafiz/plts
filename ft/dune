@@ -33,7 +33,10 @@
 
 (rule
   (mode (promote (into js)))
-  (targets ft.js)
+  (targets ft.js ft.d.ts)
   (deps (glob_files prim.js))
   (action
-    (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o ft.js)))
+    (progn
+      (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o ft.js)
+      (with-outputs-to ft.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*Js.cmt')")))))

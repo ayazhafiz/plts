@@ -1,15 +1,33 @@
-import {Result} from 'www/src/common/types';
+/** Compiles to compiler-internal IR */
+export declare const irCompile:
+  (program: string) =>
+    (optimize: boolean) =>
+      { readonly result: string|null, readonly error: string|null }
 
-export function irCompile(program: string, optimize: boolean): Result;
-export function tsCompile(program: string, optimize: boolean): Result;
-export function cCompile(program: string, optimize: boolean): Result;
+/** Compiles to TypeScript */
+export declare const tsCompile:
+  (program: string) =>
+    (optimize: boolean) =>
+      { readonly result: string|null, readonly error: string|null }
 
-export function doEval(program: string): Result;
+/** Compiles to C */
+export declare const cCompile:
+  (program: string) =>
+    (optimize: boolean) =>
+      { readonly result: string|null, readonly error: string|null }
 
-export interface BuiltinDoc {
-  name: string;
-  ty: string;
-  doc: string;
-}
+/** Evaluate a GTLC program */
+export declare const doEval:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }
 
-export function docs(): BuiltinDoc[];
+/** Like `String.substring`, but on the JSOO side */
+export declare const substring:
+  (str: string) =>
+    (start: number) =>
+      (length: number) =>
+        { readonly result: string|null, readonly error: string|null }
+
+/** Documentation for builtin primitives */
+export declare const docs:
+  Array<{ readonly name: string, readonly ty: string, readonly doc: string }>

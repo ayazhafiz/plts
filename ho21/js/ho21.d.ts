@@ -1,6 +1,8 @@
-import {Result} from 'www/src/common/types';
+export declare const judge:
+  (queries: string) =>
+    (print_debug: boolean) =>
+      (prettify_symbols: boolean) =>
+        { readonly result: string|null, readonly error: string|null }
 
-export function judge(
-    queries: string, print_debug: boolean, prettify_symbols: boolean): Result;
-export function formatQueries(
-    program: string, prettify_symbols: boolean): string;
+export declare const formatQueries:
+  (queries: string) => (prettify_symbols: boolean) => string

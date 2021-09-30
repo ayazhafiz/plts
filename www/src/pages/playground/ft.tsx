@@ -1,7 +1,7 @@
 import * as React from "react";
 import Playground from "../../components/playground";
 import type { Backend } from "../../common/types";
-import { promisify } from "../../common/util";
+import { promisify, uncurry } from "../../common/util";
 import * as ft from "ft";
 
 const examples = {
@@ -18,7 +18,7 @@ const backends: {
   Typecheck: [
     {
       title: "Annotations",
-      do: promisify(ft.ftCheck),
+      do: promisify(uncurry(ft.ftCheck)),
       options: [["infer", true]],
       editorLanguage: "text",
     },

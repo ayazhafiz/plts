@@ -27,10 +27,13 @@
 
 (rule
   (mode (promote (into js)))
-  (targets gtlc.js)
+  (targets gtlc.js gtlc.d.ts)
   (deps (glob_files prim.js))
   (action
-    (run %{bin:js_of_ocaml}
-         prim.js
-         %{dep:js.bc}
-         -o gtlc.js)))
+    (progn
+      (run %{bin:js_of_ocaml}
+           prim.js
+           %{dep:js.bc}
+           -o gtlc.js)
+      (with-outputs-to gtlc.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*Js.cmt')")))))

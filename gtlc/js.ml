@@ -45,21 +45,38 @@ let wrap doit =
        ^ Printexc.get_backtrace ())
 
 let _ =
-  Js.export_all
-    (object%js
-       method irCompile program opt =
-         wrap (fun () -> to_lifted program opt >+ string_of_lifted_program)
-         |> ret
+  Js.export "irCompile"
+    (fun [@jsdoc {|Compiles to compiler-internal IR|}] ~program ~optimize ->
+      wrap (fun () -> to_lifted program optimize >+ string_of_lifted_program)
+      |> ret)
 
-       method tsCompile program opt =
-         wrap (fun () -> to_lifted program opt >+ Cgen.typescript) |> ret
+let _ =
+  Js.export "tsCompile"
+    (fun [@jsdoc {|Compiles to TypeScript|}] ~program ~optimize ->
+      wrap (fun () -> to_lifted program optimize >+ Cgen.typescript) |> ret)
 
-       method cCompile program opt =
-         wrap (fun () -> to_lifted program opt >+ Cgen.c) |> ret
+let _ =
+  Js.export "cCompile" (fun [@jsdoc {|Compiles to C|}] ~program ~optimize ->
+      wrap (fun () -> to_lifted program optimize >+ Cgen.c) |> ret)
 
-       method doEval program =
-         wrap (fun () -> to_elab program >>= eval >+ string_of_value) |> ret
+let _ =
+  Js.export "doEval" (fun [@jsdoc {|Evaluate a GTLC program|}] ~program ->
+      wrap (fun () -> to_elab program >>= eval >+ string_of_value) |> ret)
 
-       method docs =
-         List.map make_builtin builtin_docs |> Array.of_list |> Js.array
-    end)
+let _ =
+  Js.export "substring"
+    (fun
+      [@jsdoc {|Like `String.substring`, but on the JSOO side|}] ~str
+      ~start
+      ~length
+    ->
+      let s = Js.to_string str in
+      let start = Js.float_of_number start |> int_of_float in
+      let length = Js.float_of_number length |> int_of_float in
+      String.sub s start length |> Result.ok |> ret)
+
+let _ =
+  Js.export "docs"
+    ((List.map make_builtin builtin_docs
+     |> Array.of_list |> Js.array)
+     [@jsdoc {|Documentation for builtin primitives|}])

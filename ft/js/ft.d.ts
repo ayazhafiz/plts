@@ -1,5 +1,12 @@
-import {Result} from 'www/src/common/types';
+export declare const ftCheck:
+  (program: string) =>
+    (do_infer: boolean) =>
+      { readonly result: string|null, readonly error: string|null }
 
-export function ftCheck(program: string, doInfer: boolean): Result;
-export function ftInfer(program: string): Result;
-export function subtypeCheck(program: string): Result;
+export declare const ftInfer:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }
+
+export declare const subtypeCheck:
+  (query: string) =>
+    { readonly result: string|null, readonly error: string|null }

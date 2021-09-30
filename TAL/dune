@@ -25,12 +25,15 @@
 
 (rule
   (mode (promote (into js)))
-  (targets tal.js)
+  (targets tal.js tal.d.ts)
   (deps (glob_files prim.js))
   (action
-    (run %{bin:js_of_ocaml}
-         %{lib:zarith_stubs_js:biginteger.js}
-         %{lib:zarith_stubs_js:runtime.js}
-         prim.js
-         %{dep:js.bc}
-         -o tal.js)))
+    (progn
+      (run %{bin:js_of_ocaml}
+           %{lib:zarith_stubs_js:biginteger.js}
+           %{lib:zarith_stubs_js:runtime.js}
+           prim.js
+           %{dep:js.bc}
+           -o tal.js)
+      (with-outputs-to tal.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*Js.cmt')")))))

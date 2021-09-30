@@ -1,7 +1,15 @@
-import {Result} from 'www/src/common/types';
+export declare const talCompile:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }
 
-export function talCompile(program: string): Result;
-export function talEval(program: string): Result;
+export declare const talEval:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }
 
-export function x86Compile(program: string): Result;
-export function x86Emulate(program: string): Result;
+export declare const x86Compile:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }
+
+export declare const x86Emulate:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }

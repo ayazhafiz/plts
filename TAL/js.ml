@@ -50,30 +50,30 @@ let wrap doit =
        ^ Printexc.get_backtrace ())
 
 let _ =
-  Js.export_all
-    (object%js
-       method talCompile program =
-         wrap (fun () ->
-             to_a (Js.to_string program) |> Result.map TAL.string_of_term)
-         |> ret
+  Js.export "talCompile" (fun ~program ->
+      wrap (fun () ->
+          to_a (Js.to_string program) |> Result.map TAL.string_of_term)
+      |> ret)
 
-       method talEval program =
-         wrap (fun () ->
-             to_a (Js.to_string program)
-             |> Result.map TAL.eval
-             |> Result.map TAL.string_of_value)
-         |> ret
+let _ =
+  Js.export "talEval" (fun ~program ->
+      wrap (fun () ->
+          to_a (Js.to_string program)
+          |> Result.map TAL.eval
+          |> Result.map TAL.string_of_value)
+      |> ret)
 
-       method x86Compile program =
-         wrap (fun () ->
-             to_a (Js.to_string program)
-             |> Result.map X86.convert |> Result.map X86.print)
-         |> ret
+let _ =
+  Js.export "x86Compile" (fun ~program ->
+      wrap (fun () ->
+          to_a (Js.to_string program)
+          |> Result.map X86.convert |> Result.map X86.print)
+      |> ret)
 
-       method x86Emulate program =
-         wrap (fun () ->
-             to_a (Js.to_string program)
-             |> Result.map X86.convert |> Result.map X86.emulate
-             |> Result.map X86.print_value)
-         |> ret
-    end)
+let _ =
+  Js.export "x86Emulate" (fun ~program ->
+      wrap (fun () ->
+          to_a (Js.to_string program)
+          |> Result.map X86.convert |> Result.map X86.emulate
+          |> Result.map X86.print_value)
+      |> ret)

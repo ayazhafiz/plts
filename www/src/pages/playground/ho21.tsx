@@ -3,7 +3,7 @@ import * as React from "react";
 import Playground from "../../components/playground";
 import { createHoverProvider } from "../../common/hover";
 import type { Backend, LanguageRegistration } from "../../common/types";
-import { promisify } from "../../common/util";
+import { promisify, uncurry } from "../../common/util";
 import ReactMarkdown from "react-markdown";
 import * as ho21 from "ho21";
 
@@ -25,7 +25,7 @@ const backends: {
   Check: [
     {
       title: "Judgements",
-      do: promisify(ho21.judge),
+      do: promisify(uncurry(ho21.judge)),
       options: [
         ["Print Derivations", true],
         ["Prettify Symbols", true],
@@ -164,7 +164,7 @@ function ho21GetHoverContent(word: string) {
 function ho21FormatQueries(
   model: monaco.editor.IModel
 ): monaco.languages.ProviderResult<monaco.languages.TextEdit[]> {
-  const text = ho21.formatQueries(model.getValue(), true);
+  const text = ho21.formatQueries(model.getValue())(true);
   return [
     {
       text,
@@ -176,7 +176,7 @@ function ho21FormatQueries(
 function ho21OnTypeFormatQueries(
   model: monaco.editor.IModel
 ): monaco.languages.ProviderResult<monaco.languages.TextEdit[]> {
-  const text = ho21.formatQueries(model.getValue(), true);
+  const text = ho21.formatQueries(model.getValue())(true);
   return [
     {
       text,

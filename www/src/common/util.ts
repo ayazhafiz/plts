@@ -1,3 +1,24 @@
+import {Result} from './types'
+
+// clang-format off
+type Uncurried<T extends (arg: any) => any>
+  = ReturnType<T> extends Result ? (...args: Parameters<T>) => ReturnType<T>
+  : ReturnType<T> extends infer T_
+    ? T_ extends (...args: any[]) => any
+      ? Uncurried<T_> extends infer T_
+        ? T_ extends (...args: any[]) => any
+          ? (...args: [...Parameters<T>, ...Parameters<T_>]) => ReturnType<T_>
+          : never
+        : never
+      : never
+    : never;
+// clang-format on
+
+export function uncurry<F extends(arg: any) => any>(f: F): Uncurried<F> {
+    return ((...args: Parameters<Uncurried<F>>) =>
+                args.reduce((f: Function, x) => f(x), f)) as Uncurried<F>;
+}
+
 export function promisify<A extends unknown[], R>(f: (...args: A) => R):
     (...args: A) => Promise<R> {
     return async (...args: A) => f(...args);

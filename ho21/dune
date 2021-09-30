@@ -20,7 +20,10 @@
 
 (rule
   (mode (promote (into js)))
-  (targets ho21.js)
+  (targets ho21.js ho21.d.ts)
   (deps (glob_files prim.js))
   (action
-    (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o ho21.js)))
+    (progn
+      (run %{bin:js_of_ocaml} prim.js %{dep:js.bc} -o ho21.js)
+      (with-outputs-to ho21.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*Js.cmt')")))))

@@ -2,11 +2,8 @@ import type * as monaco from 'monaco-editor';
 import type * as React from 'react';
 
 export type Result = {
-    result: string,
-    error: null,
-}|{
-    result: null,
-    error: string,
+    readonly result: string|null,
+    readonly error: string|null,
 };
 
 export interface LanguageRegistration {

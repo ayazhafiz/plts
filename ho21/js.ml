@@ -29,26 +29,24 @@ let wrap doit =
 let ( >>= ) r f = Result.map f r
 
 let _ =
-  Js.export_all
-    (object%js
-       method judge queries print_debug prettify_symbols =
-         wrap (fun () ->
-             let queries = Js.to_string queries in
-             parse_queries queries >>= List.map judge_query
-             >>= List.map
-                   (string_of_judgement (Js.to_bool print_debug)
-                      (Js.to_bool prettify_symbols))
-             >>= String.concat "\n")
-         |> ret
+  Js.export "judge" (fun ~queries ~print_debug ~prettify_symbols ->
+      wrap (fun () ->
+          let queries = Js.to_string queries in
+          parse_queries queries >>= List.map judge_query
+          >>= List.map
+                (string_of_judgement (Js.to_bool print_debug)
+                   (Js.to_bool prettify_symbols))
+          >>= String.concat "\n")
+      |> ret)
 
-       method formatQueries queries prettify_symbols =
-         let queries = Js.to_string queries in
-         let result =
-           match parse_queries queries with
-           | Ok qs ->
-               List.map (string_of_query (Js.to_bool prettify_symbols)) qs
-               |> String.concat "\n"
-           | Error _ -> queries
-         in
-         Js.string result
-    end)
+let _ =
+  Js.export "formatQueries" (fun ~queries ~prettify_symbols ->
+      let queries = Js.to_string queries in
+      let result =
+        match parse_queries queries with
+        | Ok qs ->
+            List.map (string_of_query (Js.to_bool prettify_symbols)) qs
+            |> String.concat "\n"
+        | Error _ -> queries
+      in
+      Js.string result)

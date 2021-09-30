@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import Playground from "../../components/playground";
 import type { Backend, LanguageRegistration } from "../../common/types";
 import { C, TS } from "../../common/evaluator";
-import { promisify } from "../../common/util";
+import { promisify, uncurry } from "../../common/util";
 import { createHoverProvider } from "../../common/hover";
 import * as gtlc from "gtlc";
 
@@ -43,7 +43,7 @@ const backends: {
   "Compiler IR": [
     {
       title: "Lift IR",
-      do: promisify(gtlc.irCompile),
+      do: promisify(uncurry(gtlc.irCompile)),
       options: compileOptions,
       editorLanguage: "liftIr",
     },
@@ -57,14 +57,14 @@ const backends: {
   TypeScript: [
     {
       title: "TypeScript",
-      do: promisify(gtlc.tsCompile),
+      do: promisify(uncurry(gtlc.tsCompile)),
       options: compileOptions,
       editorLanguage: "typescript",
     },
     {
       title: TS.title,
       do(input: string, optimize: boolean) {
-        const ts = gtlc.tsCompile(input, optimize);
+        const ts = gtlc.tsCompile(input)(optimize);
         return TS.eval(ts);
       },
       options: [],
@@ -74,14 +74,14 @@ const backends: {
   C: [
     {
       title: "C",
-      do: promisify(gtlc.cCompile),
+      do: promisify(uncurry(gtlc.cCompile)),
       options: compileOptions,
       editorLanguage: "c",
     },
     {
       title: C.title,
       do(input: string, optimize: boolean) {
-        const c = gtlc.cCompile(input, optimize);
+        const c = gtlc.cCompile(input)(optimize);
         return C.eval(c);
       },
       options: [],
@@ -90,7 +90,7 @@ const backends: {
   ],
 };
 
-const builtin_docs = gtlc.docs();
+const builtin_docs = gtlc.docs;
 const builtin_fns = builtin_docs.map((d) => d.name);
 
 const grammar = (
