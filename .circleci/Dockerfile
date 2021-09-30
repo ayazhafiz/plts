@@ -2,7 +2,7 @@ FROM ocaml/opam
 SHELL ["/bin/bash", "-c"]
 
 RUN opam pin strictly-annotated https://github.com/ayazhafiz/strictly-annotated.git
-RUN opam install -y dune 
+RUN opam install -y dune
 RUN opam install -y menhir
 RUN opam install -y alcotest
 RUN opam install -y js_of_ocaml
@@ -15,6 +15,7 @@ RUN sudo apt install -y libgmp-dev
 RUN opam install -y zarith
 RUN opam install -y zarith_stubs_js
 RUN opam install -y camomile
+RUN opam pin dts_of_ocaml https://github.com/ayazhafiz/dts_of_ocaml.git
 
 RUN sudo apt-get update && sudo apt-get install -y \
   ca-certificates \
