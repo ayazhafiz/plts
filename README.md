@@ -1,1 +1,1 @@
-www/static/plts/index.md
+www/static/index.md
