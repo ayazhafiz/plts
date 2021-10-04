@@ -6,7 +6,7 @@ import type { Backend, LanguageRegistration } from "../../common/types";
 import { C, TS } from "../../common/evaluator";
 import { promisify } from "../../common/util";
 import { createHoverProvider } from "../../common/hover";
-import * as gtlc from "gtlc";
+import { infer, irCompile, cCompile, tsCompile, doEval, docs } from "gtlc";
 
 const examples = {
   "Cast Error": `(λx. succ x) #t`,
@@ -42,12 +42,6 @@ fib 23
 
 const compileOptions: [string, boolean][] = [["optimize", true]];
 
-// TODO: dts_of_ocaml is broken
-const infer = gtlc.infer as any;
-const irCompile = gtlc.irCompile as any;
-const tsCompile = gtlc.tsCompile as any;
-const cCompile = gtlc.cCompile as any;
-
 const backends: {
   Infer: [Backend];
 } & {
@@ -70,7 +64,7 @@ const backends: {
     },
     {
       title: "Interpreter Execution",
-      do: promisify(gtlc.doEval),
+      do: promisify(doEval),
       options: [],
       editorLanguage: "gtlc",
     },
@@ -111,7 +105,7 @@ const backends: {
   ],
 };
 
-const builtin_docs = gtlc.docs;
+const builtin_docs = docs;
 const builtin_fns = builtin_docs.map((d) => d.name);
 
 const grammar = (

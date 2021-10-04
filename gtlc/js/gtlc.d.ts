@@ -5,21 +5,18 @@ export declare const infer:
 
 /** Compiles to compiler-internal IR */
 export declare const irCompile:
-  (program: string) =>
-    (optimize: boolean) =>
-      { readonly result: string|null, readonly error: string|null }
+  (program: string, optimize: boolean) =>
+    { readonly result: string|null, readonly error: string|null }
 
 /** Compiles to TypeScript */
 export declare const tsCompile:
-  (program: string) =>
-    (optimize: boolean) =>
-      { readonly result: string|null, readonly error: string|null }
+  (program: string, optimize: boolean) =>
+    { readonly result: string|null, readonly error: string|null }
 
 /** Compiles to C */
 export declare const cCompile:
-  (program: string) =>
-    (optimize: boolean) =>
-      { readonly result: string|null, readonly error: string|null }
+  (program: string, optimize: boolean) =>
+    { readonly result: string|null, readonly error: string|null }
 
 /** Evaluate a GTLC program */
 export declare const doEval:
