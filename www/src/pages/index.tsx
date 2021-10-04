@@ -6,7 +6,7 @@ import Box from "@primer/components/lib/Box";
 const Index: React.FC<{}> = () => {
   const [content, setContent] = React.useState("");
   React.useEffect(() => {
-    fetch("/plts/index.md")
+    fetch("/plts/readme.mdx")
       .then((r) => r.text())
       .then((r) => setContent(r));
   });

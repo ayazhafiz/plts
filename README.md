@@ -1,1 +1,1 @@
-www/static/index.md
+www/static/readme.mdx
