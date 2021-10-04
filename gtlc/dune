@@ -6,7 +6,7 @@
 (library
  (name gtlc)
  (modules gtlc language typecheck cast_ir lift_ir typescript c
-          eval parser lexer util builtin)
+          eval parser lexer util builtin forest infer)
  (libraries str)
  (inline_tests)
  (js_of_ocaml)

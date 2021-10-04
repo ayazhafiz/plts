@@ -36,6 +36,7 @@ rule read = parse
   | "="        { EQ }
   | "->"       { ARROW }
   | "?"        { QMARK }
+  | "_"        { USCORE }
   | "#t"       { BOOL true }
   | "#f"       { BOOL false }
   | "if"       { IF }

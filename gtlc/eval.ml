@@ -148,6 +148,8 @@ let rec eval (Elab (e, te) as input) : (elaborated_expr, error) result =
   (* ECstU *)
   | Cast (TUnknown, e) ->
       eval e >>= fun v -> Ok (Elab (Cast (TUnknown, unbox v), TUnknown))
+  | Cast (TInfer _, _) ->
+      failwith "unreachable: inference type variable is unresolved"
   | Var _ | Loc _ | Builtin _ -> Ok input
 
 let eval_top e = eval e |> Result.map unbox

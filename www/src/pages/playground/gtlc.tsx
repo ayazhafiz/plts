@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import Playground from "../../components/playground";
 import type { Backend, LanguageRegistration } from "../../common/types";
 import { C, TS } from "../../common/evaluator";
-import { promisify, uncurry } from "../../common/util";
+import { promisify } from "../../common/util";
 import { createHoverProvider } from "../../common/hover";
 import * as gtlc from "gtlc";
 
@@ -33,17 +33,38 @@ let fib = λn.
 in
 fib 23
 `.trim(),
+  "Type Inference": `
+\\f: (? -> nat) -> (nat -> ?) -> nat.
+  \\y: _.
+    f y y
+`.trim(),
 };
 
 const compileOptions: [string, boolean][] = [["optimize", true]];
 
+// TODO: dts_of_ocaml is broken
+const infer = gtlc.infer as any;
+const irCompile = gtlc.irCompile as any;
+const tsCompile = gtlc.tsCompile as any;
+const cCompile = gtlc.cCompile as any;
+
 const backends: {
+  Infer: [Backend];
+} & {
   [K in "Compiler IR" | "TypeScript" | "C"]: [Backend, Backend];
 } = {
+  Infer: [
+    {
+      title: "Infer",
+      do: promisify(infer),
+      options: [],
+      editorLanguage: "gtlc",
+    },
+  ],
   "Compiler IR": [
     {
       title: "Lift IR",
-      do: promisify(uncurry(gtlc.irCompile)),
+      do: promisify(irCompile),
       options: compileOptions,
       editorLanguage: "liftIr",
     },
@@ -57,14 +78,14 @@ const backends: {
   TypeScript: [
     {
       title: "TypeScript",
-      do: promisify(uncurry(gtlc.tsCompile)),
+      do: promisify(tsCompile),
       options: compileOptions,
       editorLanguage: "typescript",
     },
     {
       title: TS.title,
-      do(input: string, optimize: boolean) {
-        const ts = gtlc.tsCompile(input)(optimize);
+      do(input: string) {
+        const ts = tsCompile(input, true);
         return TS.eval(ts);
       },
       options: [],
@@ -74,14 +95,14 @@ const backends: {
   C: [
     {
       title: "C",
-      do: promisify(uncurry(gtlc.cCompile)),
+      do: promisify(cCompile),
       options: compileOptions,
       editorLanguage: "c",
     },
     {
       title: C.title,
-      do(input: string, optimize: boolean) {
-        const c = gtlc.cCompile(input)(optimize);
+      do(input: string) {
+        const c = cCompile(input, true);
         return C.eval(c);
       },
       options: [],
@@ -112,6 +133,7 @@ type defaults to the unknown type \`?\`.
 **Types**
 
 - \`?\`: the unknown type, admitting any value
+- \`_\`: mark type to be inferred
 - \`nat\`: the type of natural numbers
 - \`bool\`: the type of booleans
 - \`t1 -> t2\`: function type
@@ -132,9 +154,9 @@ ${builtin_docs
 const gtlcSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
-  builtin_types: ["nat", "bool", "?"],
+  builtin_types: ["nat", "bool", "?", "_"],
   keywords: ["let", "in", "if", "then", "else", "\u03BB", "\\"].concat(builtin_fns),
-  symbols: /[<>\\?\->.:=\u03BB]|(->)/,
+  symbols: /[_<>\\?\->.:=\u03BB]|(->)/,
 
   tokenizer: {
     root: [
@@ -176,6 +198,9 @@ const gtlcSyntax: monaco.languages.IMonarchLanguage = {
 function gtlcGetHoverContent(word: string) {
   if (word === "?") {
     return [{ value: "The unknown type" }];
+  }
+  if (word === "_") {
+    return [{ value: "This type will be inferred" }];
   }
   for (const { name, ty, doc } of builtin_docs) {
     if (word === name) {

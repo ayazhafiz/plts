@@ -1,5 +1,6 @@
 open Language
 open Typecheck
+open Infer
 open Builtin
 
 (*** Front ***)
@@ -9,6 +10,8 @@ type expr = unelaborated_expr
 type elaborated_expr = Language.elaborated_expr
 
 type ty = Language.ty
+
+type freshty = unit -> ty
 
 type builtin = { name : string; ty : string; doc : string }
 
@@ -25,8 +28,9 @@ let parse s =
   let full = s in
   let lexbuf = Lexing.from_string ~with_positions:true full in
   try
-    let parsed = Parser.toplevel_expr Lexer.read lexbuf in
-    Ok parsed
+    let freshty = freshty_generator () in
+    let parsed = Parser.toplevel_expr Lexer.read lexbuf freshty in
+    Ok (parsed, freshty)
   with
   | Lexer.SyntaxError what ->
       Error
@@ -37,16 +41,24 @@ let parse s =
         (Printf.sprintf "Parse error at %s"
            (string_of_position lexbuf.lex_curr_p))
 
-let elaborate =
+let infer e freshty =
   let ctx =
+    List.map (fun ({ name; ty; _ } : Builtin.builtin) -> (name, ty)) builtins
+  in
+  infer freshty ctx e
+
+let elaborate =
+  let global_ctx =
     List.map
       (fun ({ name; ty; _ } : Builtin.builtin) ->
         (name, (ty, true (* global *))))
       builtins
   in
-  elaborate ctx
+  elaborate global_ctx
 
 let ty_of_elaborated_expr (Elab (_, t)) = t
+
+let string_of_expr = string_of_expr
 
 let string_of_ty = string_of_ty
 

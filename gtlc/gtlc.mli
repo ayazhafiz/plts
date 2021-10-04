@@ -6,11 +6,17 @@ type elaborated_expr
 
 type ty
 
-val parse : string -> (expr, string) Result.t
+type freshty
+
+val parse : string -> (expr * freshty, string) Result.t
+
+val infer : expr -> freshty -> (expr, string) Result.t
 
 val elaborate : expr -> (elaborated_expr, string) Result.t
 
 val ty_of_elaborated_expr : elaborated_expr -> ty
+
+val string_of_expr : expr -> string
 
 val string_of_ty : ty -> string
 

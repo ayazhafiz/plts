@@ -1,3 +1,8 @@
+/** Infers marked type variables */
+export declare const infer:
+  (program: string) =>
+    { readonly result: string|null, readonly error: string|null }
+
 /** Compiles to compiler-internal IR */
 export declare const irCompile:
   (program: string) =>
@@ -20,13 +25,6 @@ export declare const cCompile:
 export declare const doEval:
   (program: string) =>
     { readonly result: string|null, readonly error: string|null }
-
-/** Like `String.substring`, but on the JSOO side */
-export declare const substring:
-  (str: string) =>
-    (start: number) =>
-      (length: number) =>
-        { readonly result: string|null, readonly error: string|null }
 
 /** Documentation for builtin primitives */
 export declare const docs:

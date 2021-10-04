@@ -8,21 +8,22 @@ let wrap test =
     Printexc.record_backtrace false;
     Alcotest.fail (Printexc.to_string e ^ "\n\n" ^ Printexc.get_backtrace ())
 
-let mk_test driver (name, input, expect) =
-  let test () =
-    let out = parse input |> Result.get_ok |> driver in
-    Alcotest.(check string) input expect out
-  in
-  (name, `Quick, wrap test)
-
 let trim = String.trim
 
 let stringify_error = function Ok s -> "OK: " ^ s | Error s -> "ERROR: " ^ s
 
 let ( >>= ) = Result.bind
 
+let mk_test driver (name, input, expect) =
+  let test () =
+    let out = parse input >>= driver |> stringify_error in
+    Alcotest.(check string) input expect out
+  in
+  (name, `Quick, wrap test)
+
 type case = {
   input : string;
+  infer : string option;
   typecheck : string;
   cast : string option;
   llift : string option;
@@ -34,6 +35,7 @@ let cases =
   [
     {
       input = "(λx: nat. succ x) #t";
+      infer = None;
       typecheck = "ERROR: Argument is not consistent with domain of application";
       cast = None;
       llift = None;
@@ -42,40 +44,36 @@ let cases =
     };
     {
       input = "(λx. succ x) #t";
+      infer = None;
       typecheck = "OK: nat";
       cast = None;
-      llift =
+      llift = None;
+      eval = None;
+      typescript = None;
+    };
+    {
+      input =
+        trim {|
+let apply1To = λf: ? -> _. f 1 in
+apply1To (λx: nat. succ x)
+|};
+      infer =
         Some
           ("OK: "
           ^ trim
               {|
-fn gen1(x: ?): nat
-  = decl x1: nat = <nat>x;
-    return apply(succ, x1);
-decl x2: ? = <?>true;
-return apply(fnptr(gen1), x2);
+((λapply1To: ?. (apply1To (λx: nat. (succ x)))) (λf: ? -> ?. (f 1)))
 |}
           );
-      eval = Some "ERROR: Cast Error at (<nat>(<?>true))";
-      typescript =
-        Some
-          ("OK: "
-          ^ trim
-              {|
-function gen1(x: v<unknown>): v<number> {
-  const x1: v<number> = _cast(x, _tn);
-  return succ.value.apply(x1);
-}
-function main1(): v<number> {
-  const x2: v<unknown> = _cast(_nb(true), _tu);
-  return _nf(new FnPtr(gen1), _tf(_tu, _tn)).value.apply(x2);
-}
-_print(main1());
-|}
-          );
+      typecheck = "OK: ?";
+      cast = None;
+      llift = None;
+      eval = None;
+      typescript = None;
     };
     {
       input = "(λf: ? -> nat. f 1) (λx: nat. succ x)";
+      infer = None;
       typecheck = "OK: nat";
       cast = None;
       llift =
@@ -124,6 +122,7 @@ let fact: nat -> nat =
   fix (\fact. \n. if eqn n 0 then 1 else (mult n (fact (pred n)))) in
 fact 10
 |};
+      infer = None;
       typecheck = "OK: nat";
       cast = None;
       llift = None;
@@ -139,11 +138,22 @@ let typecheck_tests =
   List.map
     (fun { input; typecheck; _ } ->
       mk_test
-        (fun e ->
+        (fun (e, _) ->
           elaborate e
-          |> Result.map (fun e -> ty_of_elaborated_expr e |> string_of_ty)
-          |> stringify_error)
+          |> Result.map (fun e -> ty_of_elaborated_expr e |> string_of_ty))
         (input, input, typecheck))
+    cases
+
+let infer_tests =
+  List.filter_map
+    (function
+      | { input; infer = Some exp; _ } ->
+          mk_test
+            (fun (e, ft) ->
+              infer e ft |> Result.map (fun e -> string_of_expr e))
+            (input, input, exp)
+          |> Option.some
+      | _ -> None)
     cases
 
 let cast_tests =
@@ -151,10 +161,9 @@ let cast_tests =
     (function
       | { input; cast = Some expect; _ } ->
           mk_test
-            (fun e ->
+            (fun (e, _) ->
               elaborate e
-              |> Result.map (fun e -> insert_casts e |> string_of_cast_expr)
-              |> stringify_error)
+              |> Result.map (fun e -> insert_casts e |> string_of_cast_expr))
             (input, input, expect)
           |> Option.some
       | _ -> None)
@@ -165,10 +174,7 @@ let llift_tests =
     (function
       | { input; llift = Some expect; _ } ->
           mk_test
-            (fun e ->
-              into_lifted e
-              |> Result.map string_of_lifted_program
-              |> stringify_error)
+            (fun (e, _) -> into_lifted e |> Result.map string_of_lifted_program)
             (input, input, expect)
           |> Option.some
       | _ -> None)
@@ -179,9 +185,7 @@ let eval_tests =
     (function
       | { input; eval = Some expect; _ } ->
           mk_test
-            (fun e ->
-              elaborate e >>= eval |> Result.map string_of_value
-              |> stringify_error)
+            (fun (e, _) -> elaborate e >>= eval |> Result.map string_of_value)
             (input, input, expect)
           |> Option.some
       | _ -> None)
@@ -192,10 +196,8 @@ let codegen_ts_tests =
     (function
       | { input; typescript = Some expect; _ } ->
           mk_test
-            (fun e ->
-              into_lifted e
-              |> Result.map (Cgen.typescript ~with_prelude:false)
-              |> stringify_error)
+            (fun (e, _) ->
+              into_lifted e |> Result.map (Cgen.typescript ~with_prelude:false))
             (input, input, expect)
           |> Option.some
       | _ -> None)
@@ -204,6 +206,7 @@ let codegen_ts_tests =
 let () =
   Alcotest.run "GTLC tests"
     [
+      ("Infer", infer_tests);
       ("Typecheck", typecheck_tests);
       ("Cast Insertion", cast_tests);
       ("Lambda Lifting", llift_tests);

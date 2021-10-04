@@ -5,7 +5,10 @@ let ( >>= ) = Result.bind
 
 let ( >+ ) v f = Result.map f v
 
-let to_elab program = Js.to_string program |> parse >>= elaborate
+let to_infer program =
+  Js.to_string program |> parse >>= fun (e, ft) -> infer e ft
+
+let to_elab program = to_infer program >>= elaborate
 
 let to_lifted program opt =
   to_elab program >+ insert_casts >+ lift ~optimize:(Js.to_bool opt)
@@ -45,6 +48,10 @@ let wrap doit =
        ^ Printexc.get_backtrace ())
 
 let _ =
+  Js.export "infer" (fun [@jsdoc {|Infers marked type variables|}] ~program ->
+      wrap (fun () -> to_infer program >+ string_of_expr) |> ret)
+
+let _ =
   Js.export "irCompile"
     (fun [@jsdoc {|Compiles to compiler-internal IR|}] ~program ~optimize ->
       wrap (fun () -> to_lifted program optimize >+ string_of_lifted_program)
@@ -62,18 +69,6 @@ let _ =
 let _ =
   Js.export "doEval" (fun [@jsdoc {|Evaluate a GTLC program|}] ~program ->
       wrap (fun () -> to_elab program >>= eval >+ string_of_value) |> ret)
-
-let _ =
-  Js.export "substring"
-    (fun
-      [@jsdoc {|Like `String.substring`, but on the JSOO side|}] ~str
-      ~start
-      ~length
-    ->
-      let s = Js.to_string str in
-      let start = Js.float_of_number start |> int_of_float in
-      let length = Js.float_of_number length |> int_of_float in
-      String.sub s start length |> Result.ok |> ret)
 
 let _ =
   Js.export "docs"

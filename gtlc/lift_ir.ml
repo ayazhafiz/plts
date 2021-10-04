@@ -221,6 +221,7 @@ let rec translate_ty = function
   | L.TNat -> TNat
   | L.TBool -> TBool
   | L.TArrow (t, t') -> TArrow (translate_ty t, translate_ty t')
+  | L.TInfer _ -> failwith "unreachable: inference type variable is unresolved"
 
 let split_arrow = function
   | TArrow (l, r) -> (l, r)

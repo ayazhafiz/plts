@@ -1,4 +1,5 @@
 open Language
+open Util
 
 let rec consistent t1 t2 =
   t1 = t2
@@ -23,8 +24,6 @@ and meet t1 t2 =
     | t, TUnknown | TUnknown, t -> t
     | TArrow (s1, s2), TArrow (t1, t2) -> TArrow (join s1 t1, meet s2 t2)
     | _ -> failwith "inconsistent"
-
-let ( >>= ) = Result.bind
 
 let rec elaborate ctx (Just e) =
   match e with

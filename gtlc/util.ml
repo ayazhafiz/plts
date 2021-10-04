@@ -32,3 +32,5 @@ let fresh_generator ?(used = S.empty) () =
     let res = freshen hint !used in
     used := S.add res !used;
     res
+
+let ( >>= ) = Result.bind
