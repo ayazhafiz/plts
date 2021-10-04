@@ -39,11 +39,12 @@ Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
   catch any non-sensical type errors, the runtime system will catch any cast
   errors.
 
-  The compiler is multi-phase, optimizing, includes an interpretive mode, and
-  provides code generators to C and TypeScript (a type inferer is upcoming).
+  The compiler is multi-phase, optimizing, includes an interpretive mode and a
+  type inferer, and provides code generators to C and TypeScript.
 
   - [Playground][gtlc-pg]
   - [Siek and Taha, 2006](http://www.schemeworkshop.org/2006/13-siek.pdf)
+  - [Type Inference for Gradual Typing (Siek and Vachharajani, 2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.84.4703&rep=rep1&type=pdf)
 
 ## Typed Assembly
 
