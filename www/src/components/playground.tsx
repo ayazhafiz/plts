@@ -148,6 +148,8 @@ const InputColumn = ({
   );
 };
 
+type SetHide = (hide: boolean) => Promise<void>;
+
 interface BackendBlockProps {
   prio: number;
   getMonaco: () => typeof monaco;
@@ -155,6 +157,7 @@ interface BackendBlockProps {
   getEditor: () => Editor;
   onDidBackendChange: OnDidBackendChange;
   onDidInputChange: OnDidInputChange;
+  registerEditor: (setHide: SetHide) => void;
 }
 
 class BackendBlock extends React.Component<
@@ -164,15 +167,24 @@ class BackendBlock extends React.Component<
     options: [string, boolean][] | null;
     info: [string, React.ReactNode][];
     result: "loading" | Result | null;
+    forceHide: boolean;
   }
 > {
-  private readonly nullState = { title: null, options: null, info: [], result: null };
+  private readonly nullState = {
+    title: null,
+    options: null,
+    info: [],
+    result: null,
+    forceHide: false,
+  };
   private lastKnownInput = "";
 
   constructor(props: BackendBlockProps) {
     super(props);
 
-    const { getBackend, onDidBackendChange, onDidInputChange } = this.props;
+    const { getBackend, onDidBackendChange, onDidInputChange, registerEditor } = this.props;
+
+    registerEditor(this.setHide);
 
     const backend = getBackend();
     if (backend === null) {
@@ -183,6 +195,7 @@ class BackendBlock extends React.Component<
         options: backend.options,
         info: backend.info ? backend.info : [],
         result: { result: "", error: null },
+        forceHide: false,
       };
     }
 
@@ -192,6 +205,10 @@ class BackendBlock extends React.Component<
 
   setStateAsync = (newState: any) =>
     new Promise<void>((resolve) => this.setState(newState, resolve));
+
+  setHide = async (forceHide: boolean) => {
+    await this.setStateAsync({ forceHide });
+  };
 
   updateBackend = async (): Promise<"done"> => {
     const { getBackend, getMonaco, getEditor } = this.props;
@@ -236,8 +253,8 @@ class BackendBlock extends React.Component<
   };
 
   override render() {
-    const { result, title, options, info } = this.state;
-    const globalHide = result === null;
+    const { result, title, options, info, forceHide } = this.state;
+    const globalHide = forceHide || result === null;
     const isLoading = result === "loading";
     const hideError = globalHide || isLoading || result.error === null;
     const hideResult = globalHide || (!isLoading && result.result === null);
@@ -245,7 +262,11 @@ class BackendBlock extends React.Component<
     const titleTxt = title ?? "";
     const optionsLst = options ?? [];
     return (
-      <Box display={globalHide ? "none" : "flex"} flex={this.props.prio} flexDirection="column">
+      <Box
+        style={{ display: globalHide ? "none" : "flex" }}
+        flex={this.props.prio}
+        flexDirection="column"
+      >
         <EditorHeading>
           <Heading as="h1" display="inline-block">
             {titleTxt}
@@ -309,7 +330,10 @@ class Playground<
   Backends extends Record<string, BackendKind>,
   Examples extends Record<string, string>
 > extends React.Component<PlaygroundProps<Backends, Examples>> {
-  private readonly editors: Record<string, { kind: "input" | "output"; editor: Editor }> = {};
+  private readonly editors: Record<
+    string,
+    { kind: "input" | "output"; editor: Editor; setHide?: SetHide }
+  > = {};
   private inputEditorId: string = "input-editor";
 
   private backend = this.props.backends[this.props.defaultBackend];
@@ -324,10 +348,11 @@ class Playground<
 
   getMonaco = () => this.monaco;
 
-  registerEditor = (editorId: string, kind: "input" | "output") => {
+  registerEditor = (editorId: string, kind: "input" | "output", setHide?: SetHide) => {
     this.editors[editorId] = {
       kind,
       editor: null!, // will get updated during componentDidMount
+      setHide,
     };
   };
 
@@ -347,8 +372,20 @@ class Playground<
     return Promise.all(this.inputChangeSubscribers.map((s) => s(newInput)));
   };
 
-  backendChange = () => {
-    return Promise.all(this.backendChangeSubscribers.map((s) => s()));
+  backendChange = async () => {
+    await Promise.all(this.backendChangeSubscribers.map((s) => s()));
+    await this.resizeAllEditors();
+  };
+
+  resizeAllEditors = async () => {
+    // HACK: Editors do not auto-resize when we switch from one backend to two,
+    // but flipping the hide switches off and on seems to do the trick.
+    const hideSwitches = Object.values(this.editors)
+      .map((e) => e.setHide)
+      .filter((sh): sh is SetHide => sh !== undefined);
+    await Promise.allSettled(hideSwitches.map((setHide) => setHide(true)));
+    await new Promise((resolve) => setTimeout(resolve, 1)); // HACK
+    await Promise.allSettled(hideSwitches.map((setHide) => setHide(false)));
   };
 
   onDidBackendChange = (subscriber: () => Promise<"done">) => {
@@ -428,7 +465,6 @@ class Playground<
     const getInputEditor = () => this.getEditor(this.inputEditorId);
 
     this.registerEditor(this.inputEditorId, "input");
-    backendEditors.forEach((e) => this.registerEditor(e, "output"));
 
     return (
       <MdWrapper>
@@ -457,6 +493,10 @@ class Playground<
                 getEditor={() => getBackendEditorAt(i)}
                 onDidBackendChange={this.onDidBackendChange}
                 onDidInputChange={this.onDidInputChange}
+                // TODO: this is really ugly
+                registerEditor={(setHide: SetHide) => {
+                  this.registerEditor(backendEditors[i], "output", setHide);
+                }}
               >
                 <Box id={backendEditors[i]} flex="1"></Box>
               </BackendBlock>
