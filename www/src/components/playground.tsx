@@ -367,7 +367,10 @@ class Playground<
         base: "vs",
         inherit: true,
         colors: {},
-        rules: [{ token: "error", foreground: "ff0000" }],
+        rules: [
+          { token: "error", foreground: "ff0000" },
+          { token: "infer", foreground: "ea5c00", fontStyle: "italic" },
+        ],
       });
 
       for (const [lang, { syntax, hover, format, autoFormat }] of Object.entries(

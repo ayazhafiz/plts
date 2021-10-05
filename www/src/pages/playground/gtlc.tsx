@@ -34,7 +34,7 @@ in
 fib 23
 `.trim(),
   "Type Inference": `
-\\f: (? -> nat) -> (nat -> ?) -> nat.
+\\f: ((? -> nat) -> (bool -> ?)) -> ((nat -> ?) -> (? -> bool)) -> nat.
   \\y: _.
     f y y
 `.trim(),
@@ -156,6 +156,8 @@ const gtlcSyntax: monaco.languages.IMonarchLanguage = {
     root: [
       [/(Syntax error.*)/, "error"],
       [/(Parse error.*)/, "error"],
+      [/`\(/, "infer", "@infer"],
+      [/`(nat|bool|\?)/, "infer"],
       [/#[tf]/, "keyword"],
       [
         /[a-z][a-zA-Z0-9_'\w$]*/,
@@ -181,6 +183,11 @@ const gtlcSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
     ],
+    infer: [
+      [/[^()]+/, "infer"],
+      [/\(/, "infer", "@push"],
+      [/\)/, "infer", "@pop"],
+    ],
     whitespace: [
       [/(\uFF5C.*$)/, "annotation"],
       [/[ \t\r\n]+/, "white"],
@@ -195,6 +202,9 @@ function gtlcGetHoverContent(word: string) {
   }
   if (word === "_") {
     return [{ value: "This type will be inferred" }];
+  }
+  if (word.startsWith("`")) {
+    return [{ value: `Inferred: \`${word.substring(1)}\`` }];
   }
   for (const { name, ty, doc } of builtin_docs) {
     if (word === name) {

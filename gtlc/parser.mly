@@ -36,16 +36,16 @@ expr:
   | LAM IDENT DOT expr { fun ft -> Just(Lam($2, TUnknown, $4 ft)) }
   | LAM IDENT COLON ty DOT expr { fun ft -> Just(Lam($2, $4 ft, $6 ft)) }
   | LET IDENT EQ expr IN expr { fun ft ->
-      Just(App(Just(Lam($2, TUnknown, $6 ft)), $4 ft))
+      Just(App(Just(Lam($2, TUnknown, $6 ft)), $4 ft, `DesugaredLet))
   }
   | LET IDENT COLON ty EQ expr IN expr { fun ft ->
-      Just(App(Just(Lam($2, $4 ft, $8 ft)), $6 ft))
+      Just(App(Just(Lam($2, $4 ft, $8 ft)), $6 ft, `DesugaredLet))
   }
   | IF expr THEN expr ELSE expr { fun ft -> Just(If($2 ft, $4 ft, $6 ft)) }
 
 app_like_expr:
   | atomic_expr { fun ft -> $1 ft }
-  | app_like_expr atomic_expr { fun ft -> Just(App($1 ft, $2 ft)) }
+  | app_like_expr atomic_expr { fun ft -> Just(App($1 ft, $2 ft, `App)) }
 
 atomic_expr:
   | LPAREN expr RPAREN { fun ft -> $2 ft }

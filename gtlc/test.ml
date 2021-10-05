@@ -44,7 +44,7 @@ let cases =
     };
     {
       input = "(λx. succ x) #t";
-      infer = None;
+      infer = Some "OK: (λx: ?. succ x) #t";
       typecheck = "OK: nat";
       cast = None;
       llift = None;
@@ -53,8 +53,9 @@ let cases =
     };
     {
       input =
-        trim {|
-let apply1To = λf: ? -> _. f 1 in
+        trim
+          {|
+let apply1To = λf: ? -> nat. f 1 in
 apply1To (λx: nat. succ x)
 |};
       infer =
@@ -62,7 +63,8 @@ apply1To (λx: nat. succ x)
           ("OK: "
           ^ trim
               {|
-((λapply1To: ?. (apply1To (λx: nat. (succ x)))) (λf: ? -> ?. (f 1)))
+let apply1To: ? = λf: ? -> nat. f 1 in
+apply1To (λx: nat. succ x)
 |}
           );
       typecheck = "OK: ?";
@@ -134,16 +136,6 @@ fact 10
 let into_lifted e =
   elaborate e |> Result.map (fun e -> insert_casts e |> lift ~optimize:true)
 
-let typecheck_tests =
-  List.map
-    (fun { input; typecheck; _ } ->
-      mk_test
-        (fun (e, _) ->
-          elaborate e
-          |> Result.map (fun e -> ty_of_elaborated_expr e |> string_of_ty))
-        (input, input, typecheck))
-    cases
-
 let infer_tests =
   List.filter_map
     (function
@@ -154,6 +146,16 @@ let infer_tests =
             (input, input, exp)
           |> Option.some
       | _ -> None)
+    cases
+
+let typecheck_tests =
+  List.map
+    (fun { input; typecheck; _ } ->
+      mk_test
+        (fun (e, _) ->
+          elaborate e
+          |> Result.map (fun e -> ty_of_elaborated_expr e |> string_of_ty))
+        (input, input, typecheck))
     cases
 
 let cast_tests =

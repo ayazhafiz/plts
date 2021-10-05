@@ -1,7 +1,16 @@
 open Language
 open Util
 
+let rec resolve_ty = function
+  | TInfer (`Var _) -> failwith "unexpected unresolved inference variable"
+  | TInfer (`Resolved t) -> resolve_ty t
+  | TNat -> TNat
+  | TBool -> TBool
+  | TUnknown -> TUnknown
+  | TArrow (t1, t2) -> TArrow (resolve_ty t1, resolve_ty t2)
+
 let rec consistent t1 t2 =
+  let t1, t2 = (resolve_ty t1, resolve_ty t2) in
   t1 = t2
   ||
   match (t1, t2) with
@@ -10,6 +19,7 @@ let rec consistent t1 t2 =
   | _ -> false
 
 let rec join t1 t2 =
+  let t1, t2 = (resolve_ty t1, resolve_ty t2) in
   if t1 = t2 then t1
   else
     match (t1, t2) with
@@ -18,6 +28,7 @@ let rec join t1 t2 =
     | _ -> failwith "inconsistent"
 
 and meet t1 t2 =
+  let t1, t2 = (resolve_ty t1, resolve_ty t2) in
   if t1 = t2 then t1
   else
     match (t1, t2) with
@@ -34,11 +45,11 @@ let rec elaborate ctx (Just e) =
       | Some (t, true) -> Ok (Elab (Var (`Global x), t))
       | Some (t, false) -> Ok (Elab (Var (`Local x), t))
       | None -> Error (x ^ " is not declared"))
-  | App (e1, e2) -> (
+  | App (e1, e2, a) -> (
       elaborate ctx e1 >>= fun (Elab (_, t1) as e1) ->
       elaborate ctx e2 >>= fun (Elab (_, t2) as e2) ->
-      let app = App (e1, e2) in
-      match t1 with
+      let app = App (e1, e2, a) in
+      match resolve_ty t1 with
       | TUnknown -> Ok (Elab (app, TUnknown))
       | TArrow (t, t') ->
           if consistent t2 t then Ok (Elab (app, t'))

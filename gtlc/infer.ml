@@ -18,7 +18,7 @@ let gen_constr freshty ctx e =
         match List.assoc_opt x ctx with
         | Some t -> Ok (t, [])
         | None -> Error (x ^ " is not declared"))
-    | App (e1, e2) ->
+    | App (e1, e2, _) ->
         go ctx e1 >>= fun (t1, c1) ->
         go ctx e2 >>= fun (t2, c2) ->
         let b = freshty () in
@@ -74,7 +74,7 @@ struct
         let t1, t2 = (kind_of_node t1, kind_of_node t2) in
         TArrow (ty_of_kind t1, ty_of_kind t2)
     | Unknown -> TUnknown
-    | Infer i -> TInfer i
+    | Infer i -> TInfer (`Var i)
 
   let string_of_kind kind = string_of_ty (ty_of_kind kind)
 
@@ -89,8 +89,8 @@ struct
       Hashtbl.add cache ty node;
       node
     in
-    let register_ivar i ivar =
-      ivars := (TInfer i, ivar) :: !ivars;
+    let register_ivar t ivar =
+      ivars := (t, ivar) :: !ivars;
       ivar
     in
     let retrieve_ivars () = List.rev !ivars in
@@ -102,10 +102,12 @@ struct
         | TBool -> assoc ty { kind = Prim `Bool; contains_vars = false }
         | TArrow (t1, t2) ->
             let t1, t2 = (go t1, go t2) in
-            assoc ty { kind = Arrow (t1, t2); contains_vars = true }
-        | TInfer i ->
+            TyForest.create_node { kind = Arrow (t1, t2); contains_vars = true }
+        | TInfer (`Var i) as t ->
             assoc ty { kind = Infer i; contains_vars = false }
-            |> register_ivar i
+            |> register_ivar t
+        | TInfer (`Resolved _) ->
+            failwith "unexpected resolved type before constraint resolution"
         | TUnknown ->
             (* Each instance of an "?" type should be treated as a fresh node in
                the solution forest. Otherwise we may end up with unnecessary
@@ -237,25 +239,26 @@ struct
         (* (? -> nat) -> (nat -> ?) -> nat ~= `b0 -> `b1 *)
         ( TArrow
             (TArrow (TUnknown, TNat), TArrow (TArrow (TNat, TUnknown), TNat)),
-          TArrow (TInfer 0, TInfer 1) );
+          TArrow (TInfer (`Var 0), TInfer (`Var 1)) );
         (* `b1 ~= `b0 -> `b2 *)
-        (TInfer 1, TArrow (TInfer 0, TInfer 2));
+        (TInfer (`Var 1), TArrow (TInfer (`Var 0), TInfer (`Var 2)));
         (* Cycle tests *)
-        (TInfer 3, TInfer 4);
-        (TInfer 4, TInfer 3);
-        (TInfer 4, TBool);
+        (TInfer (`Var 3), TInfer (`Var 4));
+        (TInfer (`Var 4), TInfer (`Var 3));
+        (TInfer (`Var 4), TBool);
         (*
            ? -> `t13 ~= ((? -> `t11) -> `t14) -> `t15
            ? ~= (nat -> `t12) -> `t13
            nat -> nat ~= nat -> `t12
            ? -> `t11 ~= nat -> `t14
         *)
-        ( TArrow (TUnknown, TInfer 13),
-          TArrow (TArrow (TArrow (TUnknown, TInfer 11), TInfer 14), TInfer 15)
-        );
-        (TUnknown, TArrow (TArrow (TNat, TInfer 12), TInfer 13));
-        (TArrow (TNat, TNat), TArrow (TNat, TInfer 12));
-        (TArrow (TUnknown, TInfer 11), TArrow (TNat, TInfer 14));
+        ( TArrow (TUnknown, TInfer (`Var 13)),
+          TArrow
+            ( TArrow (TArrow (TUnknown, TInfer (`Var 11)), TInfer (`Var 14)),
+              TInfer (`Var 15) ) );
+        (TUnknown, TArrow (TArrow (TNat, TInfer (`Var 12)), TInfer (`Var 13)));
+        (TArrow (TNat, TNat), TArrow (TNat, TInfer (`Var 12)));
+        (TArrow (TUnknown, TInfer (`Var 11)), TArrow (TNat, TInfer (`Var 14)));
       ]
     in
     let solved =
@@ -289,7 +292,10 @@ let subst_ty substs =
     match t with
     | TNat | TBool | TUnknown -> t
     | TArrow (t1, t2) -> TArrow (go t1, go t2)
-    | TInfer _ -> TyMap.find t substs
+    | TInfer (`Var _) -> TInfer (`Resolved (TyMap.find t substs))
+    | TInfer (`Resolved _) ->
+        failwith
+          "unexpected resolved inference variable before type substitution"
   in
   go
 
@@ -298,7 +304,7 @@ let subst_expr substs =
     let e' =
       match e with
       | Nat _ | Bool _ | Var _ -> e
-      | App (e1, e2) -> App (go e1, go e2)
+      | App (e1, e2, a) -> App (go e1, go e2, a)
       | Lam (x, t, e) -> Lam (x, subst_ty substs t, go e)
       | If (e1, e2, e3) -> If (go e1, go e2, go e3)
     in
@@ -308,4 +314,10 @@ let subst_expr substs =
 
 let infer freshty ctx e =
   gen_constr freshty ctx e >>= fun constrs ->
+  Printf.eprintf "constrs:\n%s"
+    (List.map
+       (fun (t, s) ->
+         Printf.sprintf "%s ~= %s" (string_of_ty t) (string_of_ty s))
+       constrs
+    |> String.concat "\n");
   Solver.solve constrs >>= fun substs -> Ok (subst_expr substs e)

@@ -71,7 +71,7 @@ let rec translate (L.Elab (e, t)) =
   | L.Lam (x, tx, e) ->
       let e' = translate e in
       Elab (Lam (x, tx, e'), t)
-  | L.App (e1, e2) -> (
+  | L.App (e1, e2, _) -> (
       let (Elab (_, t1) as e1') = translate e1 in
       let (Elab (_, t2) as e2') = translate e2 in
       match t1 with
