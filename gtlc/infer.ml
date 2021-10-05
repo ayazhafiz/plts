@@ -314,10 +314,4 @@ let subst_expr substs =
 
 let infer freshty ctx e =
   gen_constr freshty ctx e >>= fun constrs ->
-  Printf.eprintf "constrs:\n%s"
-    (List.map
-       (fun (t, s) ->
-         Printf.sprintf "%s ~= %s" (string_of_ty t) (string_of_ty s))
-       constrs
-    |> String.concat "\n");
   Solver.solve constrs >>= fun substs -> Ok (subst_expr substs e)
