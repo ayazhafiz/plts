@@ -10,7 +10,6 @@ let rec resolve_ty = function
   | TArrow (t1, t2) -> TArrow (resolve_ty t1, resolve_ty t2)
 
 let rec consistent t1 t2 =
-  let t1, t2 = (resolve_ty t1, resolve_ty t2) in
   t1 = t2
   ||
   match (t1, t2) with
@@ -19,7 +18,6 @@ let rec consistent t1 t2 =
   | _ -> false
 
 let rec join t1 t2 =
-  let t1, t2 = (resolve_ty t1, resolve_ty t2) in
   if t1 = t2 then t1
   else
     match (t1, t2) with
@@ -28,7 +26,6 @@ let rec join t1 t2 =
     | _ -> failwith "inconsistent"
 
 and meet t1 t2 =
-  let t1, t2 = (resolve_ty t1, resolve_ty t2) in
   if t1 = t2 then t1
   else
     match (t1, t2) with
@@ -49,13 +46,15 @@ let rec elaborate ctx (Just e) =
       elaborate ctx e1 >>= fun (Elab (_, t1) as e1) ->
       elaborate ctx e2 >>= fun (Elab (_, t2) as e2) ->
       let app = App (e1, e2, a) in
-      match resolve_ty t1 with
+      match t1 with
       | TUnknown -> Ok (Elab (app, TUnknown))
       | TArrow (t, t') ->
           if consistent t2 t then Ok (Elab (app, t'))
           else Error "Argument is not consistent with domain of application"
       | _ -> Error "Cannot apply argument to non-function type")
   | Lam (x, t, e) ->
+      (* Only place where we introduce possibly-inferred types. *)
+      let t = resolve_ty t in
       elaborate ((x, (t, false)) :: ctx) e >>= fun (Elab (_, t') as e) ->
       Ok (Elab (Lam (x, t, e), TArrow (t, t')))
   | If (c, thn, els) ->

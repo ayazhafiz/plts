@@ -22,8 +22,8 @@ add8 1 2 3 4 5 6 7 8
 `.trim(),
   "Fixpoint Combinator": `
 let fix = λf. (λx. f (λy. x x y)) (λx. f (λy. x x y)) in
-let fib = λn.
-  let go' = λgo. λi. λa. λb.
+let fib = λn: _.
+  let go' = λgo: _. λi: _. λa: _. λb: _.
     if eqn i n
     then a
     else go (succ i) b (add a b)
