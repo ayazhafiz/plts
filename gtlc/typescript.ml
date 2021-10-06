@@ -284,6 +284,6 @@ let pp_program f { toplevels; body; ty; fresh } =
     fns;
   fprintf f "_print(%s());@]" (ts_ident main)
 
-let string_of_program with_prelude p =
-  let prog = with_buffer (fun f -> pp_program f p) 80 in
+let string_of_program width with_prelude p =
+  let prog = with_buffer (fun f -> pp_program f p) width in
   if with_prelude then prelude ^ "\n" ^ prog else prog

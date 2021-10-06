@@ -7,6 +7,7 @@ import useDetails from "@primer/components/lib/hooks/useDetails";
 import Popover from "@primer/components/lib/Popover";
 import Link from "@primer/components/lib/Link";
 import Spinner from "@primer/components/lib/Spinner";
+import TextInput from "@primer/components/lib/TextInput";
 import styled from "styled-components";
 import { space, SpaceProps } from "styled-system";
 import type { Result, Backend, BackendKind, LanguageRegistration } from "../common/types";
@@ -164,7 +165,7 @@ class BackendBlock extends React.Component<
   BackendBlockProps,
   {
     title: string | null;
-    options: [string, boolean][] | null;
+    options: [string, boolean | number][] | null;
     info: [string, React.ReactNode][];
     result: "loading" | Result | null;
     forceHide: boolean;
@@ -247,7 +248,12 @@ class BackendBlock extends React.Component<
   };
 
   setArg = async (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
-    this.state.options![i][1] = e.target.checked;
+    const oldv = this.state.options![i][1];
+    if (typeof oldv === "boolean") {
+      this.state.options![i][1] = e.target.checked;
+    } else if (typeof oldv === "number") {
+      this.state.options![i][1] = parseInt(e.target.value) || 0;
+    }
     await this.setStateAsync({ options: this.state.options });
     this.updateOutput();
   };
@@ -271,12 +277,34 @@ class BackendBlock extends React.Component<
           <Heading as="h1" display="inline-block">
             {titleTxt}
           </Heading>
-          {optionsLst.map(([opt, flag], i) => (
+          {optionsLst.map(([opt, val], i) => (
             <Span key={i} ml={ml}>
-              <input id={opt} type="checkbox" checked={flag} onChange={(e) => this.setArg(e, i)} />
-              <Label htmlFor={opt} ml={2}>
-                {opt}
-              </Label>
+              {typeof val === "boolean" ? (
+                <>
+                  <input
+                    id={opt}
+                    type="checkbox"
+                    checked={val}
+                    onChange={(e) => this.setArg(e, i)}
+                  />
+                  <Label htmlFor={opt} ml={2}>
+                    {opt}
+                  </Label>
+                </>
+              ) : (
+                <>
+                  <Label htmlFor={opt}>{opt}</Label>
+                  <TextInput
+                    sx={{ ml: 2, p: 0, px: 1 }}
+                    id={opt}
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={val}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => this.setArg(e, i)}
+                  />
+                </>
+              )}
             </Span>
           ))}
           {info.map(([title, content], i) => (

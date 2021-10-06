@@ -131,4 +131,5 @@ let pp_expr f =
   in
   go
 
-let string_of_expr v = with_buffer (fun f -> pp_expr f v) 80
+let string_of_expr ?(width = default_width) v =
+  with_buffer (fun f -> pp_expr f v) width

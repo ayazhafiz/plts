@@ -391,7 +391,7 @@ let c_get_tag_generator fresh add_decl =
   in
   getty
 
-let string_of_program with_prelude { toplevels; body; ty; fresh } =
+let string_of_program width with_prelude { toplevels; body; ty; fresh } =
   let ident = c_ident_generator fresh in
   let topdecls = ref [] in
   let add_topdecl s = topdecls := s :: !topdecls in
@@ -410,6 +410,6 @@ let string_of_program with_prelude { toplevels; body; ty; fresh } =
       fns;
     fprintf f "int main() { _print(%s()); }@]" entry
   in
-  let prog = with_buffer pp_program 80 in
+  let prog = with_buffer pp_program width in
   let prog = String.concat "\n" (List.rev (prog :: !topdecls)) in
   if with_prelude then prelude ^ "\n" ^ prog else prog

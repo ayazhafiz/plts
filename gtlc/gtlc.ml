@@ -2,6 +2,7 @@ open Language
 open Typecheck
 open Infer
 open Builtin
+open Util
 
 (*** Front ***)
 
@@ -102,8 +103,9 @@ let string_of_value = Cast_ir.string_of_expr
 (*** Codegen ***)
 
 module Cgen = struct
-  let typescript ?(with_prelude = true) =
-    Typescript.string_of_program with_prelude
+  let typescript ?(width = default_width) ?(with_prelude = true) =
+    Typescript.string_of_program width with_prelude
 
-  let c ?(with_prelude = true) = C.string_of_program with_prelude
+  let c ?(width = default_width) ?(with_prelude = true) =
+    C.string_of_program width with_prelude
 end

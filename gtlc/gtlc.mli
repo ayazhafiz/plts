@@ -16,9 +16,9 @@ val elaborate : expr -> (elaborated_expr, string) Result.t
 
 val ty_of_elaborated_expr : elaborated_expr -> ty
 
-val string_of_expr : expr -> string
+val string_of_expr : ?width:int -> expr -> string
 
-val string_of_ty : ty -> string
+val string_of_ty : ?width:int -> ty -> string
 
 type builtin = { name : string; ty : string; doc : string }
 
@@ -30,7 +30,7 @@ type cast_expr
 
 val insert_casts : elaborated_expr -> cast_expr
 
-val string_of_cast_expr : cast_expr -> string
+val string_of_cast_expr : ?width:int -> cast_expr -> string
 
 (*** Lifts ***)
 
@@ -38,7 +38,7 @@ type lifted_program
 
 val lift : optimize:bool -> cast_expr -> lifted_program
 
-val string_of_lifted_program : lifted_program -> string
+val string_of_lifted_program : ?width:int -> lifted_program -> string
 
 (*** Evaluation ***)
 
@@ -48,12 +48,12 @@ type eval_error
 
 val eval : elaborated_expr -> (value, string) Result.t
 
-val string_of_value : value -> string
+val string_of_value : ?width:int -> value -> string
 
 (*** Codegen ***)
 
 module Cgen : sig
-  val typescript : ?with_prelude:bool -> lifted_program -> string
+  val typescript : ?width:int -> ?with_prelude:bool -> lifted_program -> string
 
-  val c : ?with_prelude:bool -> lifted_program -> string
+  val c : ?width:int -> ?with_prelude:bool -> lifted_program -> string
 end

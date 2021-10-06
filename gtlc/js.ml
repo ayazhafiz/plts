@@ -13,6 +13,8 @@ let to_elab program = to_infer program >>= elaborate
 let to_lifted program opt =
   to_elab program >+ insert_casts >+ lift ~optimize:(Js.to_bool opt)
 
+let n num = Js.float_of_number num |> int_of_float
+
 let ok s =
   object%js
     val result = Js.(some @@ string s)
@@ -48,27 +50,39 @@ let wrap doit =
        ^ Printexc.get_backtrace ())
 
 let _ =
-  Js.export "infer" (fun [@jsdoc {|Infers marked type variables|}] ~program ->
-      wrap (fun () -> to_infer program >+ string_of_expr) |> ret)
+  Js.export "infer"
+    (fun [@jsdoc {|Infers marked type variables|}] ~program ~width ->
+      wrap (fun () -> to_infer program >+ string_of_expr ~width:(n width))
+      |> ret)
 
 let _ =
   Js.export "irCompile"
-    (fun [@jsdoc {|Compiles to compiler-internal IR|}] ~program ~optimize ->
-      wrap (fun () -> to_lifted program optimize >+ string_of_lifted_program)
+    (fun [@jsdoc {|Compiles to compiler-internal IR|}] ~program ~optimize ~width
+    ->
+      wrap (fun () ->
+          to_lifted program optimize
+          >+ string_of_lifted_program ~width:(n width))
       |> ret)
 
 let _ =
   Js.export "tsCompile"
-    (fun [@jsdoc {|Compiles to TypeScript|}] ~program ~optimize ->
-      wrap (fun () -> to_lifted program optimize >+ Cgen.typescript) |> ret)
+    (fun [@jsdoc {|Compiles to TypeScript|}] ~program ~optimize ~width ->
+      wrap (fun () ->
+          to_lifted program optimize >+ Cgen.typescript ~width:(n width))
+      |> ret)
 
 let _ =
-  Js.export "cCompile" (fun [@jsdoc {|Compiles to C|}] ~program ~optimize ->
-      wrap (fun () -> to_lifted program optimize >+ Cgen.c) |> ret)
+  Js.export "cCompile"
+    (fun [@jsdoc {|Compiles to C|}] ~program ~optimize ~width ->
+      wrap (fun () -> to_lifted program optimize >+ Cgen.c ~width:(n width))
+      |> ret)
 
 let _ =
-  Js.export "doEval" (fun [@jsdoc {|Evaluate a GTLC program|}] ~program ->
-      wrap (fun () -> to_elab program >>= eval >+ string_of_value) |> ret)
+  Js.export "doEval"
+    (fun [@jsdoc {|Evaluate a GTLC program|}] ~program ~width ->
+      wrap (fun () ->
+          to_elab program >>= eval >+ string_of_value ~width:(n width))
+      |> ret)
 
 let _ =
   Js.export "docs"

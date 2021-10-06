@@ -214,7 +214,8 @@ let se e = with_buffer (fun f -> pp_expr f e) 80
 
 let sty t = with_buffer (fun f -> pp_ty f t) 80
 
-let string_of_program prog = with_buffer (fun f -> pp_program f prog) 80
+let string_of_program ?(width = default_width) prog =
+  with_buffer (fun f -> pp_program f prog) width
 
 let rec translate_ty = function
   | L.TUnknown -> TUnknown

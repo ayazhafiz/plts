@@ -19,13 +19,13 @@ export interface LanguageRegistration {
     }
 }
 
-export type BackendExecutor = (input: string, ...options: boolean[]) =>
+export type BackendExecutor = (input: string, ...options: Array<boolean|number>) =>
     Promise<Result>;
 
 export interface Backend {
     title: string;
     do: BackendExecutor;
-    options: [string, boolean][];
+    options: [string, boolean|number][];
     info?: [string, React.ReactNode][];
     editorLanguage: string;
 }

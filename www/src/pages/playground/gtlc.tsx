@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import Playground from "../../components/playground";
 import type { Backend, LanguageRegistration } from "../../common/types";
 import { C, TS } from "../../common/evaluator";
-import { promisify } from "../../common/util";
+import { shapeBackend, shapeBackendP } from "../../common/util";
 import { createHoverProvider } from "../../common/hover";
 import { infer, irCompile, cCompile, tsCompile, doEval, docs } from "gtlc";
 
@@ -40,7 +40,11 @@ fib 23
 `.trim(),
 };
 
-const compileOptions: [string, boolean][] = [["optimize", true]];
+const fmtOptions: [["width", number]] = [["width", 55]];
+const compileOptions: [["optimize", boolean], ["width", number]] = [
+  ["optimize", true],
+  ...fmtOptions,
+];
 
 const backends: {
   Infer: [Backend];
@@ -50,57 +54,50 @@ const backends: {
   Infer: [
     {
       title: "Infer",
-      do: promisify(infer),
-      options: [],
       editorLanguage: "gtlc",
+      ...shapeBackend(infer, fmtOptions),
     },
   ],
   "Compiler IR": [
     {
       title: "Lift IR",
-      do: promisify(irCompile),
-      options: compileOptions,
       editorLanguage: "liftIr",
+      ...shapeBackend(irCompile, compileOptions),
     },
     {
       title: "Interpreter Execution",
-      do: promisify(doEval),
-      options: [],
       editorLanguage: "gtlc",
+      ...shapeBackend(doEval, fmtOptions),
     },
   ],
   TypeScript: [
     {
       title: "TypeScript",
-      do: promisify(tsCompile),
-      options: compileOptions,
       editorLanguage: "typescript",
+      ...shapeBackend(tsCompile, compileOptions),
     },
     {
       title: TS.title,
-      do(input: string) {
-        const ts = tsCompile(input, true);
-        return TS.eval(ts);
-      },
-      options: [],
       editorLanguage: "javascript",
+      ...shapeBackendP((input: string, width: number) => {
+        const ts = tsCompile(input, true, width);
+        return TS.eval(ts);
+      }, fmtOptions),
     },
   ],
   C: [
     {
       title: "C",
-      do: promisify(cCompile),
-      options: compileOptions,
       editorLanguage: "c",
+      ...shapeBackend(cCompile, compileOptions),
     },
     {
       title: C.title,
-      do(input: string) {
-        const c = cCompile(input, true);
-        return C.eval(c);
-      },
-      options: [],
       editorLanguage: "c",
+      ...shapeBackendP((input: string, width: number) => {
+        const c = cCompile(input, true, width);
+        return C.eval(c);
+      }, fmtOptions),
     },
   ],
 };

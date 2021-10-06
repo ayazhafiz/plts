@@ -142,6 +142,8 @@ let pp_expr f =
   in
   go `Free
 
-let string_of_ty ty = with_buffer (fun f -> pp_ty f ty) 80
+let string_of_ty ?(width = default_width) ty =
+  with_buffer (fun f -> pp_ty f ty) width
 
-let string_of_expr expr = with_buffer (fun f -> pp_expr f expr) 80
+let string_of_expr ?(width = default_width) expr =
+  with_buffer (fun f -> pp_expr f expr) width
