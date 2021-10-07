@@ -13,6 +13,9 @@ module rec Expr : sig
     | App of elaborated_expr * elaborated_expr
     | Lam of string * ty * elaborated_expr
     | If of elaborated_expr * elaborated_expr * elaborated_expr
+    | Ref of elaborated_expr
+    | RefAssign of elaborated_expr * elaborated_expr
+    | Deref of elaborated_expr
     | Cast of ty * elaborated_expr
     (* The below are only used for evaluation *)
     | Loc of int
@@ -39,10 +42,10 @@ let rec allvars (Elab (e, _)) =
   match e with
   | Nat _ | Bool _ | Loc _ | Builtin _ -> empty
   | Var (`Global x | `Local x) -> singleton x
-  | App (e1, e2) -> union (allvars e1) (allvars e2)
+  | App (e1, e2) | RefAssign (e1, e2) -> union (allvars e1) (allvars e2)
   | Lam (x, _, e) -> add x (allvars e)
   | If (e1, e2, e3) -> union (allvars e1) (allvars e2) |> union (allvars e3)
-  | Cast (_, e) -> allvars e
+  | Cast (_, e) | Ref e | Deref e -> allvars e
 
 let rec freevars_with_tys (Elab (e, t)) =
   let open SMap in
@@ -53,13 +56,13 @@ let rec freevars_with_tys (Elab (e, t)) =
   | Nat _ | Bool _ | Loc _ | Builtin _ -> empty
   | Var (`Local x) -> singleton x t
   | Var (`Global _) -> empty
-  | App (e1, e2) ->
+  | App (e1, e2) | RefAssign (e1, e2) ->
       union check_dup (freevars_with_tys e1) (freevars_with_tys e2)
   | Lam (x, _, e) -> remove x (freevars_with_tys e)
   | If (c, t, e) ->
       union check_dup (freevars_with_tys c) (freevars_with_tys t)
       |> union check_dup (freevars_with_tys e)
-  | Cast (_, e) -> freevars_with_tys e
+  | Cast (_, e) | Ref e | Deref e -> freevars_with_tys e
 
 let freevars e = freevars_with_tys e |> SMap.to_seq |> Seq.map fst |> S.of_seq
 
@@ -90,13 +93,36 @@ let rec translate (L.Elab (e, t)) =
       let els' = if t2 = t then els else Elab (Cast (t, els), t) in
       let c' = if tc = L.TBool then c else Elab (Cast (L.TBool, c), L.TBool) in
       Elab (If (c', thn', els'), t)
+  | L.Ref e ->
+      let (Elab (_, t) as e) = translate e in
+      Elab (Ref e, L.TRef t)
+  | L.Deref e -> (
+      let (Elab (_, t) as e') = translate e in
+      match t with
+      | L.TUnknown ->
+          let ref_unk = L.TRef L.TUnknown in
+          Elab (Deref (Elab (Cast (ref_unk, e'), ref_unk)), TUnknown)
+      | L.TRef t' -> Elab (Deref e', t')
+      | _ -> failwith "unreachable")
+  | L.RefAssign (e1, e2) -> (
+      let (Elab (_, t1) as e1') = translate e1 in
+      let (Elab (_, t2) as e2') = translate e2 in
+      match (t1, t2) with
+      | L.TUnknown, t2 ->
+          Elab
+            (RefAssign (Elab (Cast (L.TRef t2, e1'), L.TRef t2), e2'), L.TRef t2)
+      | L.TRef t, s when s <> t ->
+          Elab (RefAssign (e1', Elab (Cast (t, e2'), t)), L.TRef t)
+      | L.TRef t, _ -> Elab (RefAssign (e1', e2'), L.TRef t)
+      | _ -> failwith "unreachable")
 
 let pp_expr f =
   let open Format in
   let rec go (Elab (e, _)) =
     match e with
     | Nat n -> pp_print_int f n
-    | Bool b -> pp_print_bool f b
+    | Bool true -> pp_print_string f "#t"
+    | Bool false -> pp_print_string f "#f"
     | Var (`Global x | `Local x) -> pp_print_string f x
     | App (e1, e2) ->
         fprintf f "@[<hov 2>(";
@@ -120,13 +146,27 @@ let pp_expr f =
         fprintf f "@]@ @[<hov 2>else@ ";
         go e;
         fprintf f "@]@]"
+    | Ref e ->
+        fprintf f "@[(ref ";
+        go e;
+        fprintf f ")@]"
+    | RefAssign (e1, e2) ->
+        fprintf f "@[<hov 2>(";
+        go e1;
+        fprintf f " <-@ ";
+        go e2;
+        fprintf f ")@]"
+    | Deref e ->
+        fprintf f "@[!(";
+        go e;
+        fprintf f ")@]"
     | Cast (t, e) ->
         fprintf f "@[<hov 2>(<";
         L.pp_ty f t;
         fprintf f ">@,";
         go e;
         fprintf f ")@]"
-    | Loc i -> fprintf f "#%d" i
+    | Loc i -> fprintf f "@%d" i
     | Builtin b -> fprintf f "[%s]" b#name
   in
   go

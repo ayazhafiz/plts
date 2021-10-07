@@ -7,6 +7,7 @@ let rec resolve_ty = function
   | TNat -> TNat
   | TBool -> TBool
   | TUnknown -> TUnknown
+  | TRef t -> TRef (resolve_ty t)
   | TArrow (t1, t2) -> TArrow (resolve_ty t1, resolve_ty t2)
 
 let rec consistent t1 t2 =
@@ -65,3 +66,18 @@ let rec elaborate ctx (Just e) =
         if consistent t1 t2 then Ok (Elab (If (c, thn, els), meet t1 t2))
         else Error "Branches differ in types"
       else Error "If condition is not a bool"
+  | Ref e ->
+      elaborate ctx e >>= fun (Elab (_, t) as e) -> Ok (Elab (Ref e, TRef t))
+  | RefAssign (e1, e2) -> (
+      elaborate ctx e1 >>= fun (Elab (_, t1) as e1) ->
+      elaborate ctx e2 >>= fun (Elab (_, t2) as e2) ->
+      match t1 with
+      | TUnknown -> Ok (Elab (RefAssign (e1, e2), TRef t2))
+      | TRef t when consistent t t2 -> Ok (Elab (RefAssign (e1, e2), TRef t))
+      | _ -> Error "Cannot assign to mis-matched reference type")
+  | Deref e -> (
+      elaborate ctx e >>= fun (Elab (_, t) as e) ->
+      match t with
+      | TUnknown -> Ok (Elab (Deref e, TUnknown))
+      | TRef t -> Ok (Elab (Deref e, t))
+      | _ -> Error "Cannot derefence non-reference type")

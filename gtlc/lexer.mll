@@ -42,6 +42,10 @@ rule read = parse
   | "if"       { IF }
   | "then"     { THEN }
   | "else"     { ELSE }
+  | "ref"      { REF }
+  | "!"        { DEREF }
+  | ":="       { DEFEQ }
+  | ";"        { SEMI }
 
   | ident as id   { IDENT id }
   | nat as n      { NUM (int_of_string n) }

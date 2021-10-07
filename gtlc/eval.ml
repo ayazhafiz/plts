@@ -24,6 +24,9 @@ let subst x (Elab (v, _) as velab) =
       | Var (`Global _) -> e
       | App (e1, e2) -> App (go subs e1, go subs e2)
       | If (c, t, e) -> If (go subs c, go subs t, go subs e)
+      | Ref e -> Ref (go subs e)
+      | Deref e -> Deref (go subs e)
+      | RefAssign (e1, e2) -> RefAssign (go subs e1, go subs e2)
       | Cast (t', e') -> Cast (t', go subs e')
       | Lam (y, t', e') ->
           if x = y then e
@@ -91,65 +94,97 @@ let builtin_eval = function
       | _ -> bad_arg ())
   | _ -> bad_arg ()
 
-let fresh = fresh_generator ()
-
-let rec eval (Elab (e, te) as input) : (elaborated_expr, error) result =
-  match e with
-  (* ELam *)
-  | Lam (s, t, e) -> Ok (Elab (Lam (s, t, e), te))
-  (* EApp *)
-  | App (e1, e2) -> (
-      eval e1 >>= fun (Elab (e1, _)) ->
-      match e1 with
-      | Lam (x, _, e3) ->
-          eval e2 >>= fun e2 ->
-          let e3' = subst x e2 e3 in
-          eval e3'
-      (* EDelta *)
-      | Var (`Global fn) ->
-          eval e2 >>= fun (Elab (e2, _)) -> Ok (builtin_eval fn e2)
-      | Builtin builtin -> eval e2 >>= fun e2 -> Ok (builtin#eval e2)
-      | _ -> type_error input)
-  (* EIf (new) *)
-  | If (c, thn, els) -> (
-      eval c >>= fun (Elab (c, _)) ->
-      match c with
-      | Bool true -> eval thn
-      | Bool false -> eval els
-      | _ -> type_error input)
-  (* EConst *)
-  | Nat n -> Ok (Elab (Nat n, TNat))
-  | Bool b -> Ok (Elab (Bool b, TBool))
-  (* ECstG *)
-  | Cast (TNat, e) -> (
-      eval e >>= fun v ->
-      let uv = unbox v in
-      match uv with Elab (_, TNat) -> Ok uv | _ -> cast_error input)
-  | Cast (TBool, e) -> (
-      eval e >>= fun v ->
-      let uv = unbox v in
-      match uv with Elab (_, TBool) -> Ok uv | _ -> cast_error input)
-  (* ECstF *)
-  | Cast (TArrow (s, s'), e) -> (
-      eval e >>= fun v ->
-      let uv = unbox v in
-      match uv with
-      | Elab (_, TArrow (t, t'))
-        when T.consistent (TArrow (s, s')) (TArrow (t, t')) ->
-          (* λ z:σ. (⟨σ′⟩ (unbox v (⟨τ⟩ z))) *)
-          let z = fresh "z" in
-          let inner_app =
-            Elab (App (uv, Elab (Cast (t, Elab (Var (`Local z), s)), t)), t')
-          in
-          let body = Elab (Cast (s', inner_app), s') in
-          let res = Lam (z, s, body) in
-          Ok (Elab (res, TArrow (s, s')))
-      | _ -> cast_error input)
-  (* ECstU *)
-  | Cast (TUnknown, e) ->
-      eval e >>= fun v -> Ok (Elab (Cast (TUnknown, unbox v), TUnknown))
-  | Cast (TInfer _, _) ->
-      failwith "unreachable: inference type variable is unresolved"
-  | Var _ | Loc _ | Builtin _ -> Ok input
-
-let eval_top e = eval e |> Result.map unbox
+let eval e =
+  let freshname = fresh_generator () in
+  let freshloc =
+    let i = ref 0 in
+    fun () ->
+      incr i;
+      !i
+  in
+  let heap = Hashtbl.create 32 in
+  let rec eval (Elab (e, te) as input) : (elaborated_expr, error) result =
+    match e with
+    (* ELam *)
+    | Lam (s, t, e) -> Ok (Elab (Lam (s, t, e), te))
+    (* EApp *)
+    | App (e1, e2) -> (
+        eval e1 >>= fun (Elab (e1, _)) ->
+        match e1 with
+        | Lam (x, _, e3) ->
+            eval e2 >>= fun e2 ->
+            let e3' = subst x e2 e3 in
+            eval e3'
+        (* EDelta *)
+        | Var (`Global fn) ->
+            eval e2 >>= fun (Elab (e2, _)) -> Ok (builtin_eval fn e2)
+        | Builtin builtin -> eval e2 >>= fun e2 -> Ok (builtin#eval e2)
+        | _ -> type_error input)
+    (* EIf (new) *)
+    | If (c, thn, els) -> (
+        eval c >>= fun (Elab (c, _)) ->
+        match c with
+        | Bool true -> eval thn
+        | Bool false -> eval els
+        | _ -> type_error input)
+    (* EConst *)
+    | Nat n -> Ok (Elab (Nat n, TNat))
+    | Bool b -> Ok (Elab (Bool b, TBool))
+    (* ECstG *)
+    | Cast (TNat, e) -> (
+        eval e >>= fun v ->
+        let uv = unbox v in
+        match uv with Elab (_, TNat) -> Ok uv | _ -> cast_error input)
+    | Cast (TBool, e) -> (
+        eval e >>= fun v ->
+        let uv = unbox v in
+        match uv with Elab (_, TBool) -> Ok uv | _ -> cast_error input)
+    (* ECstF *)
+    | Cast (TArrow (s, s'), e) -> (
+        eval e >>= fun v ->
+        let uv = unbox v in
+        match uv with
+        | Elab (_, TArrow (t, t'))
+          when T.consistent (TArrow (s, s')) (TArrow (t, t')) ->
+            (* λ z:σ. (⟨σ′⟩ (unbox v (⟨τ⟩ z))) *)
+            let z = freshname "z" in
+            let inner_app =
+              Elab (App (uv, Elab (Cast (t, Elab (Var (`Local z), s)), t)), t')
+            in
+            let body = Elab (Cast (s', inner_app), s') in
+            let res = Lam (z, s, body) in
+            Ok (Elab (res, TArrow (s, s')))
+        | _ -> cast_error input)
+    (* ECstU *)
+    | Cast (TUnknown, e) ->
+        eval e >>= fun v -> Ok (Elab (Cast (TUnknown, unbox v), TUnknown))
+    (* ECstR *)
+    | Cast (TRef t, e) -> (
+        eval e >>= fun v ->
+        match unbox v with
+        | Elab (_, TRef t') when t = t' -> Ok v
+        | _ -> cast_error input)
+    (* ERef *)
+    | Ref e ->
+        eval e >>= fun v ->
+        let l = freshloc () in
+        Hashtbl.add heap l v;
+        Ok (Elab (Loc l, TRef te))
+    (* EDeref *)
+    | Deref e -> (
+        eval e >>= function
+        | Elab (Loc l, _) -> Ok (Hashtbl.find heap l)
+        | _ -> type_error input)
+    (* EAssign *)
+    | RefAssign (e1, e2) -> (
+        eval e1 >>= function
+        | Elab (Loc l, t) ->
+            eval e2 >>= fun e2 ->
+            Hashtbl.add heap l e2;
+            Ok (Elab (Loc l, t))
+        | _ -> type_error input)
+    | Var _ | Loc _ | Builtin _ -> Ok input
+    | Cast (TInfer _, _) ->
+        failwith "unreachable: inference type variable is unresolved"
+  in
+  eval e |> Result.map unbox

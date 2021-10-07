@@ -38,6 +38,15 @@ fib 23
   \\y: _.
     f y y
 `.trim(),
+  References: `
+let fact_cell: _ = ref (\\n: _. 0) in
+fact_cell := \\n: _.
+    if eqn n 0
+    then 1
+    else mult n (!fact_cell (pred n));
+let fact: _ = !fact_cell in
+fact 6
+`.trim(),
 };
 
 const fmtOptions: [["width", number]] = [["width", 55]];
@@ -117,9 +126,13 @@ const grammar = (
 - \`let x: t = e1 in e2\`: binds \`x\` to \`e1\` and then evaluates \`e2\`
 - \`f a\`: application to a lambda
 - \`if e1 then e2 else e3\`: an if-then-else expression
+- \`ref e\`: boxes \`e\` and returns a reference to it
+- \`!r\`: unboxes the value at reference \`r\`
+- \`r := e\`: places the value of \`e\` in the reference \`r\`
 
 All type annotations of form \`: t\` are optional. If not specified, the
-type defaults to the unknown type \`?\`.
+type defaults to the unknown type \`?\`. There is also the special type marker
+\`_\`, which instructs the compiler to infer a principal type.
 
 **Types**
 
@@ -128,6 +141,7 @@ type defaults to the unknown type \`?\`.
 - \`nat\`: the type of natural numbers
 - \`bool\`: the type of booleans
 - \`t1 -> t2\`: function type
+- \`ref t\`: a reference type
 
 **Builtin Functions**
 
@@ -146,8 +160,8 @@ const gtlcSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   builtin_types: ["nat", "bool", "?", "_"],
-  keywords: ["let", "in", "if", "then", "else", "\u03BB", "\\"].concat(builtin_fns),
-  symbols: /[_<>\\?\->.:=\u03BB]|(->)/,
+  keywords: ["let", "in", "ref", "if", "then", "else", "\u03BB", "\\"].concat(builtin_fns),
+  symbols: /[_<>\\?\->.:=!;\u03BB]|(->)/,
 
   tokenizer: {
     root: [

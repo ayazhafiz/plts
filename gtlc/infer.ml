@@ -6,7 +6,11 @@
 open Language
 open Util
 
-type constr = ty * ty
+type constr_kind = Cw  (** consistent *) | Eq  (** equivalent *)
+
+type constr = ty * constr_kind * ty
+
+let string_of_ck = function Cw -> "~=" | Eq -> "="
 
 (** Generates type constraints over a program. *)
 let gen_constr freshty ctx e =
@@ -18,11 +22,19 @@ let gen_constr freshty ctx e =
         match List.assoc_opt x ctx with
         | Some t -> Ok (t, [])
         | None -> Error (x ^ " is not declared"))
+    | App (Just (Lam (_, _, body)), ref_assign, `DesugaredSeq) ->
+        (* Special case for DesugaredSeq as the desugared parameter is unused,
+           so no need to constrain it. *)
+        go ctx ref_assign >>= fun (_, c1) ->
+        go ctx body >>= fun (tbody, c2) ->
+        let b = freshty () in
+        let constr = ((b, Cw, tbody) :: c1) @ c2 in
+        Ok (b, constr)
     | App (e1, e2, _) ->
         go ctx e1 >>= fun (t1, c1) ->
         go ctx e2 >>= fun (t2, c2) ->
         let b = freshty () in
-        let c3 = ((t1, TArrow (t2, b)) :: c1) @ c2 in
+        let c3 = (t1, Cw, TArrow (t2, b)) :: (c1 @ c2) in
         Ok (b, c3)
     | Lam (x, t, e) ->
         go ((x, t) :: ctx) e >>= fun (r, c) -> Ok (TArrow (t, r), c)
@@ -31,7 +43,25 @@ let gen_constr freshty ctx e =
         go ctx thn >>= fun (thnt, c2) ->
         go ctx els >>= fun (elst, c3) ->
         let b = freshty () in
-        let constrs = ((ct, TBool) :: (thnt, b) :: (elst, b) :: c1) @ c2 @ c3 in
+        let constrs =
+          (ct, Cw, TBool) :: (thnt, Cw, b) :: (elst, Cw, b) :: (c1 @ c2 @ c3)
+        in
+        Ok (b, constrs)
+    | Ref e ->
+        go ctx e >>= fun (t, c) ->
+        let b = freshty () in
+        let constrs = (b, Cw, TRef t) :: c in
+        Ok (b, constrs)
+    | RefAssign (e1, e2) ->
+        go ctx e1 >>= fun (t1, c1) ->
+        go ctx e2 >>= fun (t2, c2) ->
+        let b = freshty () in
+        let constrs = (b, Cw, TRef t2) :: (t1, Cw, TRef t2) :: (c1 @ c2) in
+        Ok (b, constrs)
+    | Deref e ->
+        go ctx e >>= fun (t, c) ->
+        let b = freshty () in
+        let constrs = (TRef b, Cw, t) :: c in
         Ok (b, constrs)
   in
   go ctx e |> Result.map snd
@@ -49,6 +79,7 @@ struct
     (** A type solution kind, not a "kind" in the usual sense. *)
     and kind =
       | Prim of [ `Nat | `Bool ]
+      | Ref of TyForest.t
       | Arrow of TyForest.t * TyForest.t
       | Unknown
       | Infer of int
@@ -70,6 +101,7 @@ struct
   let rec ty_of_kind = function
     | Prim `Nat -> TNat
     | Prim `Bool -> TBool
+    | Ref t -> TRef (ty_of_kind (kind_of_node t))
     | Arrow (t1, t2) ->
         let t1, t2 = (kind_of_node t1, kind_of_node t2) in
         TArrow (ty_of_kind t1, ty_of_kind t2)
@@ -103,6 +135,9 @@ struct
         | TArrow (t1, t2) ->
             let t1, t2 = (go t1, go t2) in
             TyForest.create_node { kind = Arrow (t1, t2); contains_vars = true }
+        | TRef t ->
+            let t = go t in
+            TyForest.create_node { kind = Ref t; contains_vars = true }
         | TInfer (`Var i) as t ->
             assoc ty { kind = Infer i; contains_vars = false }
             |> register_ivar t
@@ -128,7 +163,7 @@ struct
   let trans_constrs constrs =
     let node_of_ty, retrieve_ivars = node_of_ty_generator () in
     let constrs =
-      List.map (fun (t1, t2) -> (node_of_ty t1, node_of_ty t2)) constrs
+      List.map (fun (t1, k, t2) -> (node_of_ty t1, k, node_of_ty t2)) constrs
     in
     (constrs, retrieve_ivars ())
 
@@ -179,6 +214,7 @@ struct
         match kind with
         | Prim `Nat -> TNat
         | Prim `Bool -> TBool
+        | Ref t -> TRef (go seen' t)
         | Arrow (t1, t2) -> TArrow (go seen' t1, go seen' t2)
         | (Unknown | Infer _) as k ->
             let repr = TyForest.find node in
@@ -192,32 +228,46 @@ struct
     let constrs, ivars = trans_constrs constrs in
     let rec go = function
       | [] -> ()
-      | (x, y) :: rst ->
+      | (x, k, y) :: rst ->
           let u, v = (TyForest.find x, TyForest.find y) in
           let new_constrs =
             if u != v then (
               let u, v, f = order u v in
               TyForest.union_ordered u v f;
               let u, v = (TyForest.value u, TyForest.value v) in
-              match (u.kind, v.kind) with
-              | Arrow (u1, u2), Arrow (v1, v2) -> [ (u1, v1); (u2, v2) ]
-              | Arrow (u1, u2), Unknown ->
+              match (u.kind, k, v.kind) with
+              | Arrow (u1, u2), k, Arrow (v1, v2) ->
+                  [ (u1, k, v1); (u2, k, v2) ]
+              | Arrow (u1, u2), k, Unknown ->
                   if u.contains_vars then (
                     u.contains_vars <- false;
-                    [ (new_unk_node (), u1); (new_unk_node (), u2) ])
+                    [ (new_unk_node (), k, u1); (new_unk_node (), k, u2) ])
                   else []
-              | Unknown, Arrow (v1, v2) ->
+              | Unknown, k, Arrow (v1, v2) ->
                   if v.contains_vars then (
                     v.contains_vars <- false;
-                    [ (new_unk_node (), v1); (new_unk_node (), v2) ])
+                    [ (new_unk_node (), k, v1); (new_unk_node (), k, v2) ])
                   else []
-              | _, Infer _ | _, Unknown | Infer _, _ | Unknown, _ -> []
-              | s, t when s = t -> []
-              | s, t ->
+              | Ref u1, Cw, Unknown ->
+                  if u.contains_vars then (
+                    u.contains_vars <- false;
+                    [ (new_unk_node (), Cw, u1) ])
+                  else []
+              | Unknown, Cw, Ref v1 ->
+                  if v.contains_vars then (
+                    v.contains_vars <- false;
+                    [ (new_unk_node (), Cw, v1) ])
+                  else []
+              | Ref s, _, Ref t -> [ (s, Eq, t) ]
+              | _, _, Infer _ | Infer _, _, _ | Unknown, Cw, _ | _, Cw, Unknown
+                ->
+                  []
+              | s, _, t when ty_of_kind s = ty_of_kind t -> []
+              | s, _, t ->
                   raise
                     (SolveError
-                       (Printf.sprintf "Unsolvable constraint: %s ~= %s"
-                          (string_of_kind s) (string_of_kind t))))
+                       (Printf.sprintf "Unsolvable constraint: %s %s %s"
+                          (string_of_kind s) (string_of_ck k) (string_of_kind t))))
             else []
           in
           go (new_constrs @ rst)
@@ -259,7 +309,25 @@ struct
         (TUnknown, TArrow (TArrow (TNat, TInfer (`Var 12)), TInfer (`Var 13)));
         (TArrow (TNat, TNat), TArrow (TNat, TInfer (`Var 12)));
         (TArrow (TUnknown, TInfer (`Var 11)), TArrow (TNat, TInfer (`Var 14)));
+        (*
+           `t21 ~= ref nat
+           ref `22 ~= ref nat
+           ref (`23 -> nat -> ref `24) ~= ref (bool -> nat -> ref (? -> ?))
+           ? ~= ref nat
+           ? ~= ref `25
+        *)
+        (TInfer (`Var 21), TRef TNat);
+        (TRef (TInfer (`Var 22)), TRef TNat);
+        ( TRef
+            (TArrow (TInfer (`Var 23), TArrow (TNat, TRef (TInfer (`Var 24))))),
+          TRef
+            (TArrow (TBool, TArrow (TNat, TRef (TArrow (TUnknown, TUnknown)))))
+        );
+        (TUnknown, TRef TNat);
+        (TUnknown, TRef (TInfer (`Var 25)));
+        (TUnknown, TRef (TArrow (TNat, TNat)));
       ]
+      |> List.map (fun (t, s) -> (t, Cw, s))
     in
     let solved =
       solve constrs
@@ -284,13 +352,19 @@ struct
       `t12 ~= nat
       `t13 ~= ?
       `t14 ~= ?
-      `t15 ~= ? |}]
+      `t15 ~= ?
+      `t21 ~= ref nat
+      `t22 ~= nat
+      `t23 ~= bool
+      `t24 ~= ? -> ?
+      `t25 ~= ? |}]
 end
 
 let subst_ty substs =
   let rec go t =
     match t with
     | TNat | TBool | TUnknown -> t
+    | TRef t -> TRef (go t)
     | TArrow (t1, t2) -> TArrow (go t1, go t2)
     | TInfer (`Var _) -> TInfer (`Resolved (TyMap.find t substs))
     | TInfer (`Resolved _) ->
@@ -307,6 +381,9 @@ let subst_expr substs =
       | App (e1, e2, a) -> App (go e1, go e2, a)
       | Lam (x, t, e) -> Lam (x, subst_ty substs t, go e)
       | If (e1, e2, e3) -> If (go e1, go e2, go e3)
+      | Ref e -> Ref (go e)
+      | RefAssign (e1, e2) -> RefAssign (go e1, go e2)
+      | Deref e -> Deref (go e)
     in
     Just e'
   in

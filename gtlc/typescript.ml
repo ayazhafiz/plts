@@ -23,16 +23,22 @@ class Clos<P, R> implements Fn<P, R> {
 /** A raw function pointer. */
 class FnPtr<P, R> implements Fn<P, R> {
   constructor(private readonly target: (p: P) => R) {}
-  
+
   apply(p: P): R {
     return this.target(p);
   }
 }
 
-type ty = 1|2|3|[ty,ty];
+/** A cell contains a boxed value. */
+interface Cell<T> {
+  v: v<T>
+}
+
+type ty = 1|2|3|[ty]|[ty,ty];
 const _tn: 1 = 1;
 const _tb: 2 = 2;
 const _tu: 3 = 3;
+function _tc(inner: ty): ty {return [inner];}
 function _tf(left: ty, right: ty): ty {return [left, right];}
 interface v<T> {
   value: T,
@@ -44,20 +50,42 @@ function _nn(n : number): v<number> {
 function _nb(b : boolean): v<boolean> {
   return { value: b, tag: _tb };
 }
+function _nc<T>(cell: Cell<T>, tag: ty): v<Cell<T>> {
+  return { value: cell, tag };
+}
 function _nf<L, R>(clos : Fn<L, R>, tag: ty): v<Fn<L,R>> {
   return { value: clos, tag };
+}
+function _cellP<T>(target: v<Cell<T>>, v: v<T>): v<Cell<T>> {
+  target.value.v = v;
+  return target;
 }
 function _tag2s (tag: ty) : string {
   if (tag === _tb) return "bool";
   if (tag === _tn) return "number";
   if (tag === _tu) return "unknown";
+  if (tag.length === 1) return `(ref ${_tag2s(tag[0])})`;
   return `((_: ${_tag2s(tag[0])}) => ${_tag2s(tag[1])})`
+}
+function _eql(s: ty, t: ty): boolean {
+  if (typeof s === 'number' && typeof t === 'number') return s === t;
+  if (typeof s === 'object' && typeof t === 'object') {
+    if (s.length === 1 && t.length === 1) return _eql(s[0], t[0]);
+    if (s.length === 2 && t.length === 2) return _eql(s[0], t[0]) && _eql(s[1], t[1]);
+  }
+  return false;
 }
 function _consistent(s: ty, t: ty): boolean {
   if (s === _tu || t === _tu) return true;
-  if (typeof s === 'number' && typeof t === 'number') return s === t;
+  if (typeof s === 'number' && typeof t === 'number') return s === t; // primitive type
   if (typeof s === 'number' || typeof t === 'number') return false;
-  return _consistent(s[0], t[0]) && _consistent(s[1], t[1]);
+  if (typeof s === 'object' && typeof t === 'object') {
+    if (s.length === 1 && t.length === 1) return _consistent(s[0], t[0]);
+    if (s.length === 2 && t.length === 2) {
+      return _consistent(s[0], t[0]) && _consistent(s[1], t[1]);
+    }
+  }
+  return false;
 }
 function _cast<T, U>(value: v<T>, tag: ty): v<U> {
   if (_consistent(value.tag, tag)) return value as unknown as v<U>;
@@ -117,22 +145,38 @@ let pp_tag f =
         fprintf f ",@ ";
         go t';
         fprintf f ")@]"
+    | TBox t ->
+        fprintf f "@[_tc(";
+        go t;
+        fprintf f ")@]"
     | TNamedTup _ -> failwith "unreachable"
   in
   go
 
 let pp_ty f =
   let open Format in
-  let rec go = function
-    | TUnknown -> pp_print_string f "v<unknown>"
-    | TNat -> pp_print_string f "v<number>"
-    | TBool -> pp_print_string f "v<boolean>"
+  let rec go ?(celled = false) t =
+    let wrap fmt =
+      if not celled then pp_print_string f "v<";
+      fmt ();
+      if not celled then pp_print_string f ">"
+    in
+    match t with
+    | TUnknown -> wrap (fun () -> pp_print_string f "unknown")
+    | TNat -> wrap (fun () -> pp_print_string f "number")
+    | TBool -> wrap (fun () -> pp_print_string f "boolean")
     | TArrow (t, t') ->
-        fprintf f "v<@[<hov 2>Fn<";
-        go t;
-        fprintf f ",@ ";
-        go t';
-        fprintf f ">@]>"
+        wrap (fun () ->
+            fprintf f "@[<hov 2>Fn<";
+            go t;
+            fprintf f ",@ ";
+            go t';
+            fprintf f ">@]")
+    | TBox t ->
+        wrap (fun () ->
+            fprintf f "@[Cell<";
+            go ~celled:true t;
+            fprintf f ">@]")
     | TNamedTup ps ->
         let ts = List.map snd ps in
         fprintf f "[@[<hov 0>";
@@ -183,6 +227,22 @@ let pp_expr ts_ident f =
         fprintf f "@])@],@ ";
         pp_tag f (Lift_ir.tyof fn);
         fprintf f ")@]"
+    | Box e ->
+        fprintf f "@[<hov 2>_nc(@[<hv 0>@[<hov 2>{ v: ";
+        go e;
+        fprintf f " }@],@ ";
+        pp_tag f (Lift_ir.tyof e);
+        fprintf f "@])@]"
+    | BoxEnplace (e1, e2) ->
+        fprintf f "@[<hov 2>_cellP(@[<hv 0>";
+        go e1;
+        fprintf f ",@ ";
+        go e2;
+        fprintf f "@])@]"
+    | Unbox e ->
+        fprintf f "@[(";
+        go e;
+        fprintf f ").value.v@]"
   in
   go
 

@@ -93,7 +93,7 @@ type eval_error = Eval.error
 let eval e =
   let open Printf in
   let open Cast_ir in
-  Cast_ir.translate e |> Eval.eval_top
+  Cast_ir.translate e |> Eval.eval
   |> Result.map_error (function
        | Eval.CastError e -> sprintf "Cast Error at %s" (string_of_expr e)
        | Eval.TypeError e -> sprintf "Type Error at %s" (string_of_expr e))

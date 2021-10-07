@@ -12,6 +12,7 @@ type ty =
   | TArrow of ty * ty
       (** An arrow type, which can either be a closure or raw function pointer. *)
   | TNamedTup of (string * ty) list
+  | TBox of ty  (** A boxed type lives on the heap. *)
 
 type expr =
   | Nat of int
@@ -23,6 +24,9 @@ type expr =
   | PackClos of elaborated * elaborated list
       (** Packages a function pointer and its environment into a closure *)
   | PackFnPtr of elaborated  (** A raw function pointer *)
+  | Box of elaborated
+  | BoxEnplace of elaborated * elaborated
+  | Unbox of elaborated
 
 and env = Tup of (string * ty) list
 
@@ -61,13 +65,6 @@ let pp_ty f =
         go t2;
         if left_arrow_child then pp_print_string f ")";
         fprintf f ")@]"
-    (*
-       | TClos (t1, t2) ->
-           fprintf f "@[<hov 2>Clos@,(@[<hov 2>";
-           go t1;
-           fprintf f ")@]@,(@[<hov 2>";
-           go t2;
-           fprintf f "@])@]" *)
     | TNamedTup fs ->
         fprintf f "@[{@[<hv 0>";
         let lasti = List.length fs - 1 in
@@ -79,6 +76,10 @@ let pp_ty f =
             if i <> lasti then fprintf f ",@ ")
           fs;
         fprintf f "@]}@]"
+    | TBox t ->
+        fprintf f "@[Box(";
+        go t;
+        fprintf f "@]"
   in
   go
 
@@ -115,7 +116,21 @@ let pp_expr f =
     | PackFnPtr s ->
         fprintf f "@[<hov 2>fnptr(";
         go s;
-        fprintf f ")"
+        fprintf f ")@]"
+    | Box s ->
+        fprintf f "@[<hov 2>box(";
+        go s;
+        fprintf f ")@]"
+    | BoxEnplace (e1, e2) ->
+        fprintf f "@[<hov 2>box_enplace(@[<hv 0>";
+        go e1;
+        fprintf f ",@ ";
+        go e2;
+        fprintf f "@])@]"
+    | Unbox s ->
+        fprintf f "@[<hov 2>unbox(";
+        go s;
+        fprintf f ")@]"
   in
   go
 
@@ -222,6 +237,7 @@ let rec translate_ty = function
   | L.TNat -> TNat
   | L.TBool -> TBool
   | L.TArrow (t, t') -> TArrow (translate_ty t, translate_ty t')
+  | L.TRef t -> TBox (translate_ty t)
   | L.TInfer (`Resolved t) -> translate_ty t
   | L.TInfer (`Var _) ->
       failwith "unreachable: inference type variable is unresolved"
@@ -341,6 +357,22 @@ let translate expr =
         let x = fresh "x" in
         let t = translate_ty t in
         (stmts @ [ DeclCast (x, t, e) ], Elab (Name x, t))
+    | CE.Ref e ->
+        let stmts, e = go e in
+        let r = fresh "r" in
+        (stmts @ [ DeclInit (r, t, Elab (Box e, t)) ], Elab (Name r, t))
+    | CE.Deref e ->
+        let stmts, e = go e in
+        let r = fresh "r" in
+        (stmts @ [ DeclInit (r, t, Elab (Unbox e, t)) ], Elab (Name r, t))
+    | CE.RefAssign (e1, e2) ->
+        let stmts1, e1 = go e1 in
+        let stmts2, e2 = go e2 in
+        let refty = tyof e1 in
+        let enplace = Elab (BoxEnplace (e1, e2), refty) in
+        let r = fresh "r" in
+        ( stmts1 @ stmts2 @ [ DeclInit (r, refty, enplace) ],
+          Elab (Name r, refty) )
     | CE.Loc _ | CE.Builtin _ -> failwith "untranslatable (only for eval)"
   in
   let stmts, e = go expr in
@@ -384,14 +416,13 @@ module CollapseVars : Opt = struct
           match Hashtbl.find_opt usages x with
           | Some n -> Hashtbl.add usages x (n + 1)
           | None -> ())
-      | Apply (e1, e2) ->
+      | Apply (e1, e2) | BoxEnplace (e1, e2) ->
           goe e1;
           goe e2
       | PackClos (e, es) ->
           goe e;
           List.iter goe es
-      | PackFnPtr e -> goe e
-      | Proj (e, _) -> goe e
+      | PackFnPtr e | Proj (e, _) | Box e | Unbox e -> goe e
     in
     let rec gos = function
       | Decl _ -> ()
@@ -414,6 +445,9 @@ module CollapseVars : Opt = struct
         | PackClos (e, es) -> PackClos (goe e, List.map goe es)
         | PackFnPtr e -> PackFnPtr (goe e)
         | Proj (e, i) -> Proj (goe e, i)
+        | Box e -> Box (goe e)
+        | BoxEnplace (e1, e2) -> BoxEnplace (goe e1, goe e2)
+        | Unbox e -> Unbox (goe e)
         | Name x -> (
             match Hashtbl.find_opt decls x with
             | Some (Elab (e', _)) -> e'

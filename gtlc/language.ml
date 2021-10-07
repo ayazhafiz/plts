@@ -5,6 +5,7 @@ type ty =
   | TNat
   | TBool
   | TArrow of ty * ty
+  | TRef of ty
   | TInfer of [ `Var of int | `Resolved of ty ]
 
 module TyMap = Map.Make (struct
@@ -17,9 +18,12 @@ type 'sub expr =
   | Nat of int
   | Bool of bool
   | Var of [ `Global of string | `Local of string ]
-  | App of 'sub * 'sub * [ `App | `DesugaredLet ]
+  | App of 'sub * 'sub * [ `App | `DesugaredLet | `DesugaredSeq ]
   | Lam of string * ty * 'sub
   | If of 'sub * 'sub * 'sub
+  | Ref of 'sub
+  | RefAssign of 'sub * 'sub
+  | Deref of 'sub
 
 (** Unelaborated expressions (due to parsing) *)
 and unelaborated_expr = Just of unelaborated_expr expr
@@ -34,13 +38,14 @@ let freshty_generator () =
     incr n;
     TInfer (`Var !n)
 
-type tctx = [ `Free | `Arrow | `ArrowHead | `Infer ]
+type tctx = [ `Free | `Arrow | `Head | `TyArg | `Infer ]
 
 let int_of_tctx = function
   | `Free -> 1
   | `Arrow -> 2
-  | `ArrowHead -> 3
-  | `Infer -> 4
+  | `Head -> 3
+  | `TyArg -> 4
+  | `Infer -> 5
 
 (** [p >> s] means [p] is a stricter context than [s]. *)
 let ( >| ) p s = int_of_tctx p > int_of_tctx s
@@ -61,9 +66,17 @@ let pp_ty f =
         paren
           (t >| `Arrow)
           (fun () ->
-            go `ArrowHead t1;
+            go `Head t1;
             fprintf f " ->@ ";
             go `Free t2);
+        fprintf f "@]"
+    | TRef ty ->
+        fprintf f "@[";
+        paren
+          (t >| `TyArg)
+          (fun () ->
+            fprintf f "ref ";
+            go `TyArg ty);
         fprintf f "@]"
     | TInfer (`Var n) -> fprintf f "`t%d" n
     | TInfer (`Resolved t) ->
@@ -105,7 +118,18 @@ let pp_expr f =
             fprintf f " in@]@,";
             go `Free body);
         fprintf f "@]"
-    | App (head, arg, _) ->
+    | App (Just (Lam (_, _, body)), rhs, `DesugaredSeq) ->
+        fprintf f "@[<v 0>";
+        paren
+          (p >> `Free)
+          (fun () ->
+            fprintf f "@[";
+            go `Free rhs;
+            fprintf f ";@]@,";
+            go `Free body);
+        fprintf f "@]"
+    | App (_, _, (`DesugaredLet | `DesugaredSeq)) -> failwith "unreachable"
+    | App (head, arg, `App) ->
         fprintf f "@[<hov 2>";
         paren
           (p >> `AppHead)
@@ -138,6 +162,20 @@ let pp_expr f =
             fprintf f "@]@ @[<hv 2>else@ ";
             go `Free e;
             fprintf f "@]");
+        fprintf f "@]"
+    | Ref e ->
+        fprintf f "@[ref ";
+        go `Arg e;
+        fprintf f "@]"
+    | RefAssign (e1, e2) ->
+        fprintf f "@[<hov 2>";
+        go `Free e1;
+        fprintf f " :=@ ";
+        go `Free e2;
+        fprintf f "@]"
+    | Deref e ->
+        fprintf f "@[!";
+        go `Arg e;
         fprintf f "@]"
   in
   go `Free

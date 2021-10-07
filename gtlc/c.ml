@@ -14,10 +14,11 @@ let prelude =
 #include <stdlib.h>
 
 typedef uint8_t typekind;
-#define UNKNOWN 1
-#define NAT 2
-#define BOOL 3
-#define FN 4
+#define UNKNOWN 0
+#define NAT 1
+#define BOOL 2
+#define FN 3
+#define BOX 4
 
 typedef struct type {
   const typekind kind;
@@ -29,11 +30,16 @@ typedef struct fn {
   const type* const right;
 } fn;
 
+typedef struct box {
+  const type* const inner;
+} box;
+
 typedef uint8_t valuekind;
-#define VNAT 1
-#define VBOOL 2
-#define VFN 3
-#define VCLOS 4
+#define VNAT 0
+#define VBOOL 1
+#define VFN 2
+#define VCLOS 3
+#define VBOX 4
 
 typedef struct v v;
 
@@ -42,6 +48,7 @@ typedef union rawval {
   const uint8_t boolean;
   const v (*fn)(const v);
   const v (*clos)(const v* const, const v);
+  v* boxed;
 } rawval;
 
 typedef struct v {
@@ -86,6 +93,13 @@ void _print_type(const type t) {
       _print_type(*handle->right);
       printf(")");
       break;
+    case BOX: {
+      const box* const handle = t.handle;
+      printf("(box ");
+      _print_type(*handle->inner);
+      printf(")");
+      break;
+    }
     }
     default:
       printf("[UNHANDLED]");
@@ -106,6 +120,10 @@ void _print_v(const v v) {
       break;
     case VBOOL:
       printf(v.val.boolean == _false ? "false" : "true");
+      break;
+    case VBOX:
+      printf("&");
+      _print_v(*v.val.boxed);
       break;
     default:
       printf("[UNHANDLED]");
@@ -171,8 +189,22 @@ v _nclos(const v (*clos)(const v* const, const v), const type* const tag,
   return val;
 }
 
+/** Creates a new boxed value. */
+v _nbox(const v val, const type* const tag) {
+    v* box = malloc(sizeof(v));
+    memcpy(box, &val, sizeof(v));
+    rawval rv = {.boxed = box};
+    v res = {.kind = VBOX, .val = rv, .tag = tag, .env = NULL};
+    return res;
+}
+
 uint64_t _getn(v n) { return n.val.nat; }
 uint8_t _getb(v n) { return n.val.boolean; }
+
+v _boxP(v box, v newval) {
+    memcpy(box.val.boxed, &newval, sizeof(v));
+    return box;
+}
 
 const fn _fnnat_nat = {.left = &_tnat, .right = &_tnat};
 const type _tnat_nat = {.kind = FN, .handle = &_fnnat_nat};
@@ -243,7 +275,7 @@ type cgen = {
 
 let pp_expr { ident; get_tag; f; _ } =
   let open Format in
-  let rec go (Elab (e, _)) =
+  let rec go (Elab (e, t)) =
     match e with
     | Nat n -> fprintf f "_nn(%d)" n
     | Bool true -> fprintf f "_nb(_true)"
@@ -276,6 +308,20 @@ let pp_expr { ident; get_tag; f; _ } =
         fprintf f "@[<hov 2>_nfn(@[";
         go fn;
         fprintf f ",@ &%s@])@]" (get_tag (Lift_ir.tyof fn))
+    | Box v ->
+        fprintf f "@[<hov 2>_nbox(@[";
+        go v;
+        fprintf f ",@ &%s@])@]" (get_tag t)
+    | BoxEnplace (box, v) ->
+        fprintf f "@[<hov 2>_boxP(@[";
+        go box;
+        fprintf f ",@ ";
+        go v;
+        fprintf f "@])@]"
+    | Unbox box ->
+        fprintf f "@[(*";
+        go box;
+        fprintf f ".val.boxed)@]"
   in
   go
 
@@ -385,6 +431,15 @@ let c_get_tag_generator fresh add_decl =
         let t = fresh "_t" in
         add_decl
           (sprintf "const type %s = {.kind = FN, .handle = &%s};" t handle);
+        Hashtbl.add store ty t;
+        t
+    | TBox ity as ty ->
+        let i = getty ity in
+        let handle = fresh "_box" in
+        add_decl (sprintf "const box %s = {.inner = &%s};" handle i);
+        let t = fresh "_t" in
+        add_decl
+          (sprintf "const type %s = {.kind = BOX, .handle = &%s};" t handle);
         Hashtbl.add store ty t;
         t
     | TNamedTup _ -> failwith "unreachable"

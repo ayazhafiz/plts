@@ -16,8 +16,8 @@ module.exports = {
         allExtensions: true,
       },
     },
-    {
-      resolve: 'gatsby-plugin-typescript-checker',
-    },
+    // {
+    //   resolve: 'gatsby-plugin-typescript-checker',
+    // },
   ],
 };
