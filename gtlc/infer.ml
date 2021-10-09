@@ -6,11 +6,17 @@
 open Language
 open Util
 
-type constr_kind = Cw  (** consistent *) | Eq  (** equivalent *)
+type constr_kind =
+  | Cw  (** consistent *)
+  | TArgCw
+      (** inner arguments of this type constructor must be consistent.
+          Deals with "ref" inferences when one of either side is not a direct ref,
+          as in "!b" which generates the constraint "Ref b1 ~. b". *)
+  | Eq  (** equivalent *)
 
 type constr = ty * constr_kind * ty
 
-let string_of_ck = function Cw -> "~=" | Eq -> "="
+let string_of_ck = function Cw -> "~=" | TArgCw -> "~." | Eq -> "="
 
 (** Generates type constraints over a program. *)
 let gen_constr freshty ctx e =
@@ -56,12 +62,12 @@ let gen_constr freshty ctx e =
         go ctx e1 >>= fun (t1, c1) ->
         go ctx e2 >>= fun (t2, c2) ->
         let b = freshty () in
-        let constrs = (b, Cw, TRef t2) :: (t1, Cw, TRef t2) :: (c1 @ c2) in
+        let constrs = (b, Cw, TRef t2) :: (t1, TArgCw, TRef t2) :: (c1 @ c2) in
         Ok (b, constrs)
     | Deref e ->
         go ctx e >>= fun (t, c) ->
         let b = freshty () in
-        let constrs = (TRef b, Cw, t) :: c in
+        let constrs = (TRef b, TArgCw, t) :: c in
         Ok (b, constrs)
   in
   go ctx e |> Result.map snd
@@ -230,23 +236,24 @@ struct
       | [] -> ()
       | (x, k, y) :: rst ->
           let u, v = (TyForest.find x, TyForest.find y) in
+          let sk = match k with Cw | TArgCw -> Cw | Eq -> Eq in
           let new_constrs =
             if u != v then (
               let u, v, f = order u v in
               TyForest.union_ordered u v f;
               let u, v = (TyForest.value u, TyForest.value v) in
               match (u.kind, k, v.kind) with
-              | Arrow (u1, u2), k, Arrow (v1, v2) ->
-                  [ (u1, k, v1); (u2, k, v2) ]
-              | Arrow (u1, u2), k, Unknown ->
+              | Arrow (u1, u2), _, Arrow (v1, v2) ->
+                  [ (u1, sk, v1); (u2, sk, v2) ]
+              | Arrow (u1, u2), _, Unknown ->
                   if u.contains_vars then (
                     u.contains_vars <- false;
-                    [ (new_unk_node (), k, u1); (new_unk_node (), k, u2) ])
+                    [ (new_unk_node (), sk, u1); (new_unk_node (), sk, u2) ])
                   else []
-              | Unknown, k, Arrow (v1, v2) ->
+              | Unknown, sk, Arrow (v1, v2) ->
                   if v.contains_vars then (
                     v.contains_vars <- false;
-                    [ (new_unk_node (), k, v1); (new_unk_node (), k, v2) ])
+                    [ (new_unk_node (), sk, v1); (new_unk_node (), sk, v2) ])
                   else []
               | Ref u1, Cw, Unknown ->
                   if u.contains_vars then (
@@ -258,7 +265,8 @@ struct
                     v.contains_vars <- false;
                     [ (new_unk_node (), Cw, v1) ])
                   else []
-              | Ref s, _, Ref t -> [ (s, Eq, t) ]
+              | Ref s, TArgCw, Ref t -> [ (s, Cw, t) ]
+              | Ref s, (Cw | Eq), Ref t -> [ (s, Eq, t) ]
               | _, _, Infer _ | Infer _, _, _ | Unknown, Cw, _ | _, Cw, Unknown
                 ->
                   []
