@@ -229,11 +229,11 @@ class BackendBlock extends React.Component<
   };
 
   updateOutput = async (input: string = this.lastKnownInput): Promise<"done"> => {
+    this.lastKnownInput = input;
     const { getBackend, getEditor } = this.props;
     const backend = getBackend();
     const { options } = this.state;
     if (backend === null || options === null) return "done";
-    this.lastKnownInput = input;
 
     await this.setStateAsync({ result: "loading" });
     getEditor().setValue("");
