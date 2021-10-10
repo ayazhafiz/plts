@@ -7,7 +7,7 @@
  (name gtlc)
  (modules gtlc language typecheck cast_ir lift_ir typescript c
           eval parser lexer util builtin forest infer service)
- (libraries str)
+ (libraries camomile str)
  (inline_tests)
  (js_of_ocaml)
  (preprocess (pps ppx_inline_test ppx_expect)))

@@ -2,6 +2,7 @@
 open Language
 open Lexing
 open Parser
+open CamomileLibrary
 
 exception SyntaxError of string
 
@@ -14,7 +15,7 @@ let next_line lexbuf =
 
 let make lexbuf tok =
   let pos = lexbuf.lex_curr_p in
-  let len = Lexing.lexeme lexbuf |> String.length in
+  let len = Lexing.lexeme lexbuf |> UTF8.length in
   let col = pos.pos_cnum - pos.pos_bol + 1 in
   let start = (pos.pos_lnum, col - len, lexbuf.lex_curr_pos - len) in
   let fin = (pos.pos_lnum, col, lexbuf.lex_curr_pos) in
