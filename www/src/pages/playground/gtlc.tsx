@@ -286,6 +286,7 @@ const languages: Record<"gtlc" | "liftIr", LanguageRegistration> = {
 
 const GtlcPlayground = () => (
   <Playground
+    title="GTLC Playground"
     language="gtlc"
     source="https://github.com/ayazhafiz/plts/tree/base/gtlc"
     grammar={grammar}

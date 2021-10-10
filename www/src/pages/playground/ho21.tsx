@@ -212,6 +212,7 @@ const languages: Record<string, LanguageRegistration> = {
 
 const FtPlayground = () => (
   <Playground
+    title="Huang-Oliveira (2021) Playground"
     language="ho21"
     source="https://github.com/ayazhafiz/plts/tree/base/ho21"
     grammar={grammar}

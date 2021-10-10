@@ -11,7 +11,7 @@ const Index: React.FC<{}> = () => {
       .then((r) => setContent(r));
   });
   return (
-    <MdWrapper>
+    <MdWrapper title="plts">
       <Box m={[4, 4, 10]}>
         <ReactMarkdown children={content} />
       </Box>

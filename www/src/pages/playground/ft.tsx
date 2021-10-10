@@ -43,6 +43,7 @@ const backends: {
 
 const FtPlayground = () => (
   <Playground
+    title="Flow Typing Playground"
     language="text"
     source="https://github.com/ayazhafiz/plts/tree/base/ft"
     grammar="https://github.com/ayazhafiz/plts/blob/base/ft/parser.mly"

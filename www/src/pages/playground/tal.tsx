@@ -180,6 +180,7 @@ const languages = {
 
 const FtPlayground = () => (
   <Playground
+    title="TAL Playground"
     language="systemF"
     source="https://github.com/ayazhafiz/plts/tree/base/TAL"
     grammar="https://github.com/ayazhafiz/plts/blob/base/TAL/parser.mly"

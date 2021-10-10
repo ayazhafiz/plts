@@ -344,6 +344,7 @@ interface PlaygroundProps<
   Backends extends Record<string, BackendKind>,
   Examples extends Record<string, string>
 > {
+  title: string;
   language: string;
   source: string;
   grammar: React.ReactNode | string;
@@ -495,7 +496,7 @@ class Playground<
     this.registerEditor(this.inputEditorId, "input");
 
     return (
-      <MdWrapper>
+      <MdWrapper title={this.props.title}>
         <Box display="grid" gridTemplateColumns="1fr 1fr" gridGap={0}>
           <InputColumn
             source={this.props.source}
