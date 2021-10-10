@@ -26,3 +26,12 @@ export declare const doEval:
 /** Documentation for builtin primitives */
 export declare const docs:
   Array<{ readonly name: string, readonly ty: string, readonly doc: string }>
+
+/** Get hover information */
+export declare const getHover:
+  (program: string, line: number, column: number) =>
+    { readonly info: string[],
+      readonly range:
+        { readonly startPos: { readonly line: number, readonly col: number },
+          readonly endPos: { readonly line: number, readonly col: number } } }
+    |null

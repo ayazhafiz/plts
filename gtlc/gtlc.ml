@@ -12,7 +12,7 @@ type elaborated_expr = Language.elaborated_expr
 
 type ty = Language.ty
 
-type freshty = unit -> ty
+type freshty = unit -> triv_ty
 
 type builtin = { name : string; ty : string; doc : string }
 
@@ -44,7 +44,9 @@ let parse s =
 
 let infer e freshty =
   let ctx =
-    List.map (fun ({ name; ty; _ } : Builtin.builtin) -> (name, ty)) builtins
+    List.map
+      (fun ({ name; ty; _ } : Builtin.builtin) -> (name, trivialize ty))
+      builtins
   in
   infer freshty ctx e
 
@@ -57,7 +59,7 @@ let elaborate =
   in
   elaborate global_ctx
 
-let ty_of_elaborated_expr (Elab (_, t)) = t
+let ty_of_elaborated_expr (Elab (_, _, t)) = t
 
 let string_of_expr = string_of_expr
 
@@ -109,3 +111,14 @@ module Cgen = struct
   let c ?(width = default_width) ?(with_prelude = true) =
     C.string_of_program width with_prelude
 end
+
+(*** Service ***)
+
+type range = { start_pos : int * int; end_pos : int * int }
+
+let get_hover ~line ~col elaborated =
+  let open Service in
+  let trans (hov, { start = sl, sc, _; fin = el, ec, _ }) =
+    (hov, { start_pos = (sl, sc); end_pos = (el, ec) })
+  in
+  Option.map trans (get_doc_at line col elaborated)

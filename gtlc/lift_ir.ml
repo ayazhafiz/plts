@@ -232,13 +232,14 @@ let sty t = with_buffer (fun f -> pp_ty f t) 80
 let string_of_program ?(width = default_width) prog =
   with_buffer (fun f -> pp_program f prog) width
 
-let rec translate_ty = function
+let rec translate_ty (L.Ty (t, _)) =
+  match t with
   | L.TUnknown -> TUnknown
   | L.TNat -> TNat
   | L.TBool -> TBool
   | L.TArrow (t, t') -> TArrow (translate_ty t, translate_ty t')
   | L.TRef t -> TBox (translate_ty t)
-  | L.TInfer (`Resolved t) -> translate_ty t
+  | L.TInfer (`Resolved t) -> translate_ty (L.ft t)
   | L.TInfer (`Var _) ->
       failwith "unreachable: inference type variable is unresolved"
 

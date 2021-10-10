@@ -1,6 +1,8 @@
 open Gtlc
 open Js_of_ocaml
 
+let ( |>= ) = Option.bind
+
 let ( >>= ) = Result.bind
 
 let ( >+ ) v f = Result.map f v
@@ -36,6 +38,20 @@ let make_builtin ({ name; ty; doc } : builtin) =
     val ty = Js.string ty
 
     val doc = Js.string doc
+  end
+
+let js_pos (line, col) =
+  object%js
+    val line = Js.number_of_float (float_of_int line)
+
+    val col = Js.number_of_float (float_of_int col)
+  end
+
+let js_range { start_pos; end_pos } =
+  object%js
+    val startPos = js_pos start_pos
+
+    val endPos = js_pos end_pos
   end
 
 let ret = function Ok s -> ok s | Error s -> err s
@@ -89,3 +105,22 @@ let _ =
     ((List.map make_builtin builtin_docs
      |> Array.of_list |> Js.array)
      [@jsdoc {|Documentation for builtin primitives|}])
+
+let _ =
+  Js.export "getHover"
+    (fun [@jsdoc {|Get hover information|}] ~program ~line ~column ->
+      let line, col = (n line, n column) in
+      wrap (fun () ->
+          to_elab program |> Result.to_option |>= get_hover ~line ~col
+          |> Option.to_result ~none:"")
+      |> function
+      | Ok (info, range) ->
+          Js.(
+            some
+            @@ object%js
+                 val info =
+                   info |> Array.of_list |> Array.map string |> Js.array
+
+                 val range = js_range range
+               end)
+      | Error _ -> Js.null)

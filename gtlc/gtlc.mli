@@ -57,3 +57,10 @@ module Cgen : sig
 
   val c : ?width:int -> ?with_prelude:bool -> lifted_program -> string
 end
+
+(*** Service ***)
+
+type range = { start_pos : int * int; end_pos : int * int }
+
+val get_hover :
+  line:int -> col:int -> elaborated_expr -> (string list * range) option

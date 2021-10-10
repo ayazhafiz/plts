@@ -3,6 +3,8 @@
 open Util
 module L = Language
 
+let ft = L.ft
+
 type ty = L.ty
 
 module rec Expr : sig
@@ -66,54 +68,57 @@ let rec freevars_with_tys (Elab (e, t)) =
 
 let freevars e = freevars_with_tys e |> SMap.to_seq |> Seq.map fst |> S.of_seq
 
-let rec translate (L.Elab (e, t)) =
+let rec translate (L.Elab (e, _, t)) =
   match e with
   | L.Nat n -> Elab (Nat n, t)
   | L.Bool b -> Elab (Bool b, t)
   | L.Var x -> Elab (Var x, t)
-  | L.Lam (x, tx, e) ->
+  | L.Lam ((x, _), tx, e) ->
       let e' = translate e in
       Elab (Lam (x, tx, e'), t)
   | L.App (e1, e2, _) -> (
-      let (Elab (_, t1) as e1') = translate e1 in
-      let (Elab (_, t2) as e2') = translate e2 in
+      let (Elab (_, L.Ty (t1, _)) as e1') = translate e1 in
+      let (Elab (_, L.Ty (t2, _)) as e2') = translate e2 in
       match t1 with
       | L.TUnknown ->
-          let e1'_ty = L.TArrow (t2, L.TUnknown) in
-          Elab (App (Elab (Cast (e1'_ty, e1'), e1'_ty), e2'), L.TUnknown)
-      | L.TArrow (t, t') ->
+          let e1'_ty = ft (L.TArrow (ft t2, ft L.TUnknown)) in
+          Elab (App (Elab (Cast (e1'_ty, e1'), e1'_ty), e2'), ft L.TUnknown)
+      | L.TArrow (L.Ty (t, _), t') ->
           if t = t2 then Elab (App (e1', e2'), t')
-          else Elab (App (e1', Elab (Cast (t, e2'), t)), t')
+          else Elab (App (e1', Elab (Cast (ft t, e2'), ft t)), t')
       | _ -> failwith "unreachable")
   | L.If (c, thn, els) ->
-      let (Elab (_, tc) as c) = translate c in
+      let (Elab (_, Ty (tc, _)) as c) = translate c in
       let (Elab (_, t1) as thn) = translate thn in
       let (Elab (_, t2) as els) = translate els in
       let thn' = if t1 = t then thn else Elab (Cast (t, thn), t) in
       let els' = if t2 = t then els else Elab (Cast (t, els), t) in
-      let c' = if tc = L.TBool then c else Elab (Cast (L.TBool, c), L.TBool) in
+      let c' =
+        if tc = L.TBool then c else Elab (Cast (ft L.TBool, c), ft L.TBool)
+      in
       Elab (If (c', thn', els'), t)
   | L.Ref e ->
-      let (Elab (_, t) as e) = translate e in
-      Elab (Ref e, L.TRef t)
+      let (Elab (_, Ty (t, _)) as e) = translate e in
+      Elab (Ref e, ft (L.TRef (ft t)))
   | L.Deref e -> (
-      let (Elab (_, t) as e') = translate e in
+      let (Elab (_, Ty (t, _)) as e') = translate e in
       match t with
       | L.TUnknown ->
-          let ref_unk = L.TRef L.TUnknown in
-          Elab (Deref (Elab (Cast (ref_unk, e'), ref_unk)), TUnknown)
+          let ref_unk = ft (L.TRef (ft L.TUnknown)) in
+          Elab (Deref (Elab (Cast (ref_unk, e'), ref_unk)), ft L.TUnknown)
       | L.TRef t' -> Elab (Deref e', t')
       | _ -> failwith "unreachable")
   | L.RefAssign (e1, e2) -> (
-      let (Elab (_, t1) as e1') = translate e1 in
-      let (Elab (_, t2) as e2') = translate e2 in
+      let (Elab (_, Ty (t1, _)) as e1') = translate e1 in
+      let (Elab (_, Ty (t2, _)) as e2') = translate e2 in
       match (t1, t2) with
       | L.TUnknown, t2 ->
-          Elab
-            (RefAssign (Elab (Cast (L.TRef t2, e1'), L.TRef t2), e2'), L.TRef t2)
-      | L.TRef t, s when s <> t ->
-          Elab (RefAssign (e1', Elab (Cast (t, e2'), t)), L.TRef t)
-      | L.TRef t, _ -> Elab (RefAssign (e1', e2'), L.TRef t)
+          let rt2 = ft (L.TRef (ft t2)) in
+          Elab (RefAssign (Elab (Cast (rt2, e1'), rt2), e2'), rt2)
+      | L.TRef (Ty (t, _)), s when s <> t ->
+          let t = ft t in
+          Elab (RefAssign (e1', Elab (Cast (t, e2'), t)), ft (L.TRef t))
+      | L.TRef t, _ -> Elab (RefAssign (e1', e2'), ft (L.TRef t))
       | _ -> failwith "unreachable")
 
 let pp_expr f =

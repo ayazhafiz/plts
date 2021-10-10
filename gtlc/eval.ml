@@ -10,7 +10,9 @@ let type_error e = Error (TypeError e)
 
 let cast_error e = Error (CastError e)
 
-let rec unbox = function Elab (Cast (TUnknown, e), _) -> unbox e | e -> e
+let rec unbox = function
+  | Elab (Cast (Ty (TUnknown, _), e), _) -> unbox e
+  | e -> e
 
 let ( >>= ) = Result.bind
 
@@ -45,7 +47,8 @@ class add_captured n : builtin =
     method name = Printf.sprintf "__builtin_add_captured(%d)" n
 
     method eval =
-      function Elab (Nat m, _) -> Elab (Nat (n + m), TNat) | _ -> bad_arg ()
+      function
+      | Elab (Nat m, _) -> Elab (Nat (n + m), ft TNat) | _ -> bad_arg ()
   end
 
 class mult_captured n : builtin =
@@ -53,7 +56,8 @@ class mult_captured n : builtin =
     method name = Printf.sprintf "__builtin_mult_captured(%d)" n
 
     method eval =
-      function Elab (Nat m, _) -> Elab (Nat (n * m), TNat) | _ -> bad_arg ()
+      function
+      | Elab (Nat m, _) -> Elab (Nat (n * m), ft TNat) | _ -> bad_arg ()
   end
 
 class eqn_captured n : builtin =
@@ -61,7 +65,8 @@ class eqn_captured n : builtin =
     method name = Printf.sprintf "__builtin_eqn_captured(%d)" n
 
     method eval =
-      function Elab (Nat m, _) -> Elab (Bool (n = m), TBool) | _ -> bad_arg ()
+      function
+      | Elab (Nat m, _) -> Elab (Bool (n = m), ft TBool) | _ -> bad_arg ()
   end
 
 class eqb_captured b : builtin =
@@ -70,27 +75,33 @@ class eqb_captured b : builtin =
 
     method eval =
       function
-      | Elab (Bool c, _) -> Elab (Bool (b = c), TBool) | _ -> bad_arg ()
+      | Elab (Bool c, _) -> Elab (Bool (b = c), ft TBool) | _ -> bad_arg ()
   end
 
 let builtin_eval = function
-  | "succ" -> ( function Nat n -> Elab (Nat (n + 1), TNat) | _ -> bad_arg ())
-  | "pred" -> ( function Nat n -> Elab (Nat (n - 1), TNat) | _ -> bad_arg ())
+  | "succ" -> (
+      function Nat n -> Elab (Nat (n + 1), ft TNat) | _ -> bad_arg ())
+  | "pred" -> (
+      function Nat n -> Elab (Nat (n - 1), ft TNat) | _ -> bad_arg ())
   | "add" -> (
       function
-      | Nat n -> Elab (Builtin (new add_captured n), TArrow (TNat, TNat))
+      | Nat n ->
+          Elab (Builtin (new add_captured n), ft (TArrow (ft TNat, ft TNat)))
       | _ -> bad_arg ())
   | "mult" -> (
       function
-      | Nat n -> Elab (Builtin (new mult_captured n), TArrow (TNat, TNat))
+      | Nat n ->
+          Elab (Builtin (new mult_captured n), ft (TArrow (ft TNat, ft TNat)))
       | _ -> bad_arg ())
   | "eqn" -> (
       function
-      | Nat n -> Elab (Builtin (new eqn_captured n), TArrow (TNat, TBool))
+      | Nat n ->
+          Elab (Builtin (new eqn_captured n), ft (TArrow (ft TNat, ft TBool)))
       | _ -> bad_arg ())
   | "eqb" -> (
       function
-      | Bool b -> Elab (Builtin (new eqb_captured b), TArrow (TBool, TBool))
+      | Bool b ->
+          Elab (Builtin (new eqb_captured b), ft (TArrow (ft TBool, ft TBool)))
       | _ -> bad_arg ())
   | _ -> bad_arg ()
 
@@ -128,24 +139,24 @@ let eval e =
         | Bool false -> eval els
         | _ -> type_error input)
     (* EConst *)
-    | Nat n -> Ok (Elab (Nat n, TNat))
-    | Bool b -> Ok (Elab (Bool b, TBool))
+    | Nat n -> Ok (Elab (Nat n, ft TNat))
+    | Bool b -> Ok (Elab (Bool b, ft TBool))
     (* ECstG *)
-    | Cast (TNat, e) -> (
+    | Cast (Ty (TNat, _), e) -> (
         eval e >>= fun v ->
         let uv = unbox v in
-        match uv with Elab (_, TNat) -> Ok uv | _ -> cast_error input)
-    | Cast (TBool, e) -> (
+        match uv with Elab (_, Ty (TNat, _)) -> Ok uv | _ -> cast_error input)
+    | Cast (Ty (TBool, _), e) -> (
         eval e >>= fun v ->
         let uv = unbox v in
-        match uv with Elab (_, TBool) -> Ok uv | _ -> cast_error input)
+        match uv with Elab (_, Ty (TBool, _)) -> Ok uv | _ -> cast_error input)
     (* ECstF *)
-    | Cast (TArrow (s, s'), e) -> (
+    | Cast (Ty (TArrow (s, s'), _), e) -> (
         eval e >>= fun v ->
         let uv = unbox v in
         match uv with
-        | Elab (_, TArrow (t, t'))
-          when T.consistent (TArrow (s, s')) (TArrow (t, t')) ->
+        | Elab (_, Ty (TArrow (t, t'), _))
+          when T.consistent (ft (TArrow (s, s'))) (ft (TArrow (t, t'))) ->
             (* λ z:σ. (⟨σ′⟩ (unbox v (⟨τ⟩ z))) *)
             let z = freshname "z" in
             let inner_app =
@@ -153,23 +164,23 @@ let eval e =
             in
             let body = Elab (Cast (s', inner_app), s') in
             let res = Lam (z, s, body) in
-            Ok (Elab (res, TArrow (s, s')))
+            Ok (Elab (res, ft (TArrow (s, s'))))
         | _ -> cast_error input)
     (* ECstU *)
-    | Cast (TUnknown, e) ->
-        eval e >>= fun v -> Ok (Elab (Cast (TUnknown, unbox v), TUnknown))
+    | Cast (Ty (TUnknown, _), e) ->
+        eval e >>= fun v -> Ok (Elab (Cast (ft TUnknown, unbox v), ft TUnknown))
     (* ECstR *)
-    | Cast (TRef t, e) -> (
+    | Cast (Ty (TRef t, _), e) -> (
         eval e >>= fun v ->
         match unbox v with
-        | Elab (_, TRef t') when t = t' -> Ok v
+        | Elab (_, Ty (TRef t', _)) when t = t' -> Ok v
         | _ -> cast_error input)
     (* ERef *)
     | Ref e ->
         eval e >>= fun v ->
         let l = freshloc () in
         Hashtbl.add heap l v;
-        Ok (Elab (Loc l, TRef te))
+        Ok (Elab (Loc l, ft (TRef te)))
     (* EDeref *)
     | Deref e -> (
         eval e >>= function
@@ -184,7 +195,7 @@ let eval e =
             Ok (Elab (Loc l, t))
         | _ -> type_error input)
     | Var _ | Loc _ | Builtin _ -> Ok input
-    | Cast (TInfer _, _) ->
+    | Cast (Ty (TInfer _, _), _) ->
         failwith "unreachable: inference type variable is unresolved"
   in
   eval e |> Result.map unbox

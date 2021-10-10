@@ -10,25 +10,25 @@ type constr_kind =
   | Cw  (** consistent *)
   | TArgCw
       (** inner arguments of this type constructor must be consistent.
-          Deals with "ref" inferences when one of either side is not a direct ref,
-          as in "!b" which generates the constraint "Ref b1 ~. b". *)
+      Deals with "ref" inferences when one of either side is not a direct ref,
+      as in "!b" which generates the constraint "Ref b1 ~. b". *)
   | Eq  (** equivalent *)
 
-type constr = ty * constr_kind * ty
+type constr = triv_ty * constr_kind * triv_ty
 
 let string_of_ck = function Cw -> "~=" | TArgCw -> "~." | Eq -> "="
 
 (** Generates type constraints over a program. *)
-let gen_constr freshty ctx e =
-  let rec go ctx (Just e) =
+let gen_constr freshty (ctx : (string * triv_ty) list) e =
+  let rec go ctx (Just (e, _)) =
     match e with
-    | Nat _ -> Ok (TNat, [])
-    | Bool _ -> Ok (TBool, [])
+    | Nat _ -> Ok (Tty TNat, [])
+    | Bool _ -> Ok (Tty TBool, [])
     | Var (`Local x | `Global x) -> (
         match List.assoc_opt x ctx with
         | Some t -> Ok (t, [])
         | None -> Error (x ^ " is not declared"))
-    | App (Just (Lam (_, _, body)), ref_assign, `DesugaredSeq) ->
+    | App (Just (Lam (_, _, body), _), ref_assign, `DesugaredSeq) ->
         (* Special case for DesugaredSeq as the desugared parameter is unused,
            so no need to constrain it. *)
         go ctx ref_assign >>= fun (_, c1) ->
@@ -40,34 +40,37 @@ let gen_constr freshty ctx e =
         go ctx e1 >>= fun (t1, c1) ->
         go ctx e2 >>= fun (t2, c2) ->
         let b = freshty () in
-        let c3 = (t1, Cw, TArrow (t2, b)) :: (c1 @ c2) in
+        let c3 = (t1, Cw, Tty (TArrow (t2, b))) :: (c1 @ c2) in
         Ok (b, c3)
-    | Lam (x, t, e) ->
-        go ((x, t) :: ctx) e >>= fun (r, c) -> Ok (TArrow (t, r), c)
+    | Lam ((x, _), t, e) ->
+        let t = trivialize t in
+        go ((x, t) :: ctx) e >>= fun (r, c) -> Ok (Tty (TArrow (t, r)), c)
     | If (c, thn, els) ->
         go ctx c >>= fun (ct, c1) ->
         go ctx thn >>= fun (thnt, c2) ->
         go ctx els >>= fun (elst, c3) ->
         let b = freshty () in
         let constrs =
-          (ct, Cw, TBool) :: (thnt, Cw, b) :: (elst, Cw, b) :: (c1 @ c2 @ c3)
+          (ct, Cw, Tty TBool) :: (thnt, Cw, b) :: (elst, Cw, b) :: (c1 @ c2 @ c3)
         in
         Ok (b, constrs)
     | Ref e ->
         go ctx e >>= fun (t, c) ->
         let b = freshty () in
-        let constrs = (b, Cw, TRef t) :: c in
+        let constrs = (b, Cw, Tty (TRef t)) :: c in
         Ok (b, constrs)
     | RefAssign (e1, e2) ->
         go ctx e1 >>= fun (t1, c1) ->
         go ctx e2 >>= fun (t2, c2) ->
         let b = freshty () in
-        let constrs = (b, Cw, TRef t2) :: (t1, TArgCw, TRef t2) :: (c1 @ c2) in
+        let constrs =
+          (b, Cw, Tty (TRef t2)) :: (t1, TArgCw, Tty (TRef t2)) :: (c1 @ c2)
+        in
         Ok (b, constrs)
     | Deref e ->
         go ctx e >>= fun (t, c) ->
         let b = freshty () in
-        let constrs = (TRef b, TArgCw, t) :: c in
+        let constrs = (Tty (TRef b), TArgCw, t) :: c in
         Ok (b, constrs)
   in
   go ctx e |> Result.map snd
@@ -104,17 +107,21 @@ struct
 
   (** Computes the type associated with a type solution kind without resolution
       of partition representatives. *)
-  let rec ty_of_kind = function
-    | Prim `Nat -> TNat
-    | Prim `Bool -> TBool
-    | Ref t -> TRef (ty_of_kind (kind_of_node t))
-    | Arrow (t1, t2) ->
-        let t1, t2 = (kind_of_node t1, kind_of_node t2) in
-        TArrow (ty_of_kind t1, ty_of_kind t2)
-    | Unknown -> TUnknown
-    | Infer i -> TInfer (`Var i)
+  let rec ty_of_kind k =
+    let t =
+      match k with
+      | Prim `Nat -> TNat
+      | Prim `Bool -> TBool
+      | Ref t -> TRef (ty_of_kind (kind_of_node t))
+      | Arrow (t1, t2) ->
+          let t1, t2 = (kind_of_node t1, kind_of_node t2) in
+          TArrow (ty_of_kind t1, ty_of_kind t2)
+      | Unknown -> TUnknown
+      | Infer i -> TInfer (`Var i)
+    in
+    Tty t
 
-  let string_of_kind kind = string_of_ty (ty_of_kind kind)
+  let string_of_kind kind = string_of_tty (ty_of_kind kind)
 
   let new_unk_node () =
     TyForest.create_node { kind = Unknown; contains_vars = false }
@@ -132,7 +139,7 @@ struct
       ivar
     in
     let retrieve_ivars () = List.rev !ivars in
-    let rec go ty =
+    let rec go (Tty ty) =
       if Hashtbl.mem cache ty then Hashtbl.find cache ty
       else
         match ty with
@@ -146,7 +153,7 @@ struct
             TyForest.create_node { kind = Ref t; contains_vars = true }
         | TInfer (`Var i) as t ->
             assoc ty { kind = Infer i; contains_vars = false }
-            |> register_ivar t
+            |> register_ivar (Tty t)
         | TInfer (`Resolved _) ->
             failwith "unexpected resolved type before constraint resolution"
         | TUnknown ->
@@ -218,10 +225,10 @@ struct
         let seen' = node :: seen in
         let kind = kind_of_node node in
         match kind with
-        | Prim `Nat -> TNat
-        | Prim `Bool -> TBool
-        | Ref t -> TRef (go seen' t)
-        | Arrow (t1, t2) -> TArrow (go seen' t1, go seen' t2)
+        | Prim `Nat -> Tty TNat
+        | Prim `Bool -> Tty TBool
+        | Ref t -> TRef (go seen' t) |> tt
+        | Arrow (t1, t2) -> TArrow (go seen' t1, go seen' t2) |> tt
         | (Unknown | Infer _) as k ->
             let repr = TyForest.find node in
             let k' = kind_of_node repr in
@@ -288,35 +295,48 @@ struct
       let solved_ivars =
         List.map (fun (ti, n) -> (ti, repr_type_of_node n)) ivars
       in
-      List.to_seq solved_ivars |> TyMap.of_seq |> Result.ok
+      List.to_seq solved_ivars |> TtyMap.of_seq |> Result.ok
     with SolveError msg -> Error msg
 
   let%expect_test "constraint solving (Running example, under Definition 3)" =
     let constrs =
       [
         (* (? -> nat) -> (nat -> ?) -> nat ~= `b0 -> `b1 *)
-        ( TArrow
-            (TArrow (TUnknown, TNat), TArrow (TArrow (TNat, TUnknown), TNat)),
-          TArrow (TInfer (`Var 0), TInfer (`Var 1)) );
+        ( tt
+            (TArrow
+               ( tt (TArrow (tt TUnknown, tt TNat)),
+                 tt (TArrow (tt (TArrow (tt TNat, tt TUnknown)), tt TNat)) )),
+          tt (TArrow (tt (TInfer (`Var 0)), tt (TInfer (`Var 1)))) );
         (* `b1 ~= `b0 -> `b2 *)
-        (TInfer (`Var 1), TArrow (TInfer (`Var 0), TInfer (`Var 2)));
+        ( tt (TInfer (`Var 1)),
+          tt (TArrow (tt (TInfer (`Var 0)), tt (TInfer (`Var 2)))) );
         (* Cycle tests *)
-        (TInfer (`Var 3), TInfer (`Var 4));
-        (TInfer (`Var 4), TInfer (`Var 3));
-        (TInfer (`Var 4), TBool);
+        (tt (TInfer (`Var 3)), tt (TInfer (`Var 4)));
+        (tt (TInfer (`Var 4)), tt (TInfer (`Var 3)));
+        (tt (TInfer (`Var 4)), tt TBool);
         (*
            ? -> `t13 ~= ((? -> `t11) -> `t14) -> `t15
            ? ~= (nat -> `t12) -> `t13
            nat -> nat ~= nat -> `t12
            ? -> `t11 ~= nat -> `t14
         *)
-        ( TArrow (TUnknown, TInfer (`Var 13)),
-          TArrow
-            ( TArrow (TArrow (TUnknown, TInfer (`Var 11)), TInfer (`Var 14)),
-              TInfer (`Var 15) ) );
-        (TUnknown, TArrow (TArrow (TNat, TInfer (`Var 12)), TInfer (`Var 13)));
-        (TArrow (TNat, TNat), TArrow (TNat, TInfer (`Var 12)));
-        (TArrow (TUnknown, TInfer (`Var 11)), TArrow (TNat, TInfer (`Var 14)));
+        ( tt (TArrow (tt TUnknown, tt (TInfer (`Var 13)))),
+          tt
+            (TArrow
+               ( tt
+                   (TArrow
+                      ( tt (TArrow (tt TUnknown, tt (TInfer (`Var 11)))),
+                        tt (TInfer (`Var 14)) )),
+                 tt (TInfer (`Var 15)) )) );
+        ( tt TUnknown,
+          tt
+            (TArrow
+               ( tt (TArrow (tt TNat, tt (TInfer (`Var 12)))),
+                 tt (TInfer (`Var 13)) )) );
+        ( tt (TArrow (tt TNat, tt TNat)),
+          tt (TArrow (tt TNat, tt (TInfer (`Var 12)))) );
+        ( tt (TArrow (tt TUnknown, tt (TInfer (`Var 11)))),
+          tt (TArrow (tt TNat, tt (TInfer (`Var 14)))) );
         (*
            `t21 ~= ref nat
            ref `22 ~= ref nat
@@ -324,25 +344,38 @@ struct
            ? ~= ref nat
            ? ~= ref `25
         *)
-        (TInfer (`Var 21), TRef TNat);
-        (TRef (TInfer (`Var 22)), TRef TNat);
-        ( TRef
-            (TArrow (TInfer (`Var 23), TArrow (TNat, TRef (TInfer (`Var 24))))),
-          TRef
-            (TArrow (TBool, TArrow (TNat, TRef (TArrow (TUnknown, TUnknown)))))
-        );
-        (TUnknown, TRef TNat);
-        (TUnknown, TRef (TInfer (`Var 25)));
-        (TUnknown, TRef (TArrow (TNat, TNat)));
+        (tt (TInfer (`Var 21)), tt (TRef (tt TNat)));
+        (tt (TRef (tt (TInfer (`Var 22)))), tt (TRef (tt TNat)));
+        ( tt
+            (TRef
+               (tt
+                  (TArrow
+                     ( tt (TInfer (`Var 23)),
+                       tt (TArrow (tt TNat, tt (TRef (tt (TInfer (`Var 24))))))
+                     )))),
+          tt
+            (TRef
+               (tt
+                  (TArrow
+                     ( tt TBool,
+                       tt
+                         (TArrow
+                            ( tt TNat,
+                              tt (TRef (tt (TArrow (tt TUnknown, tt TUnknown))))
+                            )) )))) );
+        (tt TUnknown, tt (TRef (tt TNat)));
+        (tt TUnknown, tt (TRef (tt (TInfer (`Var 25)))));
+        (tt TUnknown, tt (TRef (tt (TArrow (tt TNat, tt TNat)))));
       ]
       |> List.map (fun (t, s) -> (t, Cw, s))
     in
     let solved =
       solve constrs
       |> Result.map (fun s ->
-             s |> TyMap.to_seq
+             s |> TtyMap.to_seq
              |> Seq.map (fun (t, u) ->
-                    Printf.sprintf "%s ~= %s" (string_of_ty t) (string_of_ty u))
+                    Printf.sprintf "%s ~= %s" (string_of_tty t)
+                      (string_of_tty u))
              |> List.of_seq |> String.concat "\n")
       |> function
       | Ok s -> s
@@ -369,20 +402,25 @@ struct
 end
 
 let subst_ty substs =
-  let rec go t =
-    match t with
-    | TNat | TBool | TUnknown -> t
-    | TRef t -> TRef (go t)
-    | TArrow (t1, t2) -> TArrow (go t1, go t2)
-    | TInfer (`Var _) -> TInfer (`Resolved (TyMap.find t substs))
-    | TInfer (`Resolved _) ->
-        failwith
-          "unexpected resolved inference variable before type substitution"
+  let rec go (Ty (t, i)) =
+    let t' =
+      match t with
+      | TNat | TBool | TUnknown -> t
+      | TRef t -> TRef (go t)
+      | TArrow (t1, t2) -> TArrow (go t1, go t2)
+      | TInfer (`Var _) as t ->
+          let (Ty (inner, _)) = TtyMap.find (Tty t) substs |> fauxify in
+          TInfer (`Resolved inner)
+      | TInfer (`Resolved _) ->
+          failwith
+            "unexpected resolved inference variable before type substitution"
+    in
+    Ty (t', i)
   in
   go
 
 let subst_expr substs =
-  let rec go (Just e) =
+  let rec go (Just (e, i)) =
     let e' =
       match e with
       | Nat _ | Bool _ | Var _ -> e
@@ -393,7 +431,7 @@ let subst_expr substs =
       | RefAssign (e1, e2) -> RefAssign (go e1, go e2)
       | Deref e -> Deref (go e)
     in
-    Just e'
+    Just (e', i)
   in
   go
 

@@ -5,8 +5,7 @@ import Playground from "../../components/playground";
 import type { Backend, LanguageRegistration } from "../../common/types";
 import { C, TS } from "../../common/evaluator";
 import { shapeBackend, shapeBackendP } from "../../common/util";
-import { createHoverProvider } from "../../common/hover";
-import { infer, irCompile, cCompile, tsCompile, doEval, docs } from "gtlc";
+import { infer, irCompile, cCompile, tsCompile, doEval, docs, getHover } from "gtlc";
 
 const examples = {
   "Cast Error": `(λx. succ x) #t`,
@@ -207,24 +206,6 @@ const gtlcSyntax: monaco.languages.IMonarchLanguage = {
   },
 };
 
-function gtlcGetHoverContent(word: string) {
-  if (word === "?") {
-    return [{ value: "The unknown type" }];
-  }
-  if (word === "_") {
-    return [{ value: "This type will be inferred" }];
-  }
-  if (word.startsWith("`")) {
-    return [{ value: `Inferred: \`${word.substring(1)}\`` }];
-  }
-  for (const { name, ty, doc } of builtin_docs) {
-    if (word === name) {
-      return [{ value: `\`\`\`gtlc\n${name}: ${ty}\n\`\`\`` }, { value: doc }];
-    }
-  }
-  return null;
-}
-
 const liftIrSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
@@ -282,7 +263,21 @@ const liftIrSyntax: monaco.languages.IMonarchLanguage = {
 const languages: Record<"gtlc" | "liftIr", LanguageRegistration> = {
   gtlc: {
     syntax: gtlcSyntax,
-    hover: createHoverProvider("gtlc", gtlcGetHoverContent),
+    hover: (m: typeof monaco) => (model: monaco.editor.ITextModel, pos: monaco.Position) => {
+      const program = model.getValue();
+      const hover = getHover(program, pos.lineNumber, pos.column);
+      if (hover === null) return null;
+      const {
+        info,
+        range: { startPos, endPos },
+      } = hover;
+      return {
+        range: new m.Range(startPos.line, startPos.col, endPos.line, endPos.col),
+        contents: info.map((value) => {
+          return { value };
+        }),
+      };
+    },
   },
   liftIr: {
     syntax: liftIrSyntax,
