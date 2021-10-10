@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkwww=self.webpackChunkwww||[]).push([[6691],{51392:function(e,t,n){n.r(t);var u=n(27378),r=n(13673),c=n(20460),f=n(7011);t.default=function(){var e=u.useState(""),t=e[0],n=e[1];return u.useEffect((function(){fetch("/plts/readme.mdx").then((function(e){return e.text()})).then((function(e){return n(e)}))})),u.createElement(c.Z,{title:"plts"},u.createElement(f.default,{m:[4,4,10]},u.createElement(r.Z,{children:t})))}}}]);
+//# sourceMappingURL=component---src-pages-index-tsx-ef575c3e75f92d7b6d5c.js.map
