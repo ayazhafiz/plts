@@ -27,20 +27,24 @@ let string_of_position ({ pos_lnum; pos_cnum; pos_bol; _ } : Lexing.position) =
 
 let parse s =
   let full = s in
-  let lexbuf = Lexing.from_string ~with_positions:true full in
+  let lexbuf = Lexer.from_string full in
+  let lex = Lexer.provider lexbuf in
+  let parse =
+    MenhirLib.Convert.Simplified.traditional2revised Parser.toplevel_expr
+  in
   try
     let freshty = freshty_generator () in
-    let parsed = Parser.toplevel_expr Lexer.read lexbuf freshty in
+    let parsed = parse lex freshty in
     Ok (parsed, freshty)
   with
   | Lexer.SyntaxError what ->
       Error
         (Printf.sprintf "Syntax error: %s at %s" what
-           (string_of_position lexbuf.lex_curr_p))
+           (string_of_position (Lexer.position lexbuf)))
   | Parser.Error ->
       Error
         (Printf.sprintf "Parse error at %s"
-           (string_of_position lexbuf.lex_curr_p))
+           (string_of_position (Lexer.position lexbuf)))
 
 let infer e freshty =
   let ctx =

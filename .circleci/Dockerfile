@@ -1,6 +1,8 @@
 FROM ocaml/opam
 SHELL ["/bin/bash", "-c"]
 
+RUN opam switch create 4.12.0
+RUN opam switch set 4.12.0
 RUN opam pin strictly-annotated https://github.com/ayazhafiz/strictly-annotated.git
 RUN opam install -y dune
 RUN opam install -y menhir
@@ -16,6 +18,7 @@ RUN opam install -y zarith
 RUN opam install -y zarith_stubs_js
 RUN opam install -y camomile
 RUN opam pin dts_of_ocaml https://github.com/ayazhafiz/dts_of_ocaml.git
+RUN opam install -y sedlex
 
 RUN sudo apt-get update && sudo apt-get install -y \
   ca-certificates \
