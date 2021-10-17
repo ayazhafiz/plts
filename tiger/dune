@@ -1,0 +1,17 @@
+(executable
+  (name js)
+  (modules js)
+  (libraries tiger)
+  (modes byte)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(rule
+  (mode (promote (into js)))
+  (targets tiger.js tiger.d.ts)
+  (action
+    (progn
+      (run %{bin:js_of_ocaml}
+           %{dep:js.bc}
+           -o tiger.js)
+      (with-outputs-to tiger.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*Js.cmt')")))))

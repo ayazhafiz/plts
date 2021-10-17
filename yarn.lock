@@ -13859,6 +13859,12 @@ resolve@^2.0.0-next.3:
   languageName: node
   linkType: hard
 
+"tiger@workspace:tiger/js":
+  version: 0.0.0-use.local
+  resolution: "tiger@workspace:tiger/js"
+  languageName: unknown
+  linkType: soft
+
 "timers-ext@npm:^0.1.7":
   version: 0.1.7
   resolution: "timers-ext@npm:0.1.7"
@@ -15085,6 +15091,7 @@ typescript@^4.4.3:
     react-markdown: ^7.0.1
     styled-components: ^5.3.1
     tal: "workspace:TAL/js"
+    tiger: "workspace:tiger/js"
     typescript: ^4.4.3
     www: ^0.0.0
   languageName: unknown

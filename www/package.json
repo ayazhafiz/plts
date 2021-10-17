@@ -24,6 +24,7 @@
     "react-markdown": "^7.0.1",
     "styled-components": "^5.3.1",
     "tal": "workspace:TAL/js",
+    "tiger": "workspace:tiger/js",
     "typescript": "^4.4.3",
     "www": "^0.0.0"
   },

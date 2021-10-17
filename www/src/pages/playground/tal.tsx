@@ -3,6 +3,7 @@ import * as React from "react";
 import Playground from "../../components/playground";
 import type { Backend } from "../../common/types";
 import { promisify } from "../../common/util";
+import { ASM_SYNTAX } from "../../common/syntax/asm";
 import * as tal from "tal";
 import ReactMarkdown from "react-markdown";
 
@@ -65,7 +66,7 @@ them before any code is executed.
           />,
         ],
       ],
-      editorLanguage: "tal",
+      editorLanguage: "asm",
     },
     {
       title: "x86 Emulation",
@@ -175,6 +176,9 @@ const languages = {
   },
   tal: {
     syntax: talSyntax,
+  },
+  asm: {
+    syntax: ASM_SYNTAX,
   },
 };
 
