@@ -19,6 +19,12 @@ RUN opam install -y zarith_stubs_js
 RUN opam install -y camomile
 RUN opam pin dts_of_ocaml https://github.com/ayazhafiz/dts_of_ocaml.git
 RUN opam install -y sedlex
+# Tiger
+RUN opam pin tigerc_data https://github.com/ayazhafiz/tiger.git
+RUN opam pin tigerc_util https://github.com/ayazhafiz/tiger.git
+RUN opam pin tigerc_front https://github.com/ayazhafiz/tiger.git
+RUN opam pin tigerc_back https://github.com/ayazhafiz/tiger.git
+RUN opam pin tiger https://github.com/ayazhafiz/tiger.git
 
 RUN sudo apt-get update && sudo apt-get install -y \
   ca-certificates \

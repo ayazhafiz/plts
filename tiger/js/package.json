@@ -1,0 +1,7 @@
+{
+  "name": "tiger",
+  "packageManager": "yarn@3.0.2",
+  "main": "tiger.js",
+  "module": "tiger",
+  "types": "tiger.d.ts"
+}
