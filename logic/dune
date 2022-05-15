@@ -1,0 +1,12 @@
+(ocamllex lexer)
+(menhir
+  (flags --explain --fixed-exception)
+  (modules parser))
+
+(library
+ (name lib)
+ (modules lib syntax parser lexer conj load)
+ (libraries camomile)
+ (inline_tests)
+ (js_of_ocaml)
+ (preprocess (pps ppx_inline_test ppx_expect)))
