@@ -1,0 +1,33 @@
+let add100 n = n + 100 # number:n -> number:n+100
+
+add100 5 # number:105
+
+let lt100 n = n < 100 # number:n -> bool:n<100
+
+let lt m n = m < n # a:m -> a:n -> bool:m < n
+
+let assert_six (n : 6) = {}
+let do n = if n > 5 and n < 7 then assert_six n else () # OK
+let do n = if n > 5 and n < 10 then assert_six n else () # ERR
+
+let assert_010 (n : 0..10) = {}
+let do n = if n > 5 and n < 10 then assert_six n else () # OK
+
+let year: 1|2|3|4 -> string =
+  \n -> match n
+    | 1 -> "freshman"
+    | 2 -> "sophomore"
+    | 3 -> "junior"
+    | 4 -> "senior"
+
+let emailify n = n ++ "@somewhere.org"
+
+emailify "ayaz" # "ayaz@somewhere.org"
+
+append = \l -> \l2 -> match l
+       | Nil -> l2
+       | Cons a l' -> Cons a (append l' l2)
+
+# append : list a -> list a -> list a
+#        | Nil -> l2 -> l2
+#        | Cons e:a l' -> l2 -> Cons e (append l' l2)
