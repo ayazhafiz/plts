@@ -5,7 +5,7 @@
 
 (library
  (name lib)
- (modules lib syntax parser lexer conj load)
+ (modules lib syntax parser lexer norm load)
  (libraries camomile)
  (inline_tests)
  (js_of_ocaml)
