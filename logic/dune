@@ -15,3 +15,10 @@
  (libraries syntax)
  (inline_tests)
  (preprocess (pps ppx_inline_test ppx_expect)))
+
+(library
+ (name sequent)
+ (modules sequent)
+ (libraries syntax)
+ (inline_tests)
+ (preprocess (pps ppx_inline_test ppx_expect)))
