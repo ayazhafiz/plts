@@ -89,7 +89,7 @@ let%expect_test "sat" =
   let cnfed =
     List.map
       (fun s ->
-        let formula = Load.parse s in
+        let formula = Syntax.parse s in
         let sats = List.map (fun sat -> sat formula) sats in
         assert (List.for_all Fun.id sats || not (List.exists Fun.id sats));
         s ^ ": " ^ Bool.to_string (List.hd sats))

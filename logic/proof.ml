@@ -18,7 +18,8 @@ let%expect_test "inconsistent" =
   let results =
     List.map
       (fun g ->
-        List.map Load.parse g |> Syntax.conj_list |> to_can_cnf |> inconsistent)
+        List.map Syntax.parse g |> Syntax.conj_list |> to_can_cnf
+        |> inconsistent)
       cases
     |> List.map Bool.to_string |> String.concat "\n"
   in
@@ -43,7 +44,9 @@ let%expect_test "prove" =
     ]
   in
   let results =
-    List.map (fun (g, a) -> prove (List.map Load.parse g) (Load.parse a)) cases
+    List.map
+      (fun (g, a) -> prove (List.map Syntax.parse g) (Syntax.parse a))
+      cases
     |> List.map Bool.to_string |> String.concat "\n"
   in
   print_string results;

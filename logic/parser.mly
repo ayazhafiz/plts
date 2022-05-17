@@ -1,5 +1,5 @@
 %{
-  open Syntax
+  open Ast
 %}
 
 %token <string> IDENT

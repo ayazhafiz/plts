@@ -1,13 +1,4 @@
-type variable = string
-
-type formula =
-  | Var of variable
-  | Neg of formula
-  | Conj of formula * formula
-  | Disj of formula * formula
-  | Imp of formula * formula
-  | Top
-  | Bot
+include Ast
 
 exception Free_var
 
@@ -30,3 +21,6 @@ let rec free = function
 
 let conj_list ?(first = Top) lst =
   List.fold_left (fun a b -> Conj (a, b)) first lst
+
+let parse = Load.parse
+let parse_safe = Load.parse_safe

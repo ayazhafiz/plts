@@ -41,7 +41,7 @@ let%expect_test "resolve" =
   let results =
     List.map
       (fun (g, x) ->
-        let g = List.map Load.parse g |> Syntax.conj_list |> to_can_cnf in
+        let g = List.map Syntax.parse g |> Syntax.conj_list |> to_can_cnf in
         resolve g x)
       cases
     |> List.map print |> String.concat "\n"

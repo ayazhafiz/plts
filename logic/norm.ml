@@ -2,7 +2,7 @@
 
 module S = Syntax
 
-type variable = Syntax.variable
+type variable = S.variable
 type literal = Var of variable  (** X *) | Neg of variable  (** !X *)
 
 let opp = function Var x -> Neg x | Neg x -> Var x
@@ -132,7 +132,7 @@ let%expect_test "to_cnf" =
     ]
   in
   let cnfed =
-    List.map (fun s -> print @@ to_can_cnf @@ Load.parse s) cases
+    List.map (fun s -> print @@ to_can_cnf @@ S.parse s) cases
     |> String.concat "\n"
   in
   print_string cnfed;
