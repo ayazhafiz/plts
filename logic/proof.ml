@@ -1,4 +1,4 @@
-(** Module [proof] proves theorems. *)
+(** Module [proof] proves theorems using a classical logic. *)
 
 open Resolve
 open Norm
@@ -28,7 +28,7 @@ let%expect_test "inconsistent" =
       false
       true |}]
 
-(** A formula [a] is a consequence of environment [g] iff [g \cup {!a}] is not satisfiable. *)
+(** A classical logic formula [a] is a consequence of environment [g] iff [g \cup {!a}] is not satisfiable. *)
 let prove g a =
   let a' = Syntax.Neg a in
   let g' = Syntax.conj_list ~first:a' g in
