@@ -16,14 +16,6 @@ module Naive = struct
     in
     go a
 
-  let if_none f = function Some a -> Some a | None -> f
-
-  let rec free = function
-    | Var x -> Some x
-    | Neg a -> free a
-    | Conj (a, b) | Disj (a, b) | Imp (a, b) -> free a |> if_none (free b)
-    | Top | Bot -> None
-
   let rec sat a =
     match free a with
     | Some x -> sat (subst x Top a) || sat (subst x Bot a)
@@ -35,10 +27,7 @@ module DPLL = struct
   open Norm
 
   let obv_sat = to_can_cnf Top
-
   let obv_unsat = to_can_cnf Bot
-
-  let opp = function Var x -> Neg x | Neg x -> Var x
 
   (** Eliminates a literal in a Can CNF. If the literal is positive, we
       eliminate the disjunctions that positively reference it and remove it from

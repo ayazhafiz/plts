@@ -3,8 +3,9 @@
 module S = Syntax
 
 type variable = Syntax.variable
-
 type literal = Var of variable  (** X *) | Neg of variable  (** !X *)
+
+let opp = function Var x -> Neg x | Neg x -> Var x
 
 module LitSet = struct
   include Set.Make (struct
@@ -14,6 +15,8 @@ module LitSet = struct
   end)
 
   let to_list s = List.of_seq @@ to_seq s
+  let is_false s = equal s empty
+  let free s = choose_opt s |> Option.map (function Neg x | Var x -> x)
 end
 
 type clause = LitSet.t
@@ -27,6 +30,14 @@ module ClauseSet = struct
   end)
 
   let to_list s = List.of_seq @@ to_seq s
+
+  let merge a b =
+    (* (C & D) | (E & F) -> [[C], [D]] | [[E], [F]] -> (C | E) & (C | F) & (D | E) & (D | F)  *)
+    fold
+      (fun c total -> map (fun d -> LitSet.union c d) b |> union total)
+      a empty
+
+  let free s = Option.bind (choose_opt s) LitSet.free
 end
 
 type cnf = ClauseSet.t
@@ -35,25 +46,18 @@ type cnf = ClauseSet.t
 
 (** Computes canonical CNF of a formula. *)
 let to_can_cnf a : cnf =
-  let merge a b =
-    (* (C & D) | (E & F) -> [[C], [D]] | [[E], [F]] -> (C | E) & (C | F) & (D | E) & (D | F)  *)
-    ClauseSet.fold
-      (fun c total ->
-        ClauseSet.map (fun d -> LitSet.union c d) b |> ClauseSet.union total)
-      a ClauseSet.empty
-  in
   let rec pos = function
     | S.Var x -> ClauseSet.singleton @@ LitSet.singleton @@ Var x
     | S.Neg a -> neg a
     | S.Conj (a, b) -> ClauseSet.union (pos a) (pos b)
-    | S.Disj (a, b) -> merge (pos a) (pos b)
-    | S.Imp (a, b) -> merge (neg a) (pos b) (* A => B = !A \/ B *)
+    | S.Disj (a, b) -> ClauseSet.merge (pos a) (pos b)
+    | S.Imp (a, b) -> ClauseSet.merge (neg a) (pos b) (* A => B = !A \/ B *)
     | S.Bot -> ClauseSet.singleton LitSet.empty
     | S.Top -> ClauseSet.empty
   and neg = function
     | S.Var x -> ClauseSet.singleton @@ LitSet.singleton @@ Neg x
     | S.Neg a -> pos a
-    | S.Conj (a, b) -> merge (neg a) (neg b)
+    | S.Conj (a, b) -> ClauseSet.merge (neg a) (neg b)
     | S.Disj (a, b) -> ClauseSet.union (neg a) (neg b)
     | S.Imp (a, b) -> ClauseSet.union (pos a) (neg b)
     | S.Bot -> pos S.Top
