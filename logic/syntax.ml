@@ -27,3 +27,6 @@ let rec free = function
   | Neg a -> free a
   | Conj (a, b) | Disj (a, b) | Imp (a, b) -> free a |> if_none (free b)
   | Top | Bot -> None
+
+let conj_list ?(first = Top) lst =
+  List.fold_left (fun a b -> Conj (a, b)) first lst

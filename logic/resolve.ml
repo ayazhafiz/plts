@@ -28,6 +28,26 @@ let resolve g x =
     |> ClauseSet.map (LitSet.remove (Neg x))
   in
   let g'' = ClauseSet.merge gx gx' in
-  match ClauseSet.find_first_opt LitSet.is_false g'' with
-  | Some _ -> Error Bottom
-  | None -> Ok (ClauseSet.union g' g'')
+  ClauseSet.union g' g'' |> ClauseSet.pack
+
+let%expect_test "resolve" =
+  let cases =
+    [
+      ([ {|C \/ X|}; {|!X \/ D|} ], "X");
+      ([ {|C1 \/ X \/ C2|}; {|D1 \/ !X \/ D2|} ], "X");
+      ([ {|!C => X|}; {|X => D|} ], "X");
+    ]
+  in
+  let results =
+    List.map
+      (fun (g, x) ->
+        let g = List.map Load.parse g |> Syntax.conj_list |> to_can_cnf in
+        resolve g x)
+      cases
+    |> List.map print |> String.concat "\n"
+  in
+  print_string results;
+  [%expect {|
+      C ∨ D
+      C1 ∨ C2 ∨ D1 ∨ D2
+      C ∨ D |}]

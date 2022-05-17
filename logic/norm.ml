@@ -15,8 +15,16 @@ module LitSet = struct
   end)
 
   let to_list s = List.of_seq @@ to_seq s
-  let is_false s = equal s empty
   let free s = choose_opt s |> Option.map (function Neg x | Var x -> x)
+
+  (** Checks whether this is a tautological disjunction like [!A \/ A] *)
+  let taut s =
+    let rec check seen = function
+      | Seq.Cons ((Var x | Neg x), rest) ->
+          List.mem x seen || check (x :: seen) (rest ())
+      | Seq.Nil -> false
+    in
+    check [] (to_seq s ())
 end
 
 type clause = LitSet.t
@@ -30,12 +38,22 @@ module ClauseSet = struct
   end)
 
   let to_list s = List.of_seq @@ to_seq s
+  let is_true s = equal s empty
+  let is_false = exists LitSet.is_empty
+  let bot = singleton LitSet.empty
+  let top = empty
 
   let merge a b =
     (* (C & D) | (E & F) -> [[C], [D]] | [[E], [F]] -> (C | E) & (C | F) & (D | E) & (D | F)  *)
     fold
       (fun c total -> map (fun d -> LitSet.union c d) b |> union total)
       a empty
+
+  (** [pack s] removes tautological clauses like [!A \/ A] and simplifies models
+      that are always false. *)
+  let pack s =
+    let s = filter (fun disj -> not (LitSet.taut disj)) s in
+    if is_false s then bot else s
 
   let free s = Option.bind (choose_opt s) LitSet.free
 end
@@ -81,7 +99,7 @@ let to_can_cnf a : cnf =
     in
     find_unique [] sorted_by_len
   in
-  ClauseSet.of_list @@ simpl @@ pos a
+  ClauseSet.pack @@ ClauseSet.of_list @@ simpl @@ pos a
 
 let print =
   let print_lit = function Var x -> x | Neg x -> "¬" ^ x in
@@ -92,8 +110,11 @@ let print =
     if needs_paren then "(" ^ printed ^ ")" else printed
   in
   let print_cnf cnf =
-    let cnf = ClauseSet.to_list cnf in
-    String.concat {| ∧ |} (List.map (print_clause (List.length cnf > 1)) cnf)
+    if ClauseSet.is_false cnf then "⊥"
+    else if ClauseSet.is_true cnf then "⊤"
+    else
+      let cnf = ClauseSet.to_list cnf in
+      String.concat {| ∧ |} (List.map (print_clause (List.length cnf > 1)) cnf)
   in
   print_cnf
 
@@ -106,6 +127,8 @@ let%expect_test "to_cnf" =
       {|A \/ (B /\ C)|};
       {|A => B|};
       {|¬(¬X ∨ Y) ∨ (¬Y ∨ Z)|};
+      {|A \/ !A|};
+      {|A /\ !A|};
     ]
   in
   let cnfed =
@@ -120,4 +143,6 @@ let%expect_test "to_cnf" =
       (A ∨ C) ∧ (B ∨ C)
       (A ∨ B) ∧ (A ∨ C)
       B ∨ ¬A
-      Z ∨ ¬Y |}]
+      Z ∨ ¬Y
+      ⊤
+      A ∧ ¬A |}]
