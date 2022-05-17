@@ -6,27 +6,35 @@ type variable = Syntax.variable
 
 type literal = Var of variable  (** X *) | Neg of variable  (** !X *)
 
-type clause = literal list
+module LitSet = struct
+  include Set.Make (struct
+    type t = literal
+
+    let compare = compare
+  end)
+
+  let to_list s = List.of_seq @@ to_seq s
+end
+
+type clause = LitSet.t
 (** [clause C] is a disjunction of literals. An empty disjunction is False. *)
 
-type cnf = clause list
+module ClauseSet = struct
+  include Set.Make (struct
+    type t = LitSet.t
+
+    let compare = LitSet.compare
+  end)
+
+  let to_list s = List.of_seq @@ to_seq s
+end
+
+type cnf = ClauseSet.t
 (** [formula A] is in CNF when it is a list of clause conjunctions.
     An empty conjunctions is True. *)
 
-module LitSet = Set.Make (struct
-  type t = literal
-
-  let compare = compare
-end)
-
-module ClauseSet = Set.Make (struct
-  type t = LitSet.t
-
-  let compare = LitSet.compare
-end)
-
 (** Computes canonical CNF of a formula. *)
-let to_can_cnf a =
+let to_can_cnf a : cnf =
   let merge a b =
     (* (C & D) | (E & F) -> [[C], [D]] | [[E], [F]] -> (C | E) & (C | F) & (D | E) & (D | F)  *)
     ClauseSet.fold
@@ -54,7 +62,7 @@ let to_can_cnf a =
   (* A /\ (A \/ B) ~> A *)
   let simpl a =
     let sorted_by_len =
-      ClauseSet.to_seq a |> List.of_seq
+      ClauseSet.to_list a
       |> List.sort (fun a b -> compare (LitSet.cardinal a) (LitSet.cardinal b))
     in
     let rec find_unique seen = function
@@ -69,16 +77,18 @@ let to_can_cnf a =
     in
     find_unique [] sorted_by_len
   in
-  List.map (fun ls -> List.of_seq @@ LitSet.to_seq ls) @@ simpl @@ pos a
+  ClauseSet.of_list @@ simpl @@ pos a
 
 let print =
   let print_lit = function Var x -> x | Neg x -> "¬" ^ x in
   let print_clause consider_paren clause =
+    let clause = LitSet.to_list clause in
     let needs_paren = consider_paren && List.length clause > 1 in
     let printed = String.concat {| ∨ |} (List.map print_lit clause) in
     if needs_paren then "(" ^ printed ^ ")" else printed
   in
   let print_cnf cnf =
+    let cnf = ClauseSet.to_list cnf in
     String.concat {| ∧ |} (List.map (print_clause (List.length cnf > 1)) cnf)
   in
   print_cnf
