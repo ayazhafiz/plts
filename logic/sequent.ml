@@ -14,7 +14,7 @@ type formula =
   | Top
   | Bot
 
-let rec desugar =
+let desugar =
   let rec go pol =
     let module S = Syntax in
     function
