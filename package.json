@@ -8,7 +8,8 @@
     "gtlc/js",
     "TAL/js",
     "ho21/js",
-    "tiger/js"
+    "tiger/js",
+    "cor/js"
   ],
   "devDependencies": {
     "typescript": "^4.4.3"
