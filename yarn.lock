@@ -10660,6 +10660,14 @@ fsevents@~2.3.2:
   languageName: node
   linkType: hard
 
+"js@workspace:cor/js":
+  version: 0.0.0-use.local
+  resolution: "js@workspace:cor/js"
+  dependencies:
+    www: "workspace:www"
+  languageName: unknown
+  linkType: soft
+
 "jsesc@npm:^2.5.1":
   version: 2.5.2
   resolution: "jsesc@npm:2.5.2"
