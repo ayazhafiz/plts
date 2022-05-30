@@ -6405,6 +6405,14 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cor@workspace:cor/js":
+  version: 0.0.0-use.local
+  resolution: "cor@workspace:cor/js"
+  dependencies:
+    www: "workspace:www"
+  languageName: unknown
+  linkType: soft
+
 "core-js-compat@npm:3.9.0":
   version: 3.9.0
   resolution: "core-js-compat@npm:3.9.0"
@@ -10659,14 +10667,6 @@ fsevents@~2.3.2:
   checksum: bef146085f472d44dee30ec34e5cf36bf89164f5d585435a3d3da89e52622dff0b188a580e4ad091c3341889e14cb88cac6e4deb16dc5b1e9623bb0601fc255c
   languageName: node
   linkType: hard
-
-"js@workspace:cor/js":
-  version: 0.0.0-use.local
-  resolution: "js@workspace:cor/js"
-  dependencies:
-    www: "workspace:www"
-  languageName: unknown
-  linkType: soft
 
 "jsesc@npm:^2.5.1":
   version: 2.5.2
@@ -16889,6 +16889,7 @@ typescript@^4.4.3:
     "@types/react-helmet": ^6
     "@types/styled-components": ^5
     assert: ^2.0.0
+    cor: "workspace:cor/js"
     ft: "workspace:ft/js"
     gatsby: 4.15.0
     gatsby-plugin-typescript: 4.15.0
