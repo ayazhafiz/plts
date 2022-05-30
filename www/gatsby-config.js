@@ -4,7 +4,7 @@ module.exports = {
     DEV_SSR: false,
   },
   siteMetadata: {
-    siteUrl: 'https://www.yourdomain.tld',
+    siteUrl: 'https://ayazhafiz.com',
     title: 'plts',
   },
   plugins: [
