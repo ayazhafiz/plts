@@ -1,8 +1,8 @@
 FROM ocaml/opam
 SHELL ["/bin/bash", "-c"]
 
-RUN opam switch create 4.12.0
-RUN opam switch set 4.12.0
+RUN opam switch create 4.14.0
+RUN opam switch set 4.14.0
 RUN opam pin strictly-annotated https://github.com/ayazhafiz/strictly-annotated.git
 RUN opam install -y dune
 RUN opam install -y menhir
@@ -29,8 +29,8 @@ RUN opam pin tiger https://github.com/ayazhafiz/tiger.git
 RUN sudo apt-get update && sudo apt-get install -y \
   ca-certificates \
   curl
-ARG NODE_VERSION=16.5.0
-ARG NODE_PACKAGE=node-v$NODE_VERSION-linux-x64
+ARG NODE_VERSION=16.14.0
+ARG NODE_PACKAGE=node-v$NODE_VERSION-linux-arm64
 RUN mkdir $HOME/bin
 ARG NODE_HOME=$HOME/bin/$NODE_PACKAGE
 ENV NODE_PATH $NODE_HOME/lib/node_modules
