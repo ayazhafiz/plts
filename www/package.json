@@ -13,7 +13,7 @@
     "@primer/components": "^29.1.1",
     "assert": "^2.0.0",
     "ft": "workspace:ft/js",
-    "gatsby": "^3.14.0",
+    "gatsby": "latest",
     "gtlc": "workspace:gtlc/js",
     "ho21": "workspace:ho21/js",
     "monaco-editor": "^0.28.0",

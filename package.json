@@ -1,6 +1,6 @@
 {
   "name": "plts",
-  "packageManager": "yarn@3.0.2",
+  "packageManager": "yarn@3.2.1",
   "private": true,
   "workspaces": [
     "www",
