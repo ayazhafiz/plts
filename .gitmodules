@@ -1,3 +1,6 @@
 [submodule "lang_narrow"]
 	path = lang_narrow
 	url = https://github.com/ayazhafiz/lang_narrow
+[submodule "cor"]
+	path = cor
+	url = https://github.com/ayazhafiz/cor
