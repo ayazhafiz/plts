@@ -13,6 +13,7 @@
     "@primer/components": "latest",
     "assert": "^2.0.0",
     "cor": "workspace:cor/js",
+    "events": "^3.3.0",
     "ft": "workspace:ft/js",
     "gatsby": "latest",
     "gatsby-source-filesystem": "latest",
@@ -28,7 +29,8 @@
     "tal": "workspace:TAL/js",
     "tiger": "workspace:tiger/js",
     "typescript": "latest",
-    "www": "^0.0.0"
+    "www": "^0.0.0",
+    "zlib": "^1.0.5"
   },
   "devDependencies": {
     "@types/node": "^16.9.4",

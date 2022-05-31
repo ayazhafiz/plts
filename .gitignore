@@ -5,11 +5,11 @@ _build/
 **/*/js/*.map
 **/*/js/*.ml
 .yarn/*
-# !.yarn/patches
-# !.yarn/releases
-# !.yarn/plugins
-# !.yarn/sdks
-# !.yarn/versions
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
 .pnp.*
 www/.cache
 www/public

@@ -7990,7 +7990,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"events@npm:^3.2.0":
+"events@npm:^3.2.0, events@npm:^3.3.0":
   version: 3.3.0
   resolution: "events@npm:3.3.0"
   checksum: f6f487ad2198aa41d878fa31452f1a3c00958f46e9019286ff4787c84aac329332ab45c9cdc8c445928fc6d7ded294b9e005a7fce9426488518017831b272780
@@ -16953,6 +16953,7 @@ resolve@^2.0.0-next.3:
     "@types/styled-components": latest
     assert: ^2.0.0
     cor: "workspace:cor/js"
+    events: ^3.3.0
     ft: "workspace:ft/js"
     gatsby: latest
     gatsby-plugin-typescript: latest
@@ -16970,6 +16971,7 @@ resolve@^2.0.0-next.3:
     tiger: "workspace:tiger/js"
     typescript: latest
     www: ^0.0.0
+    zlib: ^1.0.5
   languageName: unknown
   linkType: soft
 
@@ -17163,5 +17165,12 @@ resolve@^2.0.0-next.3:
     read: ^1.0.7
     strip-ansi: ^5.2.0
   checksum: e1e60a859b21af5897501b3e12ff2c811b39f7b376e32ee8de0056bcfe7e64609c08dc265e33d7b6c20f81d07f987eb1be1dad8780473461a437828828995a79
+  languageName: node
+  linkType: hard
+
+"zlib@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "zlib@npm:1.0.5"
+  checksum: 5ef5693a1deb70f65845424f5ecce1ee956e50320aa438126759fd28ec8a25ae876acb3b179b4f5050427e7e0dfcd9e45bdae23f055b2d732bc2fe1dbe4da169
   languageName: node
   linkType: hard
