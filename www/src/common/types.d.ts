@@ -2,8 +2,7 @@ import type * as monaco from 'monaco-editor';
 import type * as React from 'react';
 
 export type Result = {
-    readonly result: string|null,
-    readonly error: string|null,
+    readonly result: string|null; readonly error: string | null;
 };
 
 export interface LanguageRegistration {
@@ -14,18 +13,27 @@ export interface LanguageRegistration {
         .DocumentFormattingEditProvider['provideDocumentFormattingEdits'];
     autoFormat?: {
         format: monaco.languages
-                  .OnTypeFormattingEditProvider['provideOnTypeFormattingEdits'],
-        triggerCharacters: monaco.languages.OnTypeFormattingEditProvider['autoFormatTriggerCharacters'],
-    }
+                  .OnTypeFormattingEditProvider['provideOnTypeFormattingEdits'];
+        triggerCharacters:
+            monaco.languages
+                .OnTypeFormattingEditProvider['autoFormatTriggerCharacters'];
+    };
 }
 
-export type BackendExecutor = (input: string, ...options: Array<boolean|number>) =>
+export type StringOptions = {
+    options: string[]; value: string;
+};
+
+export type Option = boolean|number|string;
+export type OptionSet = boolean|number|StringOptions;
+
+export type BackendExecutor = (input: string, ...options: Array<Option>) =>
     Promise<Result>;
 
 export interface Backend {
     title: string;
     do: BackendExecutor;
-    options: [string, boolean|number][];
+    options: [string, OptionSet][];
     info?: [string, React.ReactNode][];
     editorLanguage: string;
 }
