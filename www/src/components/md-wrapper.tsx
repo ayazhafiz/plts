@@ -3,14 +3,20 @@ import Helmet from "react-helmet";
 import Box from "@primer/components/lib/Box";
 import ThemeProvider from "@primer/components/lib/ThemeProvider";
 
-const MdWrapper: React.FC<{ title: string }> = (props) => (
+const MdWrapper: React.FC<{ children: React.ReactNode; title: string }> = ({
+  title,
+  children,
+}) => (
   <>
     <Helmet>
-      <title>{props.title}</title>
-      <link rel="stylesheet" href="https://unpkg.com/@primer/css/dist/primer.css" />
+      <title>{title}</title>
+      <link
+        rel="stylesheet"
+        href="https://unpkg.com/@primer/css/dist/primer.css"
+      />
     </Helmet>
     <ThemeProvider>
-      <Box className="markdown-body">{props.children}</Box>
+      <Box className="markdown-body">{children}</Box>
     </ThemeProvider>
   </>
 );

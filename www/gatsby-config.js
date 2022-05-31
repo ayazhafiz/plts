@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   pathPrefix: '/plts',
   flags: {
@@ -14,6 +16,14 @@ module.exports = {
         isTSX: true,
         jsxPragma: `jsx`,
         allExtensions: true,
+      },
+    },
+    {
+      resolve: 'gatsby-source-filesystem',
+      options: {
+        name: 'cor',
+        path: path.resolve(__dirname, '../cor/'),
+        ignore: ['**/dune', '**/dune-project', '**/*.!(roc)']
       },
     },
     // {

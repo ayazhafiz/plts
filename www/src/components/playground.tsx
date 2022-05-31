@@ -10,14 +10,18 @@ import Spinner from "@primer/components/lib/Spinner";
 import TextInput from "@primer/components/lib/TextInput";
 import styled from "styled-components";
 import { space, SpaceProps } from "styled-system";
-import type { Result, Backend, BackendKind, LanguageRegistration } from "../common/types";
+import type {
+  Result,
+  Backend,
+  BackendKind,
+  LanguageRegistration,
+  StringOptions,
+} from "../common/types";
 import MdWrapper from "./md-wrapper";
-
-const snd = <S, T>([_, s]: [S, T]) => s;
 
 const ml = 3;
 
-const PgColumn: React.FC<{}> = (props) => (
+const PgColumn: React.FC<{ children: React.ReactNode }> = (props) => (
   <Box
     display="flex"
     flex={1}
@@ -71,21 +75,33 @@ class Selector extends React.Component<SelectorProps, {}> {
 
 type Editor = monaco.editor.IStandaloneCodeEditor;
 
-const EditorHeading: React.FC<{}> = (props) => (
-  <Box display="flex" flexDirection="row" alignItems="center" position="relative">
-    {props.children}
+const EditorHeading: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <Box
+    display="flex"
+    flexDirection="row"
+    alignItems="center"
+    position="relative"
+  >
+    {children}
   </Box>
 );
 
-const PopoverButton: React.FC<{ heading: string; body: React.ReactNode }> = ({ heading, body }) => {
+const PopoverButton: React.FC<{ heading: string; body: React.ReactNode }> = ({
+  heading,
+  body,
+}) => {
   const { getDetailsProps } = useDetails({ closeOnOutsideClick: true });
 
   return (
     <Box position="relative">
-      <Details {...getDetailsProps()} ml={ml} mb="0px !important">
+      <Details {...getDetailsProps()} sx={{ ml: ml, mb: "0px !important" }}>
         <summary className="btn-link">{heading}</summary>
         <Popover open={true} caret="top-left">
-          <Popover.Content sx={{ mt: 2, pt: 3, pb: 0, width: "500px" }}>{body}</Popover.Content>
+          <Popover.Content sx={{ mt: 2, pt: 3, pb: 0, width: "500px" }}>
+            {body}
+          </Popover.Content>
         </Popover>
       </Details>
     </Box>
@@ -93,7 +109,9 @@ const PopoverButton: React.FC<{ heading: string; body: React.ReactNode }> = ({ h
 };
 
 type OnDidBackendChange = (subscriber: () => Promise<"done">) => void;
-type OnDidInputChange = (subscriber: (newInput: string) => Promise<"done">) => void;
+type OnDidInputChange = (
+  subscriber: (newInput: string) => Promise<"done">
+) => void;
 
 const InputColumn = ({
   source,
@@ -121,9 +139,14 @@ const InputColumn = ({
   };
   return (
     <PgColumn>
-      <Box display="flex" flexDirection="row" alignItems="center" justifyContent="space-between">
+      <Box
+        display="flex"
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+      >
         <EditorHeading>
-          <Heading as="h1" display="inline-block">
+          <Heading as="h1" sx={{ display: "inline-block" }}>
             Input
           </Heading>
           <Selector
@@ -142,7 +165,11 @@ const InputColumn = ({
             Source
           </Link>
         </EditorHeading>
-        <Selector options={backendOptions} defaultOption={defaultBackend} onChange={setBackend} />
+        <Selector
+          options={backendOptions}
+          defaultOption={defaultBackend}
+          onChange={setBackend}
+        />
       </Box>
       {children}
     </PgColumn>
@@ -159,13 +186,14 @@ interface BackendBlockProps {
   onDidBackendChange: OnDidBackendChange;
   onDidInputChange: OnDidInputChange;
   registerEditor: (setHide: SetHide) => void;
+  children?: React.ReactNode;
 }
 
 class BackendBlock extends React.Component<
   BackendBlockProps,
   {
     title: string | null;
-    options: [string, boolean | number][] | null;
+    options: [string, boolean | number | StringOptions][] | null;
     info: [string, React.ReactNode][];
     result: "loading" | Result | null;
     forceHide: boolean;
@@ -183,7 +211,8 @@ class BackendBlock extends React.Component<
   constructor(props: BackendBlockProps) {
     super(props);
 
-    const { getBackend, onDidBackendChange, onDidInputChange, registerEditor } = this.props;
+    const { getBackend, onDidBackendChange, onDidInputChange, registerEditor } =
+      this.props;
 
     registerEditor(this.setHide);
 
@@ -224,11 +253,16 @@ class BackendBlock extends React.Component<
       options: backend.options,
       info: backend.info ? backend.info : [],
     });
-    monaco.editor.setModelLanguage(getEditor().getModel()!, backend.editorLanguage);
+    monaco.editor.setModelLanguage(
+      getEditor().getModel()!,
+      backend.editorLanguage
+    );
     return this.updateOutput();
   };
 
-  updateOutput = async (input: string = this.lastKnownInput): Promise<"done"> => {
+  updateOutput = async (
+    input: string = this.lastKnownInput
+  ): Promise<"done"> => {
     this.lastKnownInput = input;
     const { getBackend, getEditor } = this.props;
     const backend = getBackend();
@@ -238,7 +272,14 @@ class BackendBlock extends React.Component<
     await this.setStateAsync({ result: "loading" });
     getEditor().setValue("");
 
-    const result = await backend.do(input, ...options.map(snd));
+    const optionValues = options.map(([_, v]) => {
+      if (typeof v === "object") {
+        return v.value;
+      }
+      return v;
+    });
+
+    const result = await backend.do(input, ...optionValues);
     if (result.result !== null) {
       getEditor().setValue(result.result);
       getEditor().trigger("playground", "editor.foldAllMarkerRegions", {});
@@ -247,13 +288,23 @@ class BackendBlock extends React.Component<
     return "done";
   };
 
-  setArg = async (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
-    const oldv = this.state.options![i][1];
-    if (typeof oldv === "boolean") {
-      this.state.options![i][1] = e.target.checked;
-    } else if (typeof oldv === "number") {
-      this.state.options![i][1] = parseInt(e.target.value) || 0;
+  setArg = async (e: { checked: boolean; value: string }, i: number) => {
+    let v = this.state.options![i][1];
+    switch (typeof v) {
+      case "boolean": {
+        v = e.checked;
+        break;
+      }
+      case "number": {
+        v = parseInt(e.value) || 0;
+        break;
+      }
+      case "object": {
+        v.value = e.value;
+        break;
+      }
     }
+    this.state.options![i][1] = v;
     await this.setStateAsync({ options: this.state.options });
     this.updateOutput();
   };
@@ -267,6 +318,63 @@ class BackendBlock extends React.Component<
     const error = hideError ? "" : result.error;
     const titleTxt = title ?? "";
     const optionsLst = options ?? [];
+    const createOptionsHtml = (
+      opt: string,
+      val: boolean | number | StringOptions,
+      i: number
+    ) => {
+      switch (typeof val) {
+        case "boolean": {
+          return (
+            <>
+              <input
+                id={opt}
+                type="checkbox"
+                checked={val}
+                onChange={(e) => this.setArg(e.target, i)}
+              />
+              <Label htmlFor={opt} ml={2}>
+                {opt}
+              </Label>
+            </>
+          );
+        }
+        case "number": {
+          return (
+            <>
+              <Label htmlFor={opt}>{opt}</Label>
+              <TextInput
+                sx={{ ml: 2, p: 0, px: 1 }}
+                id={opt}
+                type="number"
+                min={0}
+                max={120}
+                value={val}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  this.setArg(e.target, i)
+                }
+              />
+            </>
+          );
+        }
+        case "object": {
+          return (
+            <>
+              <Label htmlFor={opt}>{opt}</Label>
+              <Selector
+                options={val.options}
+                defaultOption={val.value}
+                onChange={(value: string) =>
+                  this.setArg({ checked: false, value }, i)
+                }
+              />
+            </>
+          );
+        }
+        default:
+          throw new Error(`unknown option type ${JSON.stringify(val)}`);
+      }
+    };
     return (
       <Box
         style={{ display: globalHide ? "none" : "flex" }}
@@ -274,37 +382,12 @@ class BackendBlock extends React.Component<
         flexDirection="column"
       >
         <EditorHeading>
-          <Heading as="h1" display="inline-block">
+          <Heading as="h1" sx={{ display: "inline-block" }}>
             {titleTxt}
           </Heading>
           {optionsLst.map(([opt, val], i) => (
             <Span key={i} ml={ml}>
-              {typeof val === "boolean" ? (
-                <>
-                  <input
-                    id={opt}
-                    type="checkbox"
-                    checked={val}
-                    onChange={(e) => this.setArg(e, i)}
-                  />
-                  <Label htmlFor={opt} ml={2}>
-                    {opt}
-                  </Label>
-                </>
-              ) : (
-                <>
-                  <Label htmlFor={opt}>{opt}</Label>
-                  <TextInput
-                    sx={{ ml: 2, p: 0, px: 1 }}
-                    id={opt}
-                    type="number"
-                    min={0}
-                    max={120}
-                    value={val}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => this.setArg(e, i)}
-                  />
-                </>
-              )}
+              {createOptionsHtml(opt, val, i)}
             </Span>
           ))}
           {info.map(([title, content], i) => (
@@ -318,7 +401,11 @@ class BackendBlock extends React.Component<
         </Box>
 
         {/* Result */}
-        <Box display={hideResult ? "none" : "flex"} flexDirection="column" flex="1">
+        <Box
+          display={hideResult ? "none" : "flex"}
+          flexDirection="column"
+          flex="1"
+        >
           {isLoading ? <Spinner size="medium" sx={{ ml }} /> : <></>}
           <Box display={isLoading ? "none" : "flex"} flex="1">
             {this.props.children}
@@ -367,7 +454,9 @@ class Playground<
 
   private backend = this.props.backends[this.props.defaultBackend];
   private readonly backendChangeSubscribers: Array<() => Promise<"done">> = [];
-  private readonly inputChangeSubscribers: Array<(input: string) => Promise<"done">> = [];
+  private readonly inputChangeSubscribers: Array<
+    (input: string) => Promise<"done">
+  > = [];
 
   private monaco!: typeof monaco;
 
@@ -377,7 +466,11 @@ class Playground<
 
   getMonaco = () => this.monaco;
 
-  registerEditor = (editorId: string, kind: "input" | "output", setHide?: SetHide) => {
+  registerEditor = (
+    editorId: string,
+    kind: "input" | "output",
+    setHide?: SetHide
+  ) => {
     this.editors[editorId] = {
       kind,
       editor: null!, // will get updated during componentDidMount
@@ -439,13 +532,16 @@ class Playground<
         ],
       });
 
-      for (const [lang, { syntax, hover, format, autoFormat }] of Object.entries(
-        this.props.languageRegistrations
-      )) {
+      for (const [
+        lang,
+        { syntax, hover, format, autoFormat },
+      ] of Object.entries(this.props.languageRegistrations)) {
         monaco.languages.register({ id: lang });
         monaco.languages.setMonarchTokensProvider(lang, syntax);
         if (hover) {
-          monaco.languages.registerHoverProvider(lang, { provideHover: hover(monaco) });
+          monaco.languages.registerHoverProvider(lang, {
+            provideHover: hover(monaco),
+          });
         }
         if (format) {
           monaco.languages.registerDocumentFormattingEditProvider(lang, {
@@ -465,11 +561,14 @@ class Playground<
           this.editors[editorId].kind === "output"
             ? { readOnly: true }
             : { language: this.props.language };
-        const editor = monaco.editor.create(document.getElementById(editorId)!, {
-          ...editorOpts,
-          theme: "pgtheme",
-          ...extraOpts,
-        });
+        const editor = monaco.editor.create(
+          document.getElementById(editorId)!,
+          {
+            ...editorOpts,
+            theme: "pgtheme",
+            ...extraOpts,
+          }
+        );
         this.editors[editorId].editor = editor;
 
         if (this.editors[editorId].kind === "input") {
@@ -490,7 +589,8 @@ class Playground<
       if (index < backends.length) return backends[index];
       return null;
     };
-    const getBackendEditorAt = (index: number) => this.getEditor(backendEditors[index]);
+    const getBackendEditorAt = (index: number) =>
+      this.getEditor(backendEditors[index]);
     const getInputEditor = () => this.getEditor(this.inputEditorId);
 
     this.registerEditor(this.inputEditorId, "input");

@@ -12,6 +12,6 @@
     "cor/js"
   ],
   "devDependencies": {
-    "typescript": "^4.4.3"
+    "typescript": "latest"
   }
 }
