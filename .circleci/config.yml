@@ -24,6 +24,7 @@ jobs:
       - run:
           name: Build site
           command: |
+            git submodule sync && git submodule update --init
             eval $(opam env)
             source env.sh
             dune build
