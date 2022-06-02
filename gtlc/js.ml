@@ -2,9 +2,7 @@ open Gtlc
 open Js_of_ocaml
 
 let ( |>= ) = Option.bind
-
 let ( >>= ) = Result.bind
-
 let ( >+ ) v f = Result.map f v
 
 let to_infer program =
@@ -20,37 +18,31 @@ let n num = Js.float_of_number num |> int_of_float
 let ok s =
   object%js
     val result = Js.(some @@ string s)
-
     val error = Js.null
   end
 
 let err s =
   object%js
     val result = Js.null
-
     val error = Js.(some @@ string s)
   end
 
 let make_builtin ({ name; ty; doc } : builtin) =
   object%js
     val name = Js.string name
-
     val ty = Js.string ty
-
     val doc = Js.string doc
   end
 
 let js_pos (line, col) =
   object%js
     val line = Js.number_of_float (float_of_int line)
-
     val col = Js.number_of_float (float_of_int col)
   end
 
 let js_range { start_pos; end_pos } =
   object%js
     val startPos = js_pos start_pos
-
     val endPos = js_pos end_pos
   end
 

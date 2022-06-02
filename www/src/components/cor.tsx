@@ -1,3 +1,4 @@
+import type * as monaco from "monaco-editor";
 import * as React from "react";
 import Playground from "./playground";
 import type {
@@ -30,6 +31,25 @@ function getBackends(
   return backends;
 }
 
+function createHover(lang: string): LanguageRegistration["hover"] {
+  return (m: typeof monaco) =>
+    (model: monaco.editor.ITextModel, pos: monaco.Position) => {
+      const program = model.getValue();
+      const hover = cor.hover(program, lang, pos.lineNumber, pos.column);
+      if (hover === null) return null;
+      const {
+        info,
+        range: { start, fin },
+      } = hover;
+      return {
+        range: new m.Range(start.line, start.col, fin.line, fin.col),
+        contents: info.map((value) => {
+          return { value };
+        }),
+      };
+    };
+}
+
 const CorPlayground: React.FC<{
   experiment: string;
   defaultPhase: string;
@@ -41,6 +61,10 @@ const CorPlayground: React.FC<{
   defaultEmit,
   languageRegistrations = {},
 }) => {
+  if (languageRegistrations[experiment]) {
+    languageRegistrations[experiment].hover = createHover(experiment);
+  }
+
   const allExamples = useStaticQuery(graphql`
     {
       allFile(filter: { extension: { eq: "roc" } }) {
