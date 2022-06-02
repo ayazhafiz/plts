@@ -36,7 +36,6 @@ function createHover(lang: string): LanguageRegistration["hover"] {
     (model: monaco.editor.ITextModel, pos: monaco.Position) => {
       const program = model.getValue();
       const hover = cor.hover(program, lang, pos.lineNumber, pos.column);
-      if (hover === null) return null;
       const {
         info,
         range: { start, fin },
