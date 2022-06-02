@@ -1,6 +1,10 @@
 import * as React from "react";
 import Playground from "./playground";
-import type { Backend, StringOptions } from "../common/types";
+import type {
+  Backend,
+  LanguageRegistration,
+  StringOptions,
+} from "../common/types";
 import { shapeBackend } from "../common/util";
 import * as cor from "cor";
 import { useStaticQuery, graphql } from "gatsby";
@@ -18,7 +22,7 @@ function getBackends(
     ];
     let backend: Backend = {
       title: phase,
-      editorLanguage: "text",
+      editorLanguage: lang,
       ...shapeBackend(doit, options),
     };
     backends[phase] = [backend];
@@ -30,7 +34,13 @@ const CorPlayground: React.FC<{
   experiment: string;
   defaultPhase: string;
   defaultEmit: string;
-}> = ({ experiment, defaultPhase, defaultEmit }) => {
+  languageRegistrations?: Record<string, LanguageRegistration>;
+}> = ({
+  experiment,
+  defaultPhase,
+  defaultEmit,
+  languageRegistrations = {},
+}) => {
   const allExamples = useStaticQuery(graphql`
     {
       allFile(filter: { extension: { eq: "roc" } }) {
@@ -61,10 +71,10 @@ const CorPlayground: React.FC<{
   return (
     <Playground
       title={`cor/${experiment} Playground`}
-      language={`cor/${experiment}`}
+      language={experiment}
       source={`https://github.com/ayazhafiz/cor/tree/base/experiments/${experiment}`}
       grammar={`https://github.com/ayazhafiz/cor/blob/base/experiments/${experiment}/parser.mly`}
-      languageRegistrations={{}}
+      languageRegistrations={languageRegistrations}
       backends={getBackends(experiment, defaultEmit)}
       defaultBackend={defaultPhase}
       examples={examples}
