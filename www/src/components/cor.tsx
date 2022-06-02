@@ -63,7 +63,7 @@ const CorPlayground: React.FC<{
       title={`cor/${experiment} Playground`}
       language={`cor/${experiment}`}
       source={`https://github.com/ayazhafiz/cor/tree/base/experiments/${experiment}`}
-      grammar={`https://github.com/ayazhafiz/cor/blob/base/experiments/{experiment}/parser.mly`}
+      grammar={`https://github.com/ayazhafiz/cor/blob/base/experiments/${experiment}/parser.mly`}
       languageRegistrations={{}}
       backends={getBackends(experiment, defaultEmit)}
       defaultBackend={defaultPhase}
