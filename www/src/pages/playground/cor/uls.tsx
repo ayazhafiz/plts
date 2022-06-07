@@ -9,7 +9,7 @@ const ulsSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   keywords: ["entry", "let", "in", "choice", "\\"],
-  symbols: /[_<>\\?\->.:=!;\[\]+]|(->)/,
+  symbols: /[_\{\}\|<>\\?\->.:=!;\[\]+]|(->)/,
   lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
@@ -54,12 +54,14 @@ const ulsSyntax: monaco.languages.IMonarchLanguage = {
     type: [
       [/\(\)$/, "keyword.type", "@popall"],
       [/\(\)/, "keyword.type"],
-      [/->/, "operator"],
+      [/->|[\+,]/, "operator"],
       [/-\[/, "type"],
+      [/\]->$/, "type", "@popall"],
       [/\]->/, "type"],
-      [/(`\d+)/, ["tag"]],
+      [/([`?]\d+)$/, "tag", "@popall"],
+      [/([`?]\d+)/, "tag"],
       [
-        /(~\d+)(:)([a-z]+)(:)([a-z][a-zA-Z0-9]*)/,
+        /(~\d+)(:)([a-z]+|\?\d+)(:)([a-z][a-zA-Z0-9]*)/,
         ["tag", "operator", "type", "operator", "identifier"],
       ],
       [/[a-zA-Z][a-zA-Z0-9_']*$/, "type", "@popall"],
