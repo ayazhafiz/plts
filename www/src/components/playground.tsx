@@ -10,12 +10,14 @@ import Spinner from "@primer/components/lib/Spinner";
 import TextInput from "@primer/components/lib/TextInput";
 import styled from "styled-components";
 import { space, SpaceProps } from "styled-system";
+import * as lz from "lz-string";
 import type {
   Result,
   Backend,
   BackendKind,
   LanguageRegistration,
   StringOptions,
+  BackendOptions,
 } from "../common/types";
 import MdWrapper from "./md-wrapper";
 
@@ -179,6 +181,7 @@ const InputColumn = ({
 type SetHide = (hide: boolean) => Promise<void>;
 
 interface BackendBlockProps {
+  identity: number;
   prio: number;
   getMonaco: () => typeof monaco;
   getBackend: () => Backend | null;
@@ -193,7 +196,7 @@ class BackendBlock extends React.Component<
   BackendBlockProps,
   {
     title: string | null;
-    options: [string, boolean | number | StringOptions][] | null;
+    options: BackendOptions | null;
     info: [string, React.ReactNode][];
     result: "loading" | Result | null;
     forceHide: boolean;
@@ -288,7 +291,7 @@ class BackendBlock extends React.Component<
     return "done";
   };
 
-  setArg = async (e: { checked: boolean; value: string }, i: number) => {
+  setOption = async (e: { checked: boolean; value: string }, i: number) => {
     let v = this.state.options![i][1];
     switch (typeof v) {
       case "boolean": {
@@ -306,6 +309,7 @@ class BackendBlock extends React.Component<
     }
     this.state.options![i][1] = v;
     await this.setStateAsync({ options: this.state.options });
+    writePersistentBackendOption(this.props.identity, this.state.options!);
     this.updateOutput();
   };
 
@@ -331,7 +335,7 @@ class BackendBlock extends React.Component<
                 id={opt}
                 type="checkbox"
                 checked={val}
-                onChange={(e) => this.setArg(e.target, i)}
+                onChange={(e) => this.setOption(e.target, i)}
               />
               <Label htmlFor={opt} ml={2}>
                 {opt}
@@ -351,7 +355,7 @@ class BackendBlock extends React.Component<
                 max={120}
                 value={val}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  this.setArg(e.target, i)
+                  this.setOption(e.target, i)
                 }
               />
             </>
@@ -365,7 +369,7 @@ class BackendBlock extends React.Component<
                 options={val.options}
                 defaultOption={val.value}
                 onChange={(value: string) =>
-                  this.setArg({ checked: false, value }, i)
+                  this.setOption({ checked: false, value }, i)
                 }
               />
             </>
@@ -442,6 +446,72 @@ interface PlaygroundProps<
   defaultExample: keyof Examples & string;
 }
 
+interface PersistentState {
+  input: string;
+  backend: string;
+  options: BackendOptions[] | null;
+}
+
+let persistentState: PersistentState;
+
+function writePersistentBackendOption(
+  backendIdentity: number,
+  options: BackendOptions
+) {
+  persistentState.options![backendIdentity] = options;
+  commitPersistentState();
+}
+
+function writePersistentState<K extends keyof PersistentState>(
+  key: K,
+  value: PersistentState[K]
+) {
+  persistentState[key] = value;
+  commitPersistentState();
+}
+
+function commitPersistentState() {
+  const queryParams = new URLSearchParams(window.location.search);
+  queryParams.set(
+    "input",
+    lz.compressToEncodedURIComponent(persistentState.input)
+  );
+  queryParams.set("backend", persistentState.backend);
+  if (persistentState.options !== null) {
+    queryParams.set(
+      "options",
+      lz.compressToEncodedURIComponent(JSON.stringify(persistentState.options))
+    );
+  }
+  const curUrl = `${window.location.pathname}?${queryParams}`;
+  history.replaceState(null, "", curUrl);
+}
+
+function loadPersistentState({
+  defaultInput,
+  defaultBackend,
+}: {
+  defaultInput: string;
+  defaultBackend: string;
+}) {
+  const queryParams = new URLSearchParams(window.location.search);
+  const input = queryParams.get("input")
+    ? lz.decompressFromEncodedURIComponent(queryParams.get("input")!)!
+    : defaultInput;
+  console.log(defaultBackend);
+  const backend = queryParams.get("backend") ?? defaultBackend;
+  const options = queryParams.get("options")
+    ? JSON.parse(
+        lz.decompressFromEncodedURIComponent(queryParams.get("options")!)!
+      )
+    : null;
+  persistentState = {
+    input,
+    backend,
+    options,
+  };
+}
+
 class Playground<
   Backends extends Record<string, BackendKind>,
   Examples extends Record<string, string>
@@ -452,7 +522,7 @@ class Playground<
   > = {};
   private inputEditorId: string = "input-editor";
 
-  private backend = this.props.backends[this.props.defaultBackend];
+  private backend: BackendKind;
   private readonly backendChangeSubscribers: Array<() => Promise<"done">> = [];
   private readonly inputChangeSubscribers: Array<
     (input: string) => Promise<"done">
@@ -462,6 +532,22 @@ class Playground<
 
   constructor(props: PlaygroundProps<Backends, Examples>) {
     super(props);
+
+    loadPersistentState({
+      defaultInput: props.examples[props.defaultExample],
+      defaultBackend: this.props.defaultBackend,
+    });
+
+    this.backend = props.backends[persistentState.backend];
+    if (persistentState.options !== null) {
+      for (let i = 0; i < this.backend.length; ++i) {
+        this.backend[i].options = persistentState.options[i];
+      }
+    }
+    writePersistentState(
+      "options",
+      this.backend.map((back) => back.options)
+    );
   }
 
   getMonaco = () => this.monaco;
@@ -485,12 +571,14 @@ class Playground<
   getBackend = () => this.backend;
 
   setBackend = (newBackend: keyof Backends & string) => {
+    writePersistentState("backend", newBackend);
     this.backend = this.props.backends[newBackend];
     this.backendChange();
   };
 
   inputChange = () => {
     const newInput = this.getEditor(this.inputEditorId).getValue();
+    writePersistentState("input", newInput);
     return Promise.all(this.inputChangeSubscribers.map((s) => s(newInput)));
   };
 
@@ -572,7 +660,7 @@ class Playground<
         this.editors[editorId].editor = editor;
 
         if (this.editors[editorId].kind === "input") {
-          editor.setValue(this.props.examples[this.props.defaultExample]);
+          editor.setValue(persistentState.input);
           editor.onDidChangeModelContent(this.inputChange);
         }
       }
@@ -616,6 +704,7 @@ class Playground<
             {[0, 1].map((i) => (
               <BackendBlock
                 key={i}
+                identity={i}
                 prio={[2, 1][i]}
                 getMonaco={this.getMonaco}
                 getBackend={() => getBackendAt(i)}

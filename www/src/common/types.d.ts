@@ -30,10 +30,12 @@ export type OptionSet = boolean|number|StringOptions;
 export type BackendExecutor = (input: string, ...options: Array<Option>) =>
     Promise<Result>;
 
+export type BackendOptions = [string, OptionSet][];
+
 export interface Backend {
     title: string;
     do: BackendExecutor;
-    options: [string, OptionSet][];
+    options: BackendOptions;
     info?: [string, React.ReactNode][];
     editorLanguage: string;
 }
