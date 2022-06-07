@@ -470,21 +470,31 @@ function writePersistentState<K extends keyof PersistentState>(
   commitPersistentState();
 }
 
-function commitPersistentState() {
-  const queryParams = new URLSearchParams(window.location.search);
-  queryParams.set(
-    "input",
-    lz.compressToEncodedURIComponent(persistentState.input)
-  );
-  queryParams.set("backend", persistentState.backend);
-  if (persistentState.options !== null) {
-    queryParams.set(
-      "options",
-      lz.compressToEncodedURIComponent(JSON.stringify(persistentState.options))
-    );
+function withWindow(f: (window: Window) => void) {
+  if (typeof window !== undefined) {
+    f(window);
   }
-  const curUrl = `${window.location.pathname}?${queryParams}`;
-  history.replaceState(null, "", curUrl);
+}
+
+function commitPersistentState() {
+  withWindow((window: Window) => {
+    const queryParams = new URLSearchParams(window.location.search);
+    queryParams.set(
+      "input",
+      lz.compressToEncodedURIComponent(persistentState.input)
+    );
+    queryParams.set("backend", persistentState.backend);
+    if (persistentState.options !== null) {
+      queryParams.set(
+        "options",
+        lz.compressToEncodedURIComponent(
+          JSON.stringify(persistentState.options)
+        )
+      );
+    }
+    const curUrl = `${window.location.pathname}?${queryParams}`;
+    history.replaceState(null, "", curUrl);
+  });
 }
 
 function loadPersistentState({
@@ -494,22 +504,24 @@ function loadPersistentState({
   defaultInput: string;
   defaultBackend: string;
 }) {
-  const queryParams = new URLSearchParams(window.location.search);
-  const input = queryParams.get("input")
-    ? lz.decompressFromEncodedURIComponent(queryParams.get("input")!)!
-    : defaultInput;
-  console.log(defaultBackend);
-  const backend = queryParams.get("backend") ?? defaultBackend;
-  const options = queryParams.get("options")
-    ? JSON.parse(
-        lz.decompressFromEncodedURIComponent(queryParams.get("options")!)!
-      )
-    : null;
-  persistentState = {
-    input,
-    backend,
-    options,
-  };
+  withWindow((window: Window) => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const input = queryParams.get("input")
+      ? lz.decompressFromEncodedURIComponent(queryParams.get("input")!)!
+      : defaultInput;
+    console.log(defaultBackend);
+    const backend = queryParams.get("backend") ?? defaultBackend;
+    const options = queryParams.get("options")
+      ? JSON.parse(
+          lz.decompressFromEncodedURIComponent(queryParams.get("options")!)!
+        )
+      : null;
+    persistentState = {
+      input,
+      backend,
+      options,
+    };
+  });
 }
 
 class Playground<
