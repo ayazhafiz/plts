@@ -42,19 +42,28 @@ const Label = styled.label<SpaceProps>(space);
 const Select = styled.select<SpaceProps>(space);
 const Span = styled.span<SpaceProps>(space);
 
+type ForceSetValue = (forceSet: (option: string) => Promise<void>) => void;
+
 interface SelectorProps {
   options: string[];
   defaultOption: string;
   onChange: (option: string) => void;
+  forceSetValue: ForceSetValue;
 }
 
-class Selector extends React.Component<SelectorProps, {}> {
+class Selector extends React.Component<SelectorProps, { value: string }> {
   constructor(props: SelectorProps) {
     super(props);
+    this.state = { value: props.defaultOption };
+    props.forceSetValue((option) => {
+      this.setState({ value: option });
+      return Promise.resolve();
+    });
   }
 
   onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     this.props.onChange(e.target.value);
+    this.setState({ value: e.target.value });
   };
 
   override render() {
@@ -62,7 +71,7 @@ class Selector extends React.Component<SelectorProps, {}> {
       <Select
         ml={ml}
         onChange={this.onChange}
-        defaultValue={this.props.defaultOption}
+        value={this.state.value}
         className="form-select"
       >
         {this.props.options.map((o) => (
@@ -123,6 +132,7 @@ const InputColumn = ({
   backendOptions,
   defaultBackend,
   setBackend,
+  forceSetBackend,
   getEditor,
   children,
 }: {
@@ -133,6 +143,7 @@ const InputColumn = ({
   backendOptions: string[];
   defaultBackend: string;
   setBackend: (newBackend: string) => void;
+  forceSetBackend: ForceSetValue;
   getEditor: () => Editor;
   children: React.ReactNode;
 }) => {
@@ -155,6 +166,7 @@ const InputColumn = ({
             options={Object.keys(examples)}
             defaultOption={defaultExample}
             onChange={setExample}
+            forceSetValue={(_it: any) => {}}
           />
           {typeof grammar === "string" ? (
             <Link sx={{ ml }} href={grammar}>
@@ -171,6 +183,7 @@ const InputColumn = ({
           options={backendOptions}
           defaultOption={defaultBackend}
           onChange={setBackend}
+          forceSetValue={forceSetBackend}
         />
       </Box>
       {children}
@@ -371,6 +384,7 @@ class BackendBlock extends React.Component<
                 onChange={(value: string) =>
                   this.setOption({ checked: false, value }, i)
                 }
+                forceSetValue={(_it) => {}}
               />
             </>
           );
@@ -534,32 +548,18 @@ class Playground<
   > = {};
   private inputEditorId: string = "input-editor";
 
-  private backend: BackendKind;
+  private backend: BackendKind = this.props.backends[this.props.defaultBackend];
   private readonly backendChangeSubscribers: Array<() => Promise<"done">> = [];
   private readonly inputChangeSubscribers: Array<
     (input: string) => Promise<"done">
   > = [];
 
+  private forceSetBackend!: (option: string) => Promise<void>;
+
   private monaco!: typeof monaco;
 
   constructor(props: PlaygroundProps<Backends, Examples>) {
     super(props);
-
-    loadPersistentState({
-      defaultInput: props.examples[props.defaultExample],
-      defaultBackend: this.props.defaultBackend,
-    });
-
-    this.backend = props.backends[persistentState.backend];
-    if (persistentState.options !== null) {
-      for (let i = 0; i < this.backend.length; ++i) {
-        this.backend[i].options = persistentState.options[i];
-      }
-    }
-    writePersistentState(
-      "options",
-      this.backend.map((back) => back.options)
-    );
   }
 
   getMonaco = () => this.monaco;
@@ -582,10 +582,10 @@ class Playground<
 
   getBackend = () => this.backend;
 
-  setBackend = (newBackend: keyof Backends & string) => {
+  setBackend = async (newBackend: keyof Backends & string) => {
     writePersistentState("backend", newBackend);
     this.backend = this.props.backends[newBackend];
-    this.backendChange();
+    return this.backendChange();
   };
 
   inputChange = () => {
@@ -656,6 +656,11 @@ class Playground<
         }
       }
 
+      loadPersistentState({
+        defaultInput: this.props.examples[this.props.defaultExample],
+        defaultBackend: this.props.defaultBackend,
+      });
+
       for (const editorId of Object.keys(this.editors)) {
         const extraOpts: monaco.editor.IStandaloneEditorConstructionOptions =
           this.editors[editorId].kind === "output"
@@ -676,6 +681,20 @@ class Playground<
           editor.onDidChangeModelContent(this.inputChange);
         }
       }
+
+      this.backend = this.props.backends[persistentState.backend];
+      if (persistentState.options !== null) {
+        for (let i = 0; i < this.backend.length; ++i) {
+          this.backend[i].options = persistentState.options[i];
+        }
+      }
+      await this.forceSetBackend(persistentState.backend);
+      // await this.setBackend(persistentState.backend);
+
+      writePersistentState(
+        "options",
+        this.backend.map((back) => back.options)
+      );
 
       await this.backendChange();
       await this.inputChange();
@@ -705,6 +724,9 @@ class Playground<
             defaultExample={this.props.defaultExample}
             backendOptions={Object.keys(this.props.backends)}
             defaultBackend={this.props.defaultBackend}
+            forceSetBackend={(setIt) => {
+              this.forceSetBackend = setIt;
+            }}
             setBackend={this.setBackend}
             getEditor={getInputEditor}
           >
