@@ -13,6 +13,7 @@ jobs:
   publish_site:
     docker:
       - image: ayazhafiz/skittles
+    resource_class: large
     steps:
       - checkout
       - restore_cache:
