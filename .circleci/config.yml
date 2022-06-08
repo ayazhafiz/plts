@@ -32,8 +32,8 @@ jobs:
             cp -R public /tmp/out && cd ..
           no_output_timeout: 20m
           environment:
-            GATSBY_CPU_COUNT: 2
-            NODE_OPTIONS: "--max_old_space_size=8192"
+            GATSBY_CPU_COUNT: logical_cores
+            NODE_OPTIONS: "--max_old_space_size=12288"
       - save_cache:
           key: gatsby-cache-{{epoch}}
           paths:
