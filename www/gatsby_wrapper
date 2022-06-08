@@ -1,5 +1,7 @@
 #!/bin/bash
 
-export GATSBY_GIT_PORCELAIN="$(test -z "$(git status --porcelain)")"
+if [ -z "$(git status --porcelain)" ]; then
+  export GATSBY_GIT_PORCELAIN="1"
+fi
 export GATSBY_GIT_SHA="$(git log --pretty=format:'%h' -n 1)"
 yarn gatsby $@
