@@ -26,8 +26,13 @@ module.exports = {
         ignore: ['**/dune', '**/dune-project', '**/*.!(roc)']
       },
     },
-    // {
-    //   resolve: 'gatsby-plugin-typescript-checker',
-    // },
+    {
+      resolve: `gatsby-plugin-mdx`,
+      options: {
+        defaultLayouts: {
+          default: require.resolve('./src/components/md-wrapper.tsx'),
+        }
+      }
+    },
   ],
 };

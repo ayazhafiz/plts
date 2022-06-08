@@ -22,6 +22,7 @@ import type {
   BackendOptions,
 } from "../common/types";
 import MdWrapper from "./md-wrapper";
+import Revision from "./revision";
 
 const ml = 3;
 
@@ -413,6 +414,13 @@ class BackendBlock extends React.Component<
           {info.map(([title, content], i) => (
             <PopoverButton key={i} heading={title} body={content} />
           ))}
+          {this.props.identity === 0 ? (
+            <Span marginLeft={"auto"} marginRight={1}>
+              <Revision />
+            </Span>
+          ) : (
+            <></>
+          )}
         </EditorHeading>
 
         {/* Error */}
@@ -716,7 +724,7 @@ class Playground<
     this.registerEditor(this.inputEditorId, "input");
 
     return (
-      <MdWrapper title={this.props.title}>
+      <MdWrapper title={this.props.title} margin={[0, 0, 0]}>
         <Box display="grid" gridTemplateColumns="1fr 1fr" gridGap={0}>
           <InputColumn
             source={this.props.source}
