@@ -1,7 +1,8 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import MdWrapper from "../components/md-wrapper";
-import Box from "@primer/components/lib/Box";
+import { Box } from "@primer/react";
+import Revision from "../components/revision";
 
 const Index: React.FC<{}> = () => {
   const [content, setContent] = React.useState("");

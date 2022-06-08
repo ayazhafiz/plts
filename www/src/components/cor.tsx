@@ -81,6 +81,7 @@ const CorPlayground: React.FC<{
       const exampleName = file.relativePath.split("/").at(-1).split(".roc")[0];
       const [content, setContent] = React.useState("");
       const base = process.env["HOST"];
+      console.log("getting", base, file.publicURL);
       fetch(new URL(file.publicURL, base))
         .then((r) => r.text())
         .then((s) => {

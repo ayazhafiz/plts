@@ -1915,7 +1915,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.16.3, @babel/runtime@npm:^7.18.0":
+"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.16.3, @babel/runtime@npm:^7.18.0, @babel/runtime@npm:^7.7.6":
   version: 7.18.3
   resolution: "@babel/runtime@npm:7.18.3"
   dependencies:
@@ -3675,18 +3675,41 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@primer/components@npm:latest":
-  version: 33.1.0
-  resolution: "@primer/components@npm:33.1.0"
+"@primer/behaviors@npm:1.1.1":
+  version: 1.1.1
+  resolution: "@primer/behaviors@npm:1.1.1"
+  checksum: ad940c2a2bc4a15f38a84a59efe8c301ad5cea2aa2f1238bbaf2111cc5f56ff7aa4f501cd68de4b321ef5d0601bd194f1e8dd9116a4068fdf766af6e09f4d093
+  languageName: node
+  linkType: hard
+
+"@primer/octicons-react@npm:16.1.1":
+  version: 16.1.1
+  resolution: "@primer/octicons-react@npm:16.1.1"
+  peerDependencies:
+    react: ">=15"
+  checksum: b4701f914fcec092e61750da7536f6f1120ac6c0da33e54453da6403d715edcd3ce6d095b2e896060beecd4e4fe164418300e5ab4b64607c497a17d7320eabf3
+  languageName: node
+  linkType: hard
+
+"@primer/primitives@npm:7.6.0":
+  version: 7.6.0
+  resolution: "@primer/primitives@npm:7.6.0"
+  checksum: c382ef23dce861704069c93dc6f0c3510efcc6d181b27a91bb764bd7a2049871ac58e6bc92a8d7fea13c2b3f2fc8393680860dd7d88180ba68fd6f94a61aa35f
+  languageName: node
+  linkType: hard
+
+"@primer/react@npm:latest":
+  version: 35.2.2
+  resolution: "@primer/react@npm:35.2.2"
   dependencies:
-    "@primer/octicons-react": ^16.1.0
-    "@primer/primitives": 7.1.1
+    "@primer/behaviors": 1.1.1
+    "@primer/octicons-react": 16.1.1
+    "@primer/primitives": 7.6.0
     "@radix-ui/react-polymorphic": 0.0.14
     "@react-aria/ssr": 3.1.0
     "@styled-system/css": 5.1.5
     "@styled-system/props": 5.1.5
     "@styled-system/theme-get": 5.1.2
-    "@types/history": 4.7.8
     "@types/styled-components": 5.1.11
     "@types/styled-system": 5.1.12
     "@types/styled-system__css": 5.0.16
@@ -3695,28 +3718,13 @@ __metadata:
     color2k: 1.2.4
     deepmerge: 4.2.2
     focus-visible: 5.2.0
+    history: 5.0.0
     styled-system: 5.1.5
   peerDependencies:
     react: ^17.0.0
     react-dom: ^17.0.0
     styled-components: 4.x || 5.x
-  checksum: 1b2a38a65e727de180422dd84263564da824db4bedb050e4fb61ffdce4116f3272c87455ad624bf110633609db3409a2f113515e8cb886f659025741b9ee808d
-  languageName: node
-  linkType: hard
-
-"@primer/octicons-react@npm:^16.1.0":
-  version: 16.3.1
-  resolution: "@primer/octicons-react@npm:16.3.1"
-  peerDependencies:
-    react: ">=15"
-  checksum: 10edb001d1f5d6d5be584eef3d00970c87c434d706ced54037974ac5bef0e177be498558032e3b168e341137e9cfe1f4796c29dd4a0e72c91fb389e392f27e38
-  languageName: node
-  linkType: hard
-
-"@primer/primitives@npm:7.1.1":
-  version: 7.1.1
-  resolution: "@primer/primitives@npm:7.1.1"
-  checksum: 9aaebcc3900357715e35404731d2ceb723b9072e2966bacda0b498a86e7c2df2a95c630f3769bf32e0778ab9a3fe7c1cfbe7641656f13c8c5a463b3c3f9b8f1e
+  checksum: 651a2c14eb7e6199540abe137398ebc27ddf225f6626068fd16ac9c04f2615a943b8ea92f19e5fbe8ad1f60d61d6b221ff3e5fc85e7fa5895d23121eb77f1824
   languageName: node
   linkType: hard
 
@@ -4137,13 +4145,6 @@ __metadata:
   dependencies:
     "@types/unist": "*"
   checksum: fff47998f4c11e21a7454b58673f70478740ecdafd95aaf50b70a3daa7da9cdc57315545bf9c039613732c40b7b0e9e49d11d03fe9a4304721cdc3b29a88141e
-  languageName: node
-  linkType: hard
-
-"@types/history@npm:4.7.8":
-  version: 4.7.8
-  resolution: "@types/history@npm:4.7.8"
-  checksum: 9c867532afd80f72a7101a5bb3c10c1ad7cc8c2c14e92fdbc54d5fed0ef8cdb6060c0f261a39884e243424636c6ff85d8aaffb984e2edaac348d2f216f9eedeb
   languageName: node
   linkType: hard
 
@@ -9648,6 +9649,15 @@ fsevents@~2.3.2:
     capital-case: ^1.0.4
     tslib: ^2.0.3
   checksum: 571c83eeb25e8130d172218712f807c0b96d62b020981400bccc1503a7cf14b09b8b10498a962d2739eccf231d950e3848ba7d420b58a6acd2f9283439546cd9
+  languageName: node
+  linkType: hard
+
+"history@npm:5.0.0":
+  version: 5.0.0
+  resolution: "history@npm:5.0.0"
+  dependencies:
+    "@babel/runtime": ^7.7.6
+  checksum: 14eab13619b4d297eeda0ae7adcf2dd8e6cec48fc9fac903b8dfb626337f8f6fc12743c286be819885c71f522daf0e9e7f814aa126ae5e1b01ab4a3d6801b5f5
   languageName: node
   linkType: hard
 
@@ -16961,7 +16971,7 @@ resolve@^2.0.0-next.3:
   version: 0.0.0-use.local
   resolution: "www@workspace:www"
   dependencies:
-    "@primer/components": latest
+    "@primer/react": latest
     "@types/lz-string": ^1.3.34
     "@types/node": ^16.9.4
     "@types/react": 17.0.2

@@ -1,13 +1,15 @@
 import * as React from "react";
 import type * as monaco from "monaco-editor";
-import Box from "@primer/components/lib/Box";
-import Heading from "@primer/components/lib/Heading";
-import Details from "@primer/components/lib/Details";
-import useDetails from "@primer/components/lib/hooks/useDetails";
-import Popover from "@primer/components/lib/Popover";
-import Link from "@primer/components/lib/Link";
-import Spinner from "@primer/components/lib/Spinner";
-import TextInput from "@primer/components/lib/TextInput";
+import {
+  Box,
+  Heading,
+  Details,
+  useDetails,
+  Popover,
+  Link,
+  Spinner,
+  TextInput,
+} from "@primer/react";
 import styled from "styled-components";
 import { space, SpaceProps } from "styled-system";
 import * as lz from "lz-string";
@@ -689,7 +691,6 @@ class Playground<
         }
       }
       await this.forceSetBackend(persistentState.backend);
-      // await this.setBackend(persistentState.backend);
 
       writePersistentState(
         "options",

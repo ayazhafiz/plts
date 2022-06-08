@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  pathPrefix: '/plts',
+  pathPrefix: process.env.NODE_ENV === 'production' ? '/plts' : '',
   flags: {
     DEV_SSR: false,
   },

@@ -10,7 +10,7 @@
     "clean": "gatsby clean"
   },
   "dependencies": {
-    "@primer/components": "latest",
+    "@primer/react": "latest",
     "@types/lz-string": "^1.3.34",
     "assert": "^2.0.0",
     "cor": "workspace:cor/js",

@@ -1,7 +1,6 @@
 import * as React from "react";
 import Helmet from "react-helmet";
-import Box from "@primer/components/lib/Box";
-import ThemeProvider from "@primer/components/lib/ThemeProvider";
+import { Box, ThemeProvider } from "@primer/react";
 
 const MdWrapper: React.FC<{ children: React.ReactNode; title: string }> = ({
   title,
