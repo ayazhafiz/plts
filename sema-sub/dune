@@ -1,0 +1,40 @@
+(menhir
+  (flags --explain --fixed-exception --no-dollars)
+  (modules parser))
+
+(library
+ (name sema_sub)
+ (modules sema_sub
+          syntax lexer parser
+          type_atom type bdd syntax
+          )
+ (libraries str sedlex menhirLib)
+ (inline_tests)
+ (js_of_ocaml)
+ (preprocess (pps ppx_inline_test ppx_expect sedlex.ppx)))
+
+; (test
+;  (name test)
+;  (modules Test)
+;  (modes byte exe)
+;  (libraries gtlc alcotest))
+
+; (executable
+;   (name js)
+;   (modules js)
+;   (libraries gtlc)
+;   (modes byte)
+;   (preprocess (pps js_of_ocaml-ppx)))
+
+; (rule
+;   (mode (promote (into js)))
+;   (targets gtlc.js gtlc.d.ts)
+;   (deps (glob_files prim.js))
+;   (action
+;     (progn
+;       (run %{bin:js_of_ocaml}
+;            prim.js
+;            %{dep:js.bc}
+;            -o gtlc.js)
+;       (with-outputs-to gtlc.d.ts
+;                        (bash "%{bin:dts_of_ocaml} $(find . -name '*Js.cmt')")))))
