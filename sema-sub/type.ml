@@ -17,8 +17,7 @@ let union_base b1 b2 =
   (* ¬{t1} ∨ ¬{t2} = ¬{t1 ∧ t2} (DeMorgan) *)
   | (Neg, b1), (Neg, b2) -> (Neg, inter b1 b2)
   (* ¬{t1} ∨ {t2} = ¬{t1 \ t2} *)
-  | (Pos, b1), (Neg, b2) -> (Neg, diff b2 b1)
-  | (Neg, b1), (Pos, b2) -> (Neg, diff b1 b2)
+  | (Neg, b1), (Pos, b2) | (Pos, b2), (Neg, b1) -> (Neg, diff b1 b2)
 
 let inter_base b1 b2 =
   let open TypeAtomSet in
@@ -28,8 +27,7 @@ let inter_base b1 b2 =
   (* ¬{t1} ∧ ¬{t2} = ¬{t1 ∨ t2} (DeMorgan) *)
   | (Neg, b1), (Neg, b2) -> (Neg, union b1 b2)
   (* {t1} ∧ ¬{t2} = {t1 \ t2} *)
-  | (Pos, b1), (Neg, b2) -> (Pos, diff b1 b2)
-  | (Neg, b1), (Pos, b2) -> (Pos, diff b2 b1)
+  | (Pos, b1), (Neg, b2) | (Neg, b2), (Pos, b1) -> (Pos, diff b1 b2)
 
 let diff_base b1 b2 =
   let open TypeAtomSet in
@@ -72,7 +70,7 @@ and arrow_bdd = [ `Arrow of ty * ty ] bdd
                         t
         b =          __/|\__
              b_left /   |   \ b_right
-             b_mid
+                      b_mid
     ]}
 
     then [b = (t ∧ b_left) ∨ b_mid ∨ (¬t ∧ b_right)]
@@ -305,6 +303,8 @@ let%expect_test "dnf_norm" =
       "(int | (int, int), any)";
       "(any & !int, any)";
       "(int, int)&int | int&any";
+      "(((int, int) & !int, (int, int) & !int), ((int, int) & !int, (int, int) \
+       & !int))";
     ]
   in
   let results = List.map can_ty cases in
@@ -327,4 +327,5 @@ let%expect_test "dnf_norm" =
       int & (any | (int, int)) => int
       (int | (int, int), any)
       (any & !int, any) => (!int | (any, any) | (any -> any), any)
-      (int, int)&int | int&any => int |}]
+      (int, int)&int | int&any => int
+      (((int, int) & !int, (int, int) & !int), ((int, int) & !int, (int, int) & !int)) => (((int, int), (int, int)), ((int, int), (int, int))) |}]

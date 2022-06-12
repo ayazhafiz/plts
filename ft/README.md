@@ -120,7 +120,7 @@ any <: int | !int
 - In fact, the exponential growth of `DNF(T)` can be tremendous. I have been
   unable to terminate the normalization of
   ```
-  (((int, int) & !int, (int, int) & !int), ((int, int) & !int, (int, int) & !int))`
+  (((int, int) & !int, (int, int) & !int), ((int, int) & !int, (int, int) & !int))
   ```
 
 ## Extensions
