@@ -69,10 +69,10 @@ and arrow_bdd = [ `Arrow of ty * ty ] bdd
     If we have BDD
 
     {[
-      t
+                        t
         b =          __/|\__
-                       b_left /   |   \ b_right
-                       b_mid
+             b_left /   |   \ b_right
+             b_mid
     ]}
 
     then [b = (t ∧ b_left) ∨ b_mid ∨ (¬t ∧ b_right)]
