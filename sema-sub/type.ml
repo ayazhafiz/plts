@@ -2,10 +2,10 @@ type type_atom = Int | String
 type polarity = Pos | Neg
 
 module TypeAtomSet = Set.Make (struct
-    type t = type_atom
+  type t = type_atom
 
-    let compare = compare
-  end)
+  let compare = compare
+end)
 
 type base_type = polarity * TypeAtomSet.t
 
@@ -110,9 +110,9 @@ and union_bdd b1 b2 =
   | BBot, b | b, BBot -> b
   | ( BNode { atom = a1; left = l1; middle = m1; right = r1 },
       BNode { atom = a2; left = l2; middle = m2; right = r2 } ) ->
-    if a1 < a2 then create_bdd a1 l1 (m1 |. b2) r1
-    else if a2 < a1 then create_bdd a2 l2 (b1 |. m2) r2
-    else create_bdd a1 (l1 |. l2) (m1 |. m2) (r1 |. r2)
+      if a1 < a2 then create_bdd a1 l1 (m1 |. b2) r1
+      else if a2 < a1 then create_bdd a2 l2 (b1 |. m2) r2
+      else create_bdd a1 (l1 |. l2) (m1 |. m2) (r1 |. r2)
 
 and ( |. ) a b = union_bdd a b
 
@@ -123,12 +123,12 @@ let rec inter_bdd b1 b2 =
   | BTop, b | b, BTop -> b
   | ( BNode { atom = a1; left = l1; middle = m1; right = r1 },
       BNode { atom = a2; left = l2; middle = m2; right = r2 } ) ->
-    if a1 < a2 then create_bdd a1 (l1 &. b2) (m1 &. b2) (r1 &. b2)
-    else if a2 < a1 then create_bdd a2 (b1 &. l2) (b1 &. m2) (b1 &. r2)
-    else
-      (* must materialize the middle unions in the respective types at this point *)
-      let l1, r1, l2, r2 = (l1 |. m1, r1 |. m1, l2 |. m2, r2 |. m2) in
-      create_bdd a1 (l1 &. l2) BBot (r1 &. r2)
+      if a1 < a2 then create_bdd a1 (l1 &. b2) (m1 &. b2) (r1 &. b2)
+      else if a2 < a1 then create_bdd a2 (b1 &. l2) (b1 &. m2) (b1 &. r2)
+      else
+        (* must materialize the middle unions in the respective types at this point *)
+        let l1, r1, l2, r2 = (l1 |. m1, r1 |. m1, l2 |. m2, r2 |. m2) in
+        create_bdd a1 (l1 &. l2) BBot (r1 &. r2)
 
 and ( &. ) a b = inter_bdd a b
 
@@ -136,13 +136,13 @@ let rec neg_bdd = function
   | BTop -> BBot
   | BBot -> BTop
   | BNode { atom; left; middle; right = BBot } ->
-    create_bdd atom BBot ~.(left |. middle) ~.middle
+      create_bdd atom BBot ~.(left |. middle) ~.middle
   | BNode { atom; left = BBot; middle; right } ->
-    create_bdd atom ~.middle ~.(right |. middle) BBot
+      create_bdd atom ~.middle ~.(right |. middle) BBot
   | BNode { atom; left; middle = BBot; right } ->
-    create_bdd atom ~.left ~.(left |. right) ~.right
+      create_bdd atom ~.left ~.(left |. right) ~.right
   | BNode { atom; left; middle; right } ->
-    create_bdd atom ~.(left |. middle) BBot ~.(right |. middle)
+      create_bdd atom ~.(left |. middle) BBot ~.(right |. middle)
 
 and ( ~. ) b = neg_bdd b
 
@@ -155,11 +155,11 @@ let rec diff_bdd b1 b2 =
   | b, BBot -> b
   | ( BNode { atom = a1; left = l1; middle = m1; right = r1 },
       BNode { atom = a2; left = l2; middle = m2; right = r2 } ) ->
-    if a1 < a2 then create_bdd a1 ((l1 |. m1) /. b2) BBot ((r1 |. m1) /. b2)
-    else if a2 < a1 then
-      create_bdd a2 (b1 /. (l2 |. m2)) BBot (b1 /. (r2 |. m2))
-    else
-      create_bdd a1 ((l1 |. m1) /. (l2 |. m2)) BBot ((r1 |. m1) /. (r2 |. m2))
+      if a1 < a2 then create_bdd a1 ((l1 |. m1) /. b2) BBot ((r1 |. m1) /. b2)
+      else if a2 < a1 then
+        create_bdd a2 (b1 /. (l2 |. m2)) BBot (b1 /. (r2 |. m2))
+      else
+        create_bdd a1 ((l1 |. m1) /. (l2 |. m2)) BBot ((r1 |. m1) /. (r2 |. m2))
 
 and ( /. ) a b = diff_bdd a b
 
@@ -198,18 +198,20 @@ let ty_of_syn : Syntax.loc_ty -> ty =
     | TAny -> top
     | TNever -> bot
     | TArrow (t1, t2) ->
-      let t1, t2 = (go t1, go t2) in
-      let arrow_bdd = create_bdd (`Arrow (t1, t2)) BTop BBot BBot in
-      (base_bot, BBot, arrow_bdd)
+        let t1, t2 = (go t1, go t2) in
+        let arrow_bdd = create_bdd (`Arrow (t1, t2)) BTop BBot BBot in
+        (base_bot, BBot, arrow_bdd)
     | TProd (t1, t2) ->
-      let t1, t2 = (go t1, go t2) in
-      let prod_bdd = create_bdd (`Prod (t1, t2)) BTop BBot BBot in
-      (base_bot, prod_bdd, BBot)
+        let t1, t2 = (go t1, go t2) in
+        let prod_bdd = create_bdd (`Prod (t1, t2)) BTop BBot BBot in
+        (base_bot, prod_bdd, BBot)
     | TOr (t1, t2) -> go t1 || go t2
     | TAnd (t1, t2) -> go t1 && go t2
     | TNot t -> ~~(go t)
   in
   go
+
+type 'a bdd_ctx = { trans_atom : 'a -> Syntax.loc_ty; any : Syntax.loc_ty }
 
 let rec syn_of_ty : ty -> Syntax.loc_ty =
   let open Syntax in
@@ -229,35 +231,52 @@ let rec syn_of_ty : ty -> Syntax.loc_ty =
         in
         match pol with Pos -> atoms | Neg -> zero @@ TNot atoms)
   in
-  let rec trans_bdd trans_atom = function
+  let rec trans_bdd bdd_ctx d = function
     | BBot -> zero TNever
-    | BTop -> zero TAny
+    | BTop ->
+        (* at the toplevel, we must render the top type as the corresponding bdd top type.
+           that is, we want to show (any -> any) rather than any to the user, for
+           correctness.
+           but deeper, BTop/BBot hold a different meaning, and truly do correspond
+           to any/never. *)
+        if d = 0 then bdd_ctx.any else zero TAny
     | BNode { atom; left; middle; right } ->
-      (* t = (atom ∧ left) ∨ mid ∨ (¬atom ∧ right) *)
-      let atom = trans_atom atom in
-      let left, mid, right =
-        ( trans_bdd trans_atom left,
-          trans_bdd trans_atom middle,
-          trans_bdd trans_atom right )
-      in
-      let left_part = TAnd (atom, left) in
-      let right_part = TAnd (zero (TNot atom), right) in
-      zero @@ TOr (zero left_part, zero @@ TOr (mid, zero right_part))
+        (* t = (atom ∧ left) ∨ mid ∨ (¬atom ∧ right) *)
+        let atom = bdd_ctx.trans_atom atom in
+        let d' = d + 1 in
+        let left, mid, right =
+          ( trans_bdd bdd_ctx d' left,
+            trans_bdd bdd_ctx d' middle,
+            trans_bdd bdd_ctx d' right )
+        in
+        let left_part = TAnd (atom, left) in
+        let right_part = TAnd (zero (TNot atom), right) in
+        zero @@ TOr (zero left_part, zero @@ TOr (mid, zero right_part))
   in
-  let trans_prod (`Prod (t1, t2)) =
-    zero @@ TProd (syn_of_ty t1, syn_of_ty t2)
+  let prod_ctx =
+    {
+      trans_atom =
+        (fun (`Prod (t1, t2)) -> zero @@ TProd (syn_of_ty t1, syn_of_ty t2));
+      any = zero @@ TProd (zero TAny, zero TAny);
+    }
   in
-  let trans_arrow (`Arrow (t1, t2)) =
-    zero @@ TArrow (syn_of_ty t1, syn_of_ty t2)
+  let arrow_ctx =
+    {
+      trans_atom =
+        (fun (`Arrow (t1, t2)) -> zero @@ TArrow (syn_of_ty t1, syn_of_ty t2));
+      any = zero @@ TArrow (zero TAny, zero TAny);
+    }
   in
   function
+  | (Neg, atoms), BTop, BTop when TypeAtomSet.is_empty atoms -> zero @@ TAny
+  | (Pos, atoms), BBot, BBot when TypeAtomSet.is_empty atoms -> zero @@ TNever
   | base, bdd_prod, bdd_arrow ->
-    let base = trans_base_type base in
-    let prods, arrows =
-      (trans_bdd trans_prod bdd_prod, trans_bdd trans_arrow bdd_arrow)
-    in
-    let t = zero @@ TOr (base, zero @@ TOr (prods, arrows)) in
-    t
+      let base = trans_base_type base in
+      let prods, arrows =
+        (trans_bdd prod_ctx 0 bdd_prod, trans_bdd arrow_ctx 0 bdd_arrow)
+      in
+      let t = zero @@ TOr (base, zero @@ TOr (prods, arrows)) in
+      simpl_ty t
 
 let%expect_test "dnf_norm" =
   let can_ty s =
@@ -271,7 +290,6 @@ let%expect_test "dnf_norm" =
   in
   let cases =
     [
-      (*
       "int";
       "int | string";
       "(int, int)";
@@ -280,16 +298,13 @@ let%expect_test "dnf_norm" =
       "(int, string) | (string, string)";
       "int | any";
       "!int|any";
+      "!any";
       "!(int|any)";
       "!(int&any)";
       "int & (any | (int, int))";
       "(int | (int, int), any)";
-      *)
-      "any & !int";
-      (*
+      "(any & !int, any)";
       "(int, int)&int | int&any";
-      "(int|any) | ((int, int)|(any, any&(int|(any|(int, any)))))";
-      *)
     ]
   in
   let results = List.map can_ty cases in
@@ -301,4 +316,15 @@ let%expect_test "dnf_norm" =
       int
       int | string
       (int, int)
-      string -> int |}]
+      string -> int
+      (int | string, string)
+      (int, string) | (string, string)
+      int | any => any
+      !int|any => any
+      !any => never
+      !(int|any) => never
+      !(int&any) => !int | (any, any) | (any -> any)
+      int & (any | (int, int)) => int
+      (int | (int, int), any)
+      (any & !int, any) => (!int | (any, any) | (any -> any), any)
+      (int, int)&int | int&any => int |}]
