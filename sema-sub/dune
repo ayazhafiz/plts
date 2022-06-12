@@ -5,8 +5,8 @@
 (library
  (name sema_sub)
  (modules sema_sub
-          syntax lexer parser
-          type_atom type bdd syntax
+          syntax lexer parser syntax_help util
+          type
           )
  (libraries str sedlex menhirLib)
  (inline_tests)

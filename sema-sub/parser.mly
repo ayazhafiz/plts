@@ -20,6 +20,7 @@ let range (start, _) (_, fin) = (start, fin)
 %left ARROW
 %left TOR
 %left TAND
+%nonassoc TNOT
 
 %start toplevel_ty
 %type <unit -> Syntax.loc_ty> toplevel_ty
