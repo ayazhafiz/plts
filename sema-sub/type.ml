@@ -292,6 +292,7 @@ let%expect_test "dnf_norm" =
       "int | string";
       "(int, int)";
       "string -> int";
+      "(string -> int) & !(int -> string)";
       "(int | string, string)";
       "(int, string) | (string, string)";
       "int | any";
@@ -317,6 +318,7 @@ let%expect_test "dnf_norm" =
       int | string
       (int, int)
       string -> int
+      (string -> int) & !(int -> string) => !(int -> string) & (string -> int)
       (int | string, string)
       (int, string) | (string, string)
       int | any => any

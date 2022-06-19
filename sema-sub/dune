@@ -6,7 +6,7 @@
  (name sema_sub)
  (modules sema_sub
           syntax lexer parser syntax_help util
-          type
+          type subtype
           )
  (libraries str sedlex menhirLib)
  (inline_tests)
