@@ -8,6 +8,9 @@ let range (start, _) (_, fin) = (start, fin)
 %token <Syntax.loc> TNEVER
 %token <Syntax.loc> TINT
 %token <Syntax.loc> TSTRING
+%token <Syntax.loc> KTRUE
+%token <Syntax.loc> KFALSE
+%token <Syntax.loc> TBOOL
 %token <Syntax.loc> TNOT
 %token <Syntax.loc> TOR
 %token <Syntax.loc> TAND
@@ -35,6 +38,9 @@ ty:
   | r=TNEVER  { fun _ -> (r, TNever) }
   | r=TINT    { fun _ -> (r, TInt) }
   | r=TSTRING { fun _ -> (r, TString) }
+  | r=KTRUE   { fun _ -> (r, TTrue) }
+  | r=KFALSE  { fun _ -> (r, TFalse) }
+  | r=TBOOL   { fun _ -> (r, TOr ((r, TFalse), (r, TTrue))) }
   | t1=ty TOR t2=ty { fun ctx ->
       let t1, t2 = t1 ctx, t2 ctx in
       (range (fst t1) (fst t2), TOr(t1, t2)) }

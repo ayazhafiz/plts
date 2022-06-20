@@ -1,4 +1,4 @@
-type type_atom = Int | String
+type type_atom = Int | String | True | False
 type polarity = Pos | Neg
 
 module TypeAtomSet = Set.Make (struct
@@ -164,22 +164,22 @@ and ( /. ) a b = diff_bdd a b
 let union (b1, bp1, ba1) (b2, bp2, ba2) =
   (union_base b1 b2, bp1 |. bp2, ba1 |. ba2)
 
-let ( || ) = union
+let ( |~ ) = union
 
 let inter (b1, bp1, ba1) (b2, bp2, ba2) =
   (inter_base b1 b2, bp1 &. bp2, ba1 &. ba2)
 
-let ( && ) = inter
+let ( &~ ) = inter
 
 let diff (b1, bp1, ba1) (b2, bp2, ba2) =
   (diff_base b1 b2, bp1 /. bp2, ba1 /. ba2)
 
-let ( // ) = diff
+let ( /~ ) = diff
 
 (** ⊤ *)
 let top : ty = ((Neg, TypeAtomSet.empty), BTop, BTop)
 
-let neg t = top // t
+let neg t = top /~ t
 let ( ~~ ) = neg
 
 (** ⊥ *)
@@ -193,6 +193,8 @@ let ty_of_syn : Syntax.loc_ty -> ty =
     match t with
     | TInt -> atomize Int
     | TString -> atomize String
+    | TTrue -> atomize True
+    | TFalse -> atomize False
     | TAny -> top
     | TNever -> bot
     | TArrow (t1, t2) ->
@@ -203,8 +205,8 @@ let ty_of_syn : Syntax.loc_ty -> ty =
         let t1, t2 = (go t1, go t2) in
         let prod_bdd = create_bdd (`Prod (t1, t2)) BTop BBot BBot in
         (base_bot, prod_bdd, BBot)
-    | TOr (t1, t2) -> go t1 || go t2
-    | TAnd (t1, t2) -> go t1 && go t2
+    | TOr (t1, t2) -> go t1 |~ go t2
+    | TAnd (t1, t2) -> go t1 &~ go t2
     | TNot t -> ~~(go t)
   in
   go
@@ -213,7 +215,12 @@ type 'a bdd_ctx = { trans_atom : 'a -> Syntax.loc_ty; any : Syntax.loc_ty }
 
 let rec syn_of_ty : ty -> Syntax.loc_ty =
   let open Syntax in
-  let trans_base_atom = function Int -> zero TInt | String -> zero TString in
+  let trans_base_atom = function
+    | Int -> zero TInt
+    | String -> zero TString
+    | True -> zero TTrue
+    | False -> zero TFalse
+  in
   let trans_base_type (pol, atoms) =
     let atoms =
       List.map trans_base_atom @@ List.of_seq @@ TypeAtomSet.to_seq atoms
@@ -276,11 +283,11 @@ let rec syn_of_ty : ty -> Syntax.loc_ty =
       let t = zero @@ TOr (base, zero @@ TOr (prods, arrows)) in
       simpl_ty t
 
+let parse_ty s = Syntax_help.parse s |> Result.map ty_of_syn
+
 let%expect_test "dnf_norm" =
   let can_ty s =
-    let t = Result.get_ok @@ Syntax_help.parse s in
-    let t = syn_of_ty @@ ty_of_syn t in
-    Syntax.string_of_ty t
+    Syntax.string_of_ty @@ syn_of_ty @@ Result.get_ok @@ parse_ty s
   in
   let check_reparse s =
     let can_s = can_ty s in

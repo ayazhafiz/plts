@@ -20,6 +20,8 @@ and ty =
   | TNever
   | TString
   | TInt
+  | TTrue
+  | TFalse
   | TArrow of loc_ty * loc_ty
   | TProd of loc_ty * loc_ty
   | TOr of loc_ty * loc_ty
@@ -29,7 +31,7 @@ and ty =
 let rec simpl_ty (l, t) =
   let t' =
     match t with
-    | TAny | TNever | TString | TInt -> t
+    | TAny | TNever | TString | TInt | TTrue | TFalse -> t
     | TArrow (t1, t2) -> TArrow (simpl_ty t1, simpl_ty t2)
     | TProd (t1, t2) -> TProd (simpl_ty t1, simpl_ty t2)
     | TOr (t1, t2) -> (
@@ -89,6 +91,8 @@ let pp_ty f =
     | TString -> pp_print_string f "string"
     | TAny -> pp_print_string f @@ pretty "any"
     | TNever -> pp_print_string f @@ pretty "never"
+    | TTrue -> pp_print_string f @@ pretty "true"
+    | TFalse -> pp_print_string f @@ pretty "false"
     | TProd (t1, t2) ->
         fprintf f "@[<hov 2>";
         paren true (fun () ->
