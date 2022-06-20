@@ -12,8 +12,10 @@ let shallower lc1 lc2 = deeper lc2 lc1
 let within (lc11, lc12) (lc21, lc22) = deeper lc11 lc21 && shallower lc12 lc22
 let zero_loc : loc = ((0, 0), (0, 0))
 let zero v = (zero_loc, v)
+let gen_zero_loc _st = zero_loc
+let gen_loc = gen_zero_loc
 
-type loc_ty = loc * ty
+type loc_ty = loc * ty [@@deriving qcheck]
 
 and ty =
   | TAny
@@ -27,6 +29,7 @@ and ty =
   | TOr of loc_ty * loc_ty
   | TAnd of loc_ty * loc_ty
   | TNot of loc_ty
+[@@deriving qcheck]
 
 let rec simpl_ty (l, t) =
   let t' =

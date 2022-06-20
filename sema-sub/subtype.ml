@@ -181,3 +181,11 @@ let%test_module "subtype" =
       "(false, true) | (false, false)"
       <: {|((true, true) | (true, false) | (false, true) | (false, false)) & (!true, int|true|false)|}
   end)
+
+let%test_module "subtype properties" =
+  (module struct
+    let%test_unit _ =
+      QCheck.Test.check_exn
+      @@ QCheck.Test.make ~count:20 (QCheck.make Syntax.gen_loc_ty) (fun ty ->
+             ty_of_syn ty <: bot)
+  end)
