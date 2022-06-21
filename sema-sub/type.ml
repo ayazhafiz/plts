@@ -283,7 +283,7 @@ let rec syn_of_ty : ty -> Syntax.loc_ty =
       let t = zero @@ TOr (base, zero @@ TOr (prods, arrows)) in
       simpl_ty t
 
-let parse_ty s = Syntax_help.parse s |> Result.map ty_of_syn
+let parse_ty s = Syntax_help.parse_ty s |> Result.map ty_of_syn
 
 let%expect_test "dnf_norm" =
   let can_ty s =

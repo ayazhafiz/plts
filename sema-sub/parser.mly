@@ -18,6 +18,12 @@ let range (start, _) (_, fin) = (start, fin)
 %token <Syntax.loc> RPAREN
 %token <Syntax.loc> COMMA
 %token <Syntax.loc> ARROW
+
+%token <Syntax.loc> CTYPE
+%token <Syntax.loc> CTYPENORM
+%token <Syntax.loc> SUBTYPE
+%token <Syntax.loc> ISOTYPE
+
 %token EOF
 
 %left ARROW
@@ -27,7 +33,16 @@ let range (start, _) (_, fin) = (start, fin)
 
 %start toplevel_ty
 %type <unit -> Syntax.loc_ty> toplevel_ty
+
+%start toplevel_cmd
+%type <unit -> Syntax.cmd> toplevel_cmd
+
 %%
+
+toplevel_cmd:
+  | CTYPE t=ty SUBTYPE u=ty EOF { fun ctx -> CTy (`Sub (t ctx, u ctx)) }
+  | CTYPE t=ty ISOTYPE u=ty EOF { fun ctx -> CTy (`Iso (t ctx, u ctx)) }
+  | CTYPENORM t=ty EOF { fun ctx -> CTy (`Norm (t ctx)) }
 
 toplevel_ty:
   | t=ty EOF { fun ctx -> t ctx }

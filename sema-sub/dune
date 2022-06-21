@@ -18,6 +18,12 @@
   (modules Subtype_test)
   (libraries sema_sub alcotest qcheck-alcotest))
 
+(executable
+  (name cli)
+  (modules cli
+           repl)
+  (libraries sema_sub lwt lambda-term react))
+
 ; (test
 ;  (name test)
 ;  (modules Test)

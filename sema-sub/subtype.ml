@@ -71,8 +71,8 @@ and empty : ty -> bool = function
 (** s <: t iff s \ t = ⊥ *)
 and ( <: ) (s : ty) (t : ty) : bool = empty @@ (s /~ t)
 
-(** s </: t iff s \ t != ⊥ *)
-let ( </: ) s t = not (s <: t)
+(** s =~ t iff s <: t and t <: s *)
+and ( =~ ) s t = s <: t && t <: s
 
 let%test_module "subtype" =
   (module struct

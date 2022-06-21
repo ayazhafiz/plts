@@ -191,3 +191,7 @@ let shrink_ty =
 
 let arbitrary_ty = QCheck.make gen_ty ~print:string_of_ty
 (* TODO: loops forever? ~shrink:shrink_ty *)
+
+type cmd =
+  | CTy of
+      [ `Sub of loc_ty * loc_ty | `Iso of loc_ty * loc_ty | `Norm of loc_ty ]
