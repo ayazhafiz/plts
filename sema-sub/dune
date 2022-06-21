@@ -4,14 +4,19 @@
 
 (library
  (name sema_sub)
- (modules sema_sub
+ (modules lib
           syntax lexer parser syntax_help util
           type subtype
           )
  (libraries str sedlex menhirLib qcheck ppxlib)
  (inline_tests)
  (js_of_ocaml)
- (preprocess (pps sedlex.ppx ppx_deriving_qcheck ppx_inline_test ppx_expect)))
+ (preprocess (pps sedlex.ppx ppx_inline_test ppx_expect)))
+
+(test
+  (name subtype_test)
+  (modules Subtype_test)
+  (libraries sema_sub alcotest qcheck-alcotest))
 
 ; (test
 ;  (name test)

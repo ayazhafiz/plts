@@ -15,7 +15,7 @@ let zero v = (zero_loc, v)
 let gen_zero_loc _st = zero_loc
 let gen_loc = gen_zero_loc
 
-type loc_ty = loc * ty [@@deriving qcheck]
+type loc_ty = loc * ty
 
 and ty =
   | TAny
@@ -29,7 +29,18 @@ and ty =
   | TOr of loc_ty * loc_ty
   | TAnd of loc_ty * loc_ty
   | TNot of loc_ty
-[@@deriving qcheck]
+
+let any = zero @@ TAny
+let never = zero @@ TNever
+let string = zero @@ TString
+let int = zero @@ TInt
+let ttrue = zero @@ TTrue
+let tfalse = zero @@ TFalse
+let arrow t u = zero @@ TArrow (t, u)
+let prod t u = zero @@ TProd (t, u)
+let tor t u = zero @@ TOr (t, u)
+let tand t u = zero @@ TAnd (t, u)
+let not t = zero @@ TNot t
 
 let rec simpl_ty (l, t) =
   let t' =
@@ -132,3 +143,51 @@ let pp_ty f =
   go `Free
 
 let string_of_ty t = Util.with_buffer (fun f -> pp_ty f t) 80
+
+let gen_ty =
+  let gen_atom =
+    QCheck.Gen.(
+      map zero @@ oneofl [ TAny; TNever; TString; TInt; TTrue; TFalse ])
+  in
+  QCheck.Gen.(
+    sized
+    @@ fix (fun self n ->
+           (* Limit depth to 10 *)
+           match min n 10 with
+           | 0 -> gen_atom
+           | n ->
+               frequency
+                 [
+                   (1, gen_atom);
+                   (2, map2 arrow (self (n / 2)) (self (n / 2)));
+                   (2, map2 prod (self (n / 2)) (self (n / 2)));
+                   (2, map2 tor (self (n / 2)) (self (n / 2)));
+                   (2, map2 tand (self (n / 2)) (self (n / 2)));
+                   (2, map not (self (n - 1)));
+                 ]))
+
+let shrink_ty =
+  let open QCheck.Iter in
+  let rec shrink2 mapper t u =
+    of_list [ t; u ]
+    <+> (shrink t >|= fun t' -> mapper t' u)
+    <+> (shrink u >|= fun u' -> mapper t u')
+  and shrink (_, t) =
+    print_endline (string_of_ty @@ zero t);
+    match t with
+    | TAny -> return @@ zero TAny
+    | TNever -> return @@ zero TNever
+    | TString -> return @@ zero TString
+    | TInt -> return @@ zero TInt
+    | TTrue -> return @@ zero TTrue
+    | TFalse -> return @@ zero TFalse
+    | TArrow (t, u) -> shrink2 arrow t u
+    | TProd (t, u) -> shrink2 prod t u
+    | TOr (t, u) -> shrink2 tor t u
+    | TAnd (t, u) -> shrink2 tand t u
+    | TNot t -> shrink t >|= not
+  in
+  shrink
+
+let arbitrary_ty = QCheck.make gen_ty ~print:string_of_ty
+(* TODO: loops forever? ~shrink:shrink_ty *)

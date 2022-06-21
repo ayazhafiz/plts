@@ -26,7 +26,8 @@ RUN opam pin tigerc_front https://github.com/ayazhafiz/tiger.git
 RUN opam pin tigerc_back https://github.com/ayazhafiz/tiger.git
 RUN opam pin tiger https://github.com/ayazhafiz/tiger.git
 
-RUN opam pin qcheck https://github.com/c-cube/qcheck.git
+RUN opam install -y qcheck
+RUN opam install -y qcheck-alcotest
 RUN opam pin ppx_deriving_qcheck https://github.com/c-cube/qcheck.git
 
 RUN sudo apt-get update && sudo apt-get install -y \

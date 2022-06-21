@@ -71,6 +71,9 @@ and empty : ty -> bool = function
 (** s <: t iff s \ t = ⊥ *)
 and ( <: ) (s : ty) (t : ty) : bool = empty @@ (s /~ t)
 
+(** s </: t iff s \ t != ⊥ *)
+let ( </: ) s t = not (s <: t)
+
 let%test_module "subtype" =
   (module struct
     let ( <: ) s t = Result.get_ok @@ parse_ty s <: Result.get_ok @@ parse_ty t
@@ -180,12 +183,4 @@ let%test_module "subtype" =
     let%test _ =
       "(false, true) | (false, false)"
       <: {|((true, true) | (true, false) | (false, true) | (false, false)) & (!true, int|true|false)|}
-  end)
-
-let%test_module "subtype properties" =
-  (module struct
-    let%test_unit _ =
-      QCheck.Test.check_exn
-      @@ QCheck.Test.make ~count:20 (QCheck.make Syntax.gen_loc_ty) (fun ty ->
-             ty_of_syn ty <: bot)
   end)
