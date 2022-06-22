@@ -189,8 +189,28 @@ let shrink_ty =
   in
   shrink
 
+type loc_str = loc * string
+
 let arbitrary_ty = QCheck.make gen_ty ~print:string_of_ty
 (* TODO: loops forever? ~shrink:shrink_ty *)
+
+type 'ty e_expr = loc * 'ty * 'ty expr
+
+and 'ty expr =
+  | Int of int
+  | Str of string
+  | True
+  | False
+  | Tup of 'ty e_expr * 'ty e_expr
+  | Var of string
+  | Let of loc_str * 'ty e_expr * 'ty e_expr
+  | Call of 'ty e_expr * 'ty e_expr
+  | Lam of loc_str * 'ty e_expr (* TODO: patterns and lambda sets *)
+
+(* extractions *)
+let xloc (l, _, _) = l
+let xty (_, t, _) = t
+let xe (_, _, e) = e
 
 type cmd =
   | CTy of
