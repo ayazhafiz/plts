@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -euo pipefail
+
 cd "$(git rev-parse --show-toplevel)"
 dune build
 yarn install
@@ -8,6 +10,8 @@ cp -R public /tmp/plts && cd ..
 
 git reset --hard HEAD
 git checkout gh-pages
+echo ".yarn" > .gitignore
+echo ".cache" >> .gitignore
 rm -rf * .yarn .cache
 cp -v -a /tmp/plts/. .
 git add -f .
