@@ -4,7 +4,9 @@ set -x
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+mv node_modules /tmp/node_modules
 dune build
+mv /tmp/node_modules node_modules
 yarn install
 cd www && yarn build
 cp -R public /tmp/plts && cd ..
