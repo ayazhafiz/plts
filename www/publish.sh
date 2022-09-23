@@ -9,6 +9,7 @@ dune build
 mv /tmp/node_modules node_modules
 yarn install
 cd www && yarn build
+rm -rf /tmp/plts
 cp -R public /tmp/plts && cd ..
 
 cd ../plts2
