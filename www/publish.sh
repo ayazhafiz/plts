@@ -1,5 +1,6 @@
 #!/bin/sh
 
+set -x
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -8,10 +9,9 @@ yarn install
 cd www && yarn build
 cp -R public /tmp/plts && cd ..
 
+cd ../plts2
 git reset --hard HEAD
 git checkout gh-pages
-echo ".yarn" > .gitignore
-echo ".cache" >> .gitignore
 rm -rf * .yarn .cache
 cp -v -a /tmp/plts/. .
 git add -f .
@@ -21,4 +21,4 @@ if git commit -m "Update plts" ; then
   echo -e "Deploy completed\n"
 else
   echo -e "Content not changed, nothing to deploy\n"
-fi          
+fi
