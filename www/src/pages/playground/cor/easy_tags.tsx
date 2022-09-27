@@ -3,7 +3,13 @@ import * as React from "react";
 import { LanguageRegistration } from "../../../common/types";
 import CorPlayground from "../../../components/cor";
 
-const easyTags = "easyTags";
+const easyTags = "easy_tags";
+
+const TYPE_SYNTAXES: [RegExp, string, string][] = [
+  [/- .*$/, "tag", "@popall"], // red
+  [/\+ .*$/, "type.identifier", "@popall"], // green
+  [/\. .*$/, "annotation", "@popall"], // grey
+];
 
 const easyTagsSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
@@ -39,6 +45,7 @@ const easyTagsSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
       [/:\s*/, "operator", "@type"],
+      ...TYPE_SYNTAXES,
     ],
     whitespace: [
       [/[ \t\r\n]+/, "white"],
@@ -46,21 +53,9 @@ const easyTagsSyntax: monaco.languages.IMonarchLanguage = {
       [/#\s*([\^]+\s*)+$/, "comment"],
       [/#\s*[\^]+/, "comment", "@type"],
       [/#.*$/, "comment"],
+      ...TYPE_SYNTAXES,
     ],
-    type: [
-      [/\]$/, "keyword.type", "@popall"],
-      [/\]/, "keyword.type", "@popall"],
-      [/\[/, "keyword.type"],
-      [/,/, "keyword.type"],
-      [/->/, "operator"],
-      [/\]->/, "type"],
-      [/([`?]\d+)$/, "tag", "@popall"],
-      [/([`?]\d+)/, "tag"],
-      [/[a-zA-Z][a-zA-Z0-9_']*$/, "type", "@popall"],
-      [/[a-zA-Z][a-zA-Z0-9_']*/, "type"],
-      [/[ \t]*$/, "@whitespace", "@popall"],
-      [/[ \t]+/, "@whitespace"],
-    ],
+    type: [...TYPE_SYNTAXES],
   },
 };
 
