@@ -3,6 +3,8 @@
 set -x
 set -euo pipefail
 
+export PUBLISH=1
+
 cd "$(git rev-parse --show-toplevel)"
 mv node_modules /tmp/node_modules
 dune build
