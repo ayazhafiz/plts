@@ -18,7 +18,7 @@ cd ../plts2
 git reset --hard HEAD
 git checkout gh-pages
 rm -rf * .yarn .cache
-cp -v -a /tmp/plts/. .
+cp -v -a -f /tmp/plts/. .
 git add -f .
 
 if git commit -m "Update plts" ; then
