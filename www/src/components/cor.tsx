@@ -3,6 +3,7 @@ import * as React from "react";
 import Playground from "./playground";
 import type {
   Backend,
+  BackendOverrides,
   LanguageRegistration,
   StringOptions,
 } from "../common/types";
@@ -12,7 +13,8 @@ import { useStaticQuery, graphql } from "gatsby";
 
 function getBackends(
   lang: string,
-  defaultEmit: string
+  defaultEmit: string,
+  overrides: Record<string, BackendOverrides>,
 ): Record<string, [Backend]> {
   const backends: Record<string, [Backend]> = {};
   for (const phase of cor.phases) {
@@ -23,7 +25,7 @@ function getBackends(
     ];
     let backend: Backend = {
       title: phase,
-      editorLanguage: lang,
+      editorLanguage: overrides[phase]?.editorLanguage ?? lang,
       ...shapeBackend(doit, options),
     };
     backends[phase] = [backend];
@@ -53,11 +55,13 @@ const CorPlayground: React.FC<{
   experiment: string;
   defaultPhase: string;
   defaultEmit: string;
+  backendOverrides?: Record<string, BackendOverrides>,
   languageRegistrations?: Record<string, LanguageRegistration>;
 }> = ({
   experiment,
   defaultPhase,
   defaultEmit,
+  backendOverrides = {},
   languageRegistrations = {},
 }) => {
   if (languageRegistrations[experiment]) {
@@ -99,7 +103,7 @@ const CorPlayground: React.FC<{
       source={`https://github.com/ayazhafiz/cor/tree/base/experiments/${experiment}`}
       grammar={`https://github.com/ayazhafiz/cor/blob/base/experiments/${experiment}/parser.mly`}
       languageRegistrations={languageRegistrations}
-      backends={getBackends(experiment, defaultEmit)}
+      backends={getBackends(experiment, defaultEmit, backendOverrides)}
       defaultBackend={defaultPhase}
       examples={examples}
       defaultExample={Object.keys(examples)[0]}

@@ -45,3 +45,7 @@ export interface Backend {
  * (e.g. typechecking) or two (e.g. codegen and evaluation).
  */
 export type BackendKind = [Backend]|[Backend, Backend];
+
+export interface BackendOverrides {
+    editorLanguage?: string;
+}
