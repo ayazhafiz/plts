@@ -15,7 +15,6 @@ const Link = styled.a`
 `;
 
 const Revision: React.FC<{}> = () => {
-  console.log(process.env);
   if (process.env["GATSBY_GIT_PORCELAIN"]) {
     const sha = process.env["GATSBY_GIT_SHA"];
     return (

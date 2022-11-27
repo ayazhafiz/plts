@@ -535,7 +535,7 @@ function loadPersistentState({
     const input = queryParams.get("input")
       ? lz.decompressFromEncodedURIComponent(queryParams.get("input")!)!
       : defaultInput;
-    console.log(defaultBackend);
+    console.info("default backend", defaultBackend);
     const backend = queryParams.get("backend") ?? defaultBackend;
     const options = queryParams.get("options")
       ? JSON.parse(
@@ -625,6 +625,7 @@ class Playground<
   inputChange = async () => {
     const newInput = (await this.getEditor(this.inputEditorId)).getValue();
     writePersistentState("input", newInput);
+    console.debug("firing new input of length ", newInput.length);
     return Promise.all(this.inputChangeSubscribers.map((s) => s(newInput)));
   };
 
@@ -712,6 +713,7 @@ class Playground<
 
         if (this.editors[editorId].kind === "input") {
           editor.setValue(persistentState.input);
+          console.info("set initial value of length ", persistentState.input.length);
           editor.onDidChangeModelContent(this.inputChange);
         }
       }
