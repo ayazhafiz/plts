@@ -42,6 +42,7 @@ const refineSyntax: monaco.languages.IMonarchLanguage = {
     ],
     whitespace: [
       [/[ \t\r\n]+/, "white"],
+      [/#\s*[\^]+\s+[a-z][a-zA-Z\s0-9_'!]*$/, "comment"],
       [/#\s*[\^]+$/, "comment"],
       [/#\s*([\^]+\s*)+$/, "comment"],
       [/#\s*[\^]+/, "comment", "@type"],
@@ -54,8 +55,8 @@ const refineSyntax: monaco.languages.IMonarchLanguage = {
       [/,/, "keyword.type"],
       [/([`?]\d+)$/, "tag", "@popall"],
       [/([`?]\d+)/, "tag"],
-      [/[a-zA-Z][a-zA-Z0-9_']*$/, "type", "@popall"],
-      [/[a-zA-Z][a-zA-Z0-9_']*/, "type"],
+      [/[A-Z][a-zA-Z0-9]*$/, "type", "@popall"],
+      [/[A-Z][a-zA-Z0-9]*/, "type"],
       [/[ \t]*$/, "@whitespace", "@popall"],
       [/[ \t]+/, "@whitespace"],
     ],
