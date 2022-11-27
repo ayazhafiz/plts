@@ -5,10 +5,6 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-pushd www
-yarn clean
-popd
-
 export PUBLISH=1
 
 mv node_modules /tmp/node_modules
