@@ -147,11 +147,11 @@ const InputColumn = ({
   defaultBackend: string;
   setBackend: (newBackend: string) => void;
   forceSetBackend: ForceSetValue;
-  getEditor: () => Editor;
+  getEditor: () => Promise<Editor>;
   children: React.ReactNode;
 }) => {
-  const setExample = (choice: string) => {
-    getEditor().setValue(examples[choice]);
+  const setExample = async (choice: string) => {
+    (await getEditor()).setValue(examples[choice]);
   };
   return (
     <PgColumn>
@@ -201,7 +201,7 @@ interface BackendBlockProps {
   prio: number;
   getMonaco: () => typeof monaco;
   getBackend: () => Backend | null;
-  getEditor: () => Editor;
+  getEditor: () => Promise<Editor>;
   onDidBackendChange: OnDidBackendChange;
   onDidInputChange: OnDidInputChange;
   registerEditor: (setHide: SetHide) => void;
@@ -273,7 +273,7 @@ class BackendBlock extends React.Component<
       info: backend.info ? backend.info : [],
     });
     monaco.editor.setModelLanguage(
-      getEditor().getModel()!,
+      (await getEditor()).getModel()!,
       backend.editorLanguage
     );
     return this.updateOutput();
@@ -288,8 +288,10 @@ class BackendBlock extends React.Component<
     const { options } = this.state;
     if (backend === null || options === null) return "done";
 
+    const ed = await getEditor();
+
     await this.setStateAsync({ result: "loading" });
-    getEditor().setValue("");
+    ed.setValue("");
 
     const optionValues = options.map(([_, v]) => {
       if (typeof v === "object") {
@@ -300,8 +302,8 @@ class BackendBlock extends React.Component<
 
     const result = await backend.do(input, ...optionValues);
     if (result.result !== null) {
-      getEditor().setValue(result.result);
-      getEditor().trigger("playground", "editor.foldAllMarkerRegions", {});
+      ed.setValue(result.result);
+      ed.trigger("playground", "editor.foldAllMarkerRegions", {});
     }
     await this.setStateAsync({ result });
     return "done";
@@ -548,13 +550,35 @@ function loadPersistentState({
   });
 }
 
+class EditorCell {
+  private readonly resolve: (ed: Editor) => void;
+  private readonly editor: Promise<Editor>
+
+  constructor() {
+    let theResolve: (ed: Editor) => void = null!;
+    this.editor = new Promise((resolve, _reject) => {
+      theResolve = resolve;
+    });
+    console.assert(theResolve !== null);
+    this.resolve = theResolve;
+  }
+
+  set(ed: Editor) {
+    this.resolve(ed);
+  }
+
+  async get() {
+    return await this.editor;
+  }
+}
+
 class Playground<
   Backends extends Record<string, BackendKind>,
   Examples extends Record<string, string>
 > extends React.Component<PlaygroundProps<Backends, Examples>> {
   private readonly editors: Record<
     string,
-    { kind: "input" | "output"; editor: Editor; setHide?: SetHide }
+    { kind: "input" | "output"; editor: EditorCell; setHide?: SetHide }
   > = {};
   private inputEditorId: string = "input-editor";
 
@@ -581,13 +605,13 @@ class Playground<
   ) => {
     this.editors[editorId] = {
       kind,
-      editor: null!, // will get updated during componentDidMount
+      editor: new EditorCell(), // will get updated during componentDidMount
       setHide,
     };
   };
 
-  getEditor = (editorId: string) => {
-    return this.editors[editorId].editor;
+  getEditor = async (editorId: string) => {
+    return await this.editors[editorId].editor.get();
   };
 
   getBackend = () => this.backend;
@@ -598,8 +622,8 @@ class Playground<
     return this.backendChange();
   };
 
-  inputChange = () => {
-    const newInput = this.getEditor(this.inputEditorId).getValue();
+  inputChange = async () => {
+    const newInput = (await this.getEditor(this.inputEditorId)).getValue();
     writePersistentState("input", newInput);
     return Promise.all(this.inputChangeSubscribers.map((s) => s(newInput)));
   };
@@ -684,7 +708,7 @@ class Playground<
             ...extraOpts,
           }
         );
-        this.editors[editorId].editor = editor;
+        this.editors[editorId].editor.set(editor);
 
         if (this.editors[editorId].kind === "input") {
           editor.setValue(persistentState.input);
@@ -717,8 +741,8 @@ class Playground<
       if (index < backends.length) return backends[index];
       return null;
     };
-    const getBackendEditorAt = (index: number) =>
-      this.getEditor(backendEditors[index]);
+    const getBackendEditorAt = async (index: number) =>
+      await this.getEditor(backendEditors[index]);
     const getInputEditor = () => this.getEditor(this.inputEditorId);
 
     this.registerEditor(this.inputEditorId, "input");
