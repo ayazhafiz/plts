@@ -3,6 +3,8 @@
 set -x
 set -euo pipefail
 
+yarn clean
+
 export PUBLISH=1
 
 cd "$(git rev-parse --show-toplevel)"
