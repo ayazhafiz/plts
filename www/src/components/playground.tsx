@@ -259,11 +259,12 @@ class BackendBlock extends React.Component<
     await this.setStateAsync({ forceHide });
   };
 
-  updateBackend = async (): Promise<"done"> => {
+  updateBackend = async (input?: string): Promise<"done"> => {
     const { getBackend, getMonaco, getEditor } = this.props;
     const backend = getBackend();
     if (backend === null) {
       await this.setStateAsync(this.nullState);
+      console.debug("skipping setting backend identity", this.props.identity);
       return "done";
     }
     const monaco = getMonaco();
@@ -276,7 +277,9 @@ class BackendBlock extends React.Component<
       (await getEditor()).getModel()!,
       backend.editorLanguage
     );
-    return this.updateOutput();
+    let done = await this.updateOutput(input);
+    console.debug("finished updating backend", this.state.title, "identity", this.props.identity);
+    return done;
   };
 
   updateOutput = async (
@@ -306,6 +309,7 @@ class BackendBlock extends React.Component<
       ed.trigger("playground", "editor.foldAllMarkerRegions", {});
     }
     await this.setStateAsync({ result });
+    console.debug("finished updating output for input of length", input.length);
     return "done";
   };
 
@@ -583,7 +587,7 @@ class Playground<
   private inputEditorId: string = "input-editor";
 
   private backend: BackendKind = this.props.backends[this.props.defaultBackend];
-  private readonly backendChangeSubscribers: Array<() => Promise<"done">> = [];
+  private readonly backendChangeSubscribers: Array<(input?: string) => Promise<"done">> = [];
   private readonly inputChangeSubscribers: Array<
     (input: string) => Promise<"done">
   > = [];
@@ -625,12 +629,12 @@ class Playground<
   inputChange = async () => {
     const newInput = (await this.getEditor(this.inputEditorId)).getValue();
     writePersistentState("input", newInput);
-    console.debug("firing new input of length ", newInput.length);
+    console.debug("firing new input of length", newInput.length);
     return Promise.all(this.inputChangeSubscribers.map((s) => s(newInput)));
   };
 
-  backendChange = async () => {
-    await Promise.all(this.backendChangeSubscribers.map((s) => s()));
+  backendChange = async (source?: string) => {
+    await Promise.all(this.backendChangeSubscribers.map((s) => s(source)));
     await this.resizeAllEditors();
   };
 
@@ -713,7 +717,7 @@ class Playground<
 
         if (this.editors[editorId].kind === "input") {
           editor.setValue(persistentState.input);
-          console.info("set initial value of length ", persistentState.input.length);
+          console.info("set initial value of length", persistentState.input.length);
           editor.onDidChangeModelContent(this.inputChange);
         }
       }
@@ -731,8 +735,9 @@ class Playground<
         this.backend.map((back) => back.options)
       );
 
-      await this.backendChange();
-      await this.inputChange();
+      console.debug("firing initial backend change with input of length", persistentState.input.length);
+      await this.backendChange(persistentState.input);
+      console.debug("backends initialized");
     });
   }
 
