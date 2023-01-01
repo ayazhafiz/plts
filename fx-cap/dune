@@ -1,0 +1,49 @@
+(menhir
+  (flags --explain --fixed-exception --no-dollars)
+  (modules ast_parser))
+
+(library
+  (name lib_fx_cap)
+  (modules
+    lib_fx_cap
+    surface
+    ast ast_lex ast_parser ast_parse
+    ty_solve ty_print
+    service util
+    )
+  (libraries
+    str
+    sedlex
+    menhirLib)
+  (js_of_ocaml)
+  (inline_tests)
+  (preprocess
+   (pps ppx_inline_test ppx_deriving.show sedlex.ppx)))
+
+(executable
+  (public_name fx_cap)
+  (name fx_cap)
+  (modules fx_cap)
+  (libraries lib_fx_cap))
+
+(executable
+  (public_name fx_cap_js)
+  (name fx_cap_js)
+  (modules fx_cap_js)
+  (libraries lib_fx_cap)
+  (modes byte)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(rule
+  (mode (promote (into js)))
+  (targets fx_cap.js fx_cap.d.ts)
+  (deps (glob_files js/prim.js))
+  (action
+    (progn
+      (run %{bin:js_of_ocaml}
+           js/prim.js
+           %{dep:fx_cap_js.bc}
+           -o fx_cap.js)
+      (with-outputs-to fx_cap.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*js.cmt')")))))
+
