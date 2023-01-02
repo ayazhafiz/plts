@@ -29,6 +29,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | whitespace -> read lexbuf
   | newline -> read lexbuf
   | "let" -> make lexbuf (fun i -> LET i)
+  | "rec" -> make lexbuf (fun i -> REC i)
   | "in" -> make lexbuf (fun i -> IN i)
   | "if" -> make lexbuf (fun i -> IF i)
   | "then" -> make lexbuf (fun i -> THEN i)
@@ -40,6 +41,11 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "\\" -> make lexbuf (fun i -> LAMBDA i)
   | "true" -> make lexbuf (fun i -> LITBOOL (i, true))
   | "false" -> make lexbuf (fun i -> LITBOOL (i, false))
+  | "@lt" -> make lexbuf (fun i -> BUILTIN (i, `Lt))
+  | "@gt" -> make lexbuf (fun i -> BUILTIN (i, `Gt))
+  | "@add" -> make lexbuf (fun i -> BUILTIN (i, `Add))
+  | "@sub" -> make lexbuf (fun i -> BUILTIN (i, `Sub))
+  | "@mul" -> make lexbuf (fun i -> BUILTIN (i, `Mul))
   | int ->
       make lexbuf (fun i -> LITINT (i, int_of_string @@ Utf8.lexeme lexbuf))
   | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))

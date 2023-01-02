@@ -5,8 +5,9 @@ type e_str = ty * string
 
 type expr =
   | Var of string
+  | Builtin of Ast.builtin
   | Lit of Ast.literal
-  | Let of (ty * string) * e_expr * e_expr
+  | Let of Ast.recursive * (ty * string) * e_expr * e_expr
   | Abs of (ty * string) * e_expr
   | App of e_expr * e_expr
   | If of e_expr * e_expr * e_expr
@@ -23,10 +24,11 @@ let rec pp_expr f parens =
     match e with
     | Var x -> pp_print_string f x
     | Lit l -> Ast.pp_lit f l
+    | Builtin b -> Ast.pp_builtin f b
     | Abs ((_, x), e) ->
         let app () =
           fprintf f "@[<hov 2>\\%s ->@ " x;
-          go `Apply e;
+          go `Free e;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
@@ -39,10 +41,11 @@ let rec pp_expr f parens =
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
-    | Let ((_, x), rhs, body) ->
+    | Let (`Rec recursive, (_, x), rhs, body) ->
+        let recursive = if recursive then " rec" else "" in
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<hv 2>let %s =@ " x;
+          fprintf f "@[<hv 2>let%s %s =@ " recursive x;
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free body

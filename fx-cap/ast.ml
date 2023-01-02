@@ -22,7 +22,29 @@ and ty = ty_var ref [@@deriving show]
 let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 
 type literal = [ `Bool of bool | `Int of int ]
+type builtin = [ `Lt | `Gt | `Add | `Sub | `Mul ]
+
+let ty_of_builtin : builtin -> ty =
+  let topstk = `Stk [] in
+  let int = ref @@ Content TInt in
+  let bool = ref @@ Content TBool in
+  let tfn_int_int = ref @@ Content (TFnFx (int, int, topstk)) in
+  let tfn_int_int_int = ref @@ Content (TFnFx (int, tfn_int_int, topstk)) in
+  let tfn_int_bool = ref @@ Content (TFnFx (int, bool, topstk)) in
+  let tfn_int_int_bool = ref @@ Content (TFnFx (int, tfn_int_bool, topstk)) in
+  let map =
+    [
+      (`Lt, tfn_int_int_bool);
+      (`Gt, tfn_int_int_bool);
+      (`Add, tfn_int_int_int);
+      (`Sub, tfn_int_int_int);
+      (`Mul, tfn_int_int_int);
+    ]
+  in
+  fun b -> List.assoc b map
+
 type e_str = loc * ty * string
+type recursive = [ `Rec of bool ]
 
 type e_expr = loc * ty * expr
 (** An elaborated expression *)
@@ -30,14 +52,15 @@ type e_expr = loc * ty * expr
 and expr =
   | Var of string
   | Lit of literal
+  | Builtin of builtin
   | Abs of e_str * e_stmt  (** \x -> s *)
 
 and e_stmt = loc * ty * stmt
 
 and stmt =
   | App of e_expr * e_expr  (** f x *)
-  | If of e_expr * e_expr * e_expr
-  | Let of e_str * e_stmt * e_stmt  (** x <- s; s' *)
+  | If of e_stmt * e_stmt * e_stmt
+  | Let of recursive * e_str * e_stmt * e_stmt  (** x <- s; s' *)
   | Return of e_expr  (** return e *)
 
 type program = e_stmt
@@ -55,6 +78,18 @@ let pp_lit f =
   let open Format in
   function `Bool b -> pp_print_bool f b | `Int n -> pp_print_int f n
 
+let pp_builtin f b =
+  let open Format in
+  let s =
+    match b with
+    | `Lt -> "lt"
+    | `Gt -> "gt"
+    | `Add -> "add"
+    | `Sub -> "sub"
+    | `Mul -> "mul"
+  in
+  fprintf f "@%s" s
+
 let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2
 let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2
 
@@ -64,6 +99,7 @@ let rec pp_expr f parens =
     match e with
     | Var x -> pp_print_string f x
     | Lit l -> pp_lit f l
+    | Builtin b -> pp_builtin f b
     | Abs ((_, _, x), e) ->
         let app () =
           fprintf f "@[<hov 2>\\%s ->@ " x;
@@ -87,10 +123,11 @@ and pp_stmt f parens =
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
-    | Let ((_, _, x), rhs, body) ->
+    | Let (`Rec recursive, (_, _, x), rhs, body) ->
+        let recursive = if recursive then " rec" else "" in
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<hv 2>let %s =@ " x;
+          fprintf f "@[<hv 2>let%s %s =@ " recursive x;
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free body
@@ -102,11 +139,11 @@ and pp_stmt f parens =
         fprintf f "@[<hv 0>";
         let if' () =
           fprintf f "@[<hv 2>if@ ";
-          pp_expr f `Free c;
+          go `Free c;
           fprintf f "@]@ @[<hv 2>then@ ";
-          pp_expr f `Free t;
+          go `Free t;
           fprintf f "@]@ @[<hv 2>else@ ";
-          pp_expr f `Free e;
+          go `Free e;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) if';

@@ -14,7 +14,10 @@ let xv = Ast.xv
 %token <Surface.loc * bool> LITBOOL
 %token <Surface.loc * int> LITINT
 
+%token <Surface.loc * Ast.builtin> BUILTIN
+
 %token <Surface.loc> LET
+%token <Surface.loc> REC
 %token <Surface.loc> IN
 %token <Surface.loc> IF
 %token <Surface.loc> THEN
@@ -43,7 +46,7 @@ stmt:
       let e = e c in
       (xloc e, xty e, Return e)
   }
-  | i=IF c=expr THEN t=expr ELSE e=expr { fun ctx ->
+  | i=IF c=stmt THEN t=stmt ELSE e=stmt { fun ctx ->
       let c = c ctx in
       let t = t ctx in
       let e = e ctx in
@@ -64,7 +67,13 @@ stmt_lets:
       let body = body c in
       let loc = range l (xloc body) in
       let x = (fst loc_x, c.fresh_var(), snd loc_x) in
-      (loc, c.fresh_var(), Let(x, e c, body))
+      (loc, c.fresh_var(), Let(`Rec false, x, e c, body))
+  }
+  | l=LET REC loc_x=LOWER EQ e=stmt IN body=stmt { fun c ->
+      let body = body c in
+      let loc = range l (xloc body) in
+      let x = (fst loc_x, c.fresh_var(), snd loc_x) in
+      (loc, c.fresh_var(), Let(`Rec true, x, e c, body))
   }
 
 expr:
@@ -79,6 +88,8 @@ expr:
 expr_atom:
   | x=LOWER { fun ctx -> (fst x, ctx.fresh_var (), Var (snd x)) }
   | b=LITBOOL { fun ctx -> (fst b, ctx.fresh_var (), Lit (`Bool (snd b))) }
+  | n=LITINT { fun ctx -> (fst n, ctx.fresh_var (), Lit (`Int (snd n))) }
+  | b=BUILTIN { fun ctx -> (fst b, ctx.fresh_var (), Builtin (snd b)) }
   | l=LPAREN e=expr r=RPAREN { fun ctx -> 
       let e = e ctx in
       (range l r, xty e, xv e)

@@ -52,6 +52,7 @@ let rec conv_expr : ctx -> Ast.e_expr -> Ir.e_expr =
     match e with
     | Ast.Lit lit -> Ir.Lit lit
     | Ast.Var x -> Ir.Var x
+    | Ast.Builtin b -> Ir.Builtin b
     | Ast.Abs ((_, t_x, x), body) ->
         let stkshp =
           match unlink_content t with
@@ -65,25 +66,25 @@ let rec conv_expr : ctx -> Ast.e_expr -> Ir.e_expr =
   (ir_t, ir_e)
 
 and conv_stmt : ctx -> Ast.e_stmt -> Ast.stack_shape -> Ir.e_expr =
- fun ctx (_, t, s) (`Stk stkshp) ->
+ fun ctx (_, t, s) (`Stk stkshp as stk) ->
   let ir_t = conv_ty t in
   let ir_e =
     match (s, stkshp) with
     | Ast.App (e1, e2), _ -> Ir.App (conv_expr ctx e1, conv_expr ctx e2)
-    | Ast.If (c, e1, e2), _ ->
-        let c = conv_expr ctx c in
-        let e1 = conv_expr ctx e1 in
-        let e2 = conv_expr ctx e2 in
+    | Ast.If (c, e1, e2), [] ->
+        let c = conv_stmt ctx c stk in
+        let e1 = conv_stmt ctx e1 stk in
+        let e2 = conv_stmt ctx e2 stk in
         Ir.If (c, e1, e2)
-    | Ast.Let ((_, t_x, x), e, s), [] ->
+    | Ast.If _, _ -> failwith "TODO handle effectful if"
+    | Ast.Let (recursive, (_, t_x, x), e, s), [] ->
         let t_x = conv_ty t_x in
         let e = conv_stmt ctx e (`Stk []) in
         let s = conv_stmt ctx s (`Stk []) in
-        Ir.Let ((t_x, x), e, s)
-    | Ast.Let ((_, t_x, x), e, s), stack_shape ->
+        Ir.Let (recursive, (t_x, x), e, s)
+    | Ast.Let (`Rec false, (_, t_x, x), e, s), _stack_shape ->
         (* [let x = e in s] at [t, t_rest] stack
            => \k -> S[e]_[t, t_rest] @ (\x -> (S[s]_[t, t_rest] @ k)) *)
-        let stk = `Stk stack_shape in
         let k_var = ctx.fresh_name "k" in
         let cps_x_def = conv_stmt ctx e stk (* S[e]_[t, t_rest] *) in
         let cps_x_after = conv_stmt ctx s stk (* S[s]_[t, t_rest] *) in
@@ -117,6 +118,7 @@ and conv_stmt : ctx -> Ast.e_stmt -> Ast.stack_shape -> Ir.e_expr =
         in
         (* \k -> S[e]_[t, t_rest] @ (\x -> (S[s]_[t, t_rest] @ k)) *)
         Ir.Abs ((t_k, k_var), app_after_cont_to_def)
+    | Ast.Let (`Rec true, _, _, _), _ -> failwith "todo recursive let effectful"
     | Ast.Return e, [] -> snd (conv_expr ctx e)
     | Ast.Return e, _stk ->
         (* [return e] at [t, t_rest] stack

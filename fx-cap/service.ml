@@ -8,12 +8,12 @@ let tightest_node_at loc program =
   let rec stmt (l, t, s) =
     let deeper =
       match s with
-      | Let (d, s, s') ->
+      | Let (_, d, s, s') ->
           or_else (str d) (fun () -> or_else (stmt s) (fun () -> stmt s'))
       | App (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
       | Return e -> expr e
       | If (e1, e2, e3) ->
-          or_else (expr e1) (fun () -> or_else (expr e2) (fun () -> expr e3))
+          or_else (stmt e1) (fun () -> or_else (stmt e2) (fun () -> stmt e3))
     in
     or_else deeper (fun () ->
         if within loc l then
@@ -25,6 +25,7 @@ let tightest_node_at loc program =
       match e with
       | Var _ -> None
       | Lit _ -> None
+      | Builtin _ -> None
       | Abs ((l, t_x, x), e) ->
           if within loc l then Some (l, t_x, `Var x) else stmt e
     in
