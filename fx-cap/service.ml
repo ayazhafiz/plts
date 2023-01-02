@@ -24,7 +24,7 @@ let tightest_node_at loc program =
       | Var _ -> None
       | Lit _ -> None
       | Abs ((l, t_x, x), e) ->
-          if within loc l then Some (l, t_x, `Var x) else expr e
+          if within loc l then Some (l, t_x, `Var x) else stmt e
     in
     or_else deeper (fun () ->
         if within loc l then

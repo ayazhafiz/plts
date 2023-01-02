@@ -29,9 +29,9 @@ type e_expr = loc * ty * expr
 and expr =
   | Var of string
   | Lit of literal
-  | Abs of e_str * e_expr  (** \x -> e *)
+  | Abs of e_str * e_stmt  (** \x -> s *)
 
-type e_stmt = loc * ty * stmt
+and e_stmt = loc * ty * stmt
 
 and stmt =
   | App of e_expr * e_expr  (** f x *)
@@ -62,25 +62,23 @@ let pp_lit f =
 let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2
 let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2
 
-let pp_expr f parens =
+let rec pp_expr f parens =
   let open Format in
-  let rec go parens (_, _, e) =
+  let go parens (_, _, e) =
     match e with
     | Var x -> pp_print_string f x
     | Lit l -> pp_lit f l
     | Abs ((_, _, x), e) ->
         let app () =
           fprintf f "@[<hov 2>\\%s ->@ " x;
-          go `Apply e;
+          pp_stmt f `Apply e;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
   in
   go parens
 
-let string_of_expr e = with_buffer (fun f -> pp_expr f `Free e) default_width
-
-let pp_stmt f =
+and pp_stmt f parens =
   let open Format in
   let rec go parens (_, _, e) =
     match e with
@@ -105,13 +103,13 @@ let pp_stmt f =
         fprintf f "@]"
     | Return e -> pp_expr f `Free e
   in
-  go `Free
+  go parens
 
 let string_of_program ?(width = default_width) (program : program) =
   let open Format in
   with_buffer
     (fun f ->
       fprintf f "@[<v 0>";
-      pp_stmt f program;
+      pp_stmt f `Free program;
       fprintf f "@]")
     width

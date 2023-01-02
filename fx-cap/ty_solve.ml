@@ -47,8 +47,8 @@ let unify t1 t2 =
   in
   unify t1 t2
 
-let infer_expr =
-  let rec infer venv (_, t, e) =
+let rec infer_expr fv =
+  let infer venv (_, t, e) =
     let ity =
       match e with
       | Lit (`Bool _) -> ref @@ Content TBool
@@ -56,8 +56,8 @@ let infer_expr =
           match List.assoc_opt x venv with
           | Some t -> t
           | None -> failsolve ("Variable " ^ x ^ " not in scope"))
-      | Abs ((_, t_x, x), e) ->
-          let t_res = infer ((x, t_x) :: venv) e in
+      | Abs ((_, t_x, x), s) ->
+          let t_res = infer_stmt fv ((x, t_x) :: venv) s in
           let stkshp = [] (* TODO stack shapes!!! *) in
           ref @@ Content (TFnFx (t_x, t_res, `Stk stkshp))
     in
@@ -66,13 +66,13 @@ let infer_expr =
   in
   infer
 
-let infer_stmt fv =
+and infer_stmt fv =
   let rec infer venv (_, t, s) =
     let ity =
       match s with
       | App (e1, e2) ->
-          let t_fn = infer_expr venv e1 in
-          let t_arg = infer_expr venv e2 in
+          let t_fn = infer_expr fv venv e1 in
+          let t_arg = infer_expr fv venv e2 in
           let t_ret = fv () in
           let stkshp = [] (* TODO stack shapes!!! *) in
           unify t_fn (ref @@ Content (TFnFx (t_arg, t_ret, `Stk stkshp)));
@@ -81,7 +81,7 @@ let infer_stmt fv =
           let t_x' = infer venv e in
           unify t_x t_x';
           infer ((x, t_x) :: venv) b
-      | Return e -> infer_expr venv e
+      | Return e -> infer_expr fv venv e
     in
     unify t ity;
     t

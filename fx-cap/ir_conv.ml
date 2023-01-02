@@ -51,14 +51,14 @@ let rec conv_expr : ctx -> Ast.e_expr -> Ir.e_expr =
     match e with
     | Ast.Lit lit -> Ir.Lit lit
     | Ast.Var x -> Ir.Var x
-    | Ast.Abs ((_, t_x, x), _body) ->
+    | Ast.Abs ((_, t_x, x), body) ->
         let stkshp =
           match unlink_content t with
           | Ast.TFnFx (_, _, stkshp) -> stkshp
           | _ -> failwith "abstraction not a function type after solving"
         in
         let t_x = conv_ty t_x in
-        let body = conv_stmt ctx (failwith "todo make body stmt") stkshp in
+        let body = conv_stmt ctx body stkshp in
         Ir.Abs ((t_x, x), body)
   in
   (ir_t, ir_e)
