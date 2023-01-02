@@ -58,7 +58,7 @@ stmt_lets:
 
 expr:
   | e=expr_atom { fun c -> e c }
-  | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
+  | lam=LAMBDA arg=LOWER ARROW body=stmt { fun ctx ->
       let body = body ctx in
       let loc = range lam (xloc body) in
       let arg = (fst arg, ctx.fresh_var (), snd arg) in
