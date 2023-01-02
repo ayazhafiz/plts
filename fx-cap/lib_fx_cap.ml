@@ -201,8 +201,8 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
   let solve (fresh_var, p) =
     Result.map_error (fun s -> SolveErr s) @@ Ty_solve.infer_program fresh_var p
   in
-  let ir _ = failwith "todo" in
-  let eval _program = failwith "todo" in
+  let ir program = Result.ok @@ Ir_conv.conv_program program in
+  let eval program = Result.ok @@ Ir_interp.interp program in
   let elab program =
     if List.length queries = 0 then Error (ElabErr `NoQueries)
     else
@@ -249,8 +249,10 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
   let print_solved program =
     Ast.string_of_program ~width:default_width program
   in
-  let print_ir _program = failwith "todo" in
-  let print_evaled _evaled = failwith "todo" in
+  let print_ir program = Ir.string_of_program ~width:default_width program in
+  let print_evaled evaled =
+    Ir_interp.string_of_value ~width:default_width evaled
+  in
   match (phase, emit) with
   | Parse, Print -> input |> parse &> print_parsed
   | Solve, Print -> input |> parse >>= solve &> print_solved

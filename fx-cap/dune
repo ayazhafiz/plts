@@ -9,7 +9,7 @@
     surface
     ast ast_lex ast_parser ast_parse
     ty_solve ty_print
-    ir ir_conv
+    ir ir_conv ir_interp
     service util
     )
   (libraries

@@ -49,12 +49,6 @@ let xloc (l, _, _) = l
 let xty (_, t, _) = t
 let xv (_, _, v) = v
 
-let with_parens f needs_parens inside =
-  let open Format in
-  if needs_parens then pp_print_string f "(";
-  inside ();
-  if needs_parens then pp_print_string f ")"
-
 let pp_lit f =
   let open Format in
   function `Bool b -> pp_print_bool f b
