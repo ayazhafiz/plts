@@ -9,6 +9,7 @@ type expr =
   | Let of (ty * string) * e_expr * e_expr
   | Abs of (ty * string) * e_expr
   | App of e_expr * e_expr
+  | If of e_expr * e_expr * e_expr
 
 and e_expr = ty * expr
 
@@ -47,6 +48,19 @@ let rec pp_expr f parens =
           go `Free body
         in
         with_parens f (parens >> `Free) expr;
+        fprintf f "@]"
+    | If (c, t, e) ->
+        fprintf f "@[<hv 0>";
+        let if' () =
+          fprintf f "@[<hv 2>if@ ";
+          go `Free c;
+          fprintf f "@]@ @[<hv 2>then@ ";
+          go `Free t;
+          fprintf f "@]@ @[<hv 2>else@ ";
+          go `Free e;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) if';
         fprintf f "@]"
   in
   go parens

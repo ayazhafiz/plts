@@ -85,6 +85,13 @@ and infer_stmt fv =
           unify t_x t_x';
           infer ((x, t_x) :: venv) b
       | Return e -> infer_expr fv venv e
+      | If (c, e1, e2) ->
+          let t_c = infer_expr fv venv c in
+          unify t_c (ref @@ Content TBool);
+          let t_e1 = infer_expr fv venv e1 in
+          let t_e2 = infer_expr fv venv e2 in
+          unify t_e1 t_e2;
+          t_e1
     in
     unify t ity;
     t

@@ -70,6 +70,11 @@ and conv_stmt : ctx -> Ast.e_stmt -> Ast.stack_shape -> Ir.e_expr =
   let ir_e =
     match (s, stkshp) with
     | Ast.App (e1, e2), _ -> Ir.App (conv_expr ctx e1, conv_expr ctx e2)
+    | Ast.If (c, e1, e2), _ ->
+        let c = conv_expr ctx c in
+        let e1 = conv_expr ctx e1 in
+        let e2 = conv_expr ctx e2 in
+        Ir.If (c, e1, e2)
     | Ast.Let ((_, t_x, x), e, s), [] ->
         let t_x = conv_ty t_x in
         let e = conv_stmt ctx e (`Stk []) in

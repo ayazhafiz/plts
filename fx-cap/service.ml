@@ -12,6 +12,8 @@ let tightest_node_at loc program =
           or_else (str d) (fun () -> or_else (stmt s) (fun () -> stmt s'))
       | App (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
       | Return e -> expr e
+      | If (e1, e2, e3) ->
+          or_else (expr e1) (fun () -> or_else (expr e2) (fun () -> expr e3))
     in
     or_else deeper (fun () ->
         if within loc l then

@@ -21,6 +21,11 @@ let rec eval venv (_, e) =
   | Let ((_, x), e, r) ->
       let e = eval venv e in
       eval ((x, e) :: venv) r
+  | If (c, e1, e2) -> (
+      match eval venv c with
+      | Bool true -> eval venv e1
+      | Bool false -> eval venv e2
+      | _ -> failwith "non-boolean condition")
 
 let interp e = (fst e, eval [] e)
 
