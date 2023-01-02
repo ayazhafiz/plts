@@ -4,8 +4,7 @@
 let rec fact = \n ->
 #       ^^^^
   let ltN = @lt n in
-  let ltNZero = ltN 1 in
-  if ltNZero then
+  if ltN 1 then
     1
   else if false then
     n
@@ -23,8 +22,7 @@ fact 6
 > let rec fact = \n ->
 > #       ^^^^ int -> int
 >   let ltN = @lt n in
->   let ltNZero = ltN 1 in
->   if ltNZero then
+>   if ltN 1 then
 >     1
 >   else if false then
 >     n
@@ -43,8 +41,7 @@ fact 6
 > let rec fact =
 >   \n ->
 >     let ltN = @lt n in
->     let ltNZero = ltN 1 in
->     if ltNZero
+>     if ltN 1
 >     then 1
 >     else
 >       if false
