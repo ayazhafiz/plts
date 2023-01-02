@@ -37,6 +37,7 @@ fact 6
 >     mulN factRest
 > in
 > fact 6
+> 
 
 > +ir -print
 > let rec fact =

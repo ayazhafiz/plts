@@ -201,7 +201,11 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
   let solve (fresh_var, p) =
     Result.map_error (fun s -> SolveErr s) @@ Ty_solve.infer_program fresh_var p
   in
-  let ir program = Result.ok @@ Ir_conv.conv_program program in
+  let ir program =
+    let program = Ir_conv.conv_program program in
+    Ir_check.check_program program;
+    Ok program
+  in
   let eval program = Result.ok @@ Ir_interp.interp program in
   let elab program =
     if List.length queries = 0 then Error (ElabErr `NoQueries)
