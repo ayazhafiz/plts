@@ -14,6 +14,7 @@ let occurs x =
     | Unbd n -> n = x
     | Link t -> go t
     | Content TBool -> false
+    | Content TInt -> false
     | Content (TFnFx (in', out, `Stk stkshp)) ->
         go in' || go out || List.exists go stkshp
   in
@@ -37,6 +38,7 @@ let unify t1 t2 =
       | Content c1, Content c2 -> (
           match (c1, c2) with
           | TBool, TBool -> ()
+          | TInt, TInt -> ()
           | TFnFx (in1, out1, `Stk stkshp1), TFnFx (in2, out2, `Stk stkshp2) ->
               unify in1 in2;
               unify out1 out2;
@@ -52,6 +54,7 @@ let rec infer_expr fv =
     let ity =
       match e with
       | Lit (`Bool _) -> ref @@ Content TBool
+      | Lit (`Int _) -> ref @@ Content TInt
       | Var x -> (
           match List.assoc_opt x venv with
           | Some t -> t

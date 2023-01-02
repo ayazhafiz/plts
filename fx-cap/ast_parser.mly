@@ -12,6 +12,7 @@ let xv = Ast.xv
 %token <Surface.loc * string> LOWER
 
 %token <Surface.loc * bool> LITBOOL
+%token <Surface.loc * int> LITINT
 
 %token <Surface.loc> LET
 %token <Surface.loc> IN

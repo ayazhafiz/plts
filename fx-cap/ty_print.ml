@@ -18,6 +18,7 @@ let preprocess tys =
     | Unbd _ -> ()
     | Link t -> go_ty t
     | Content TBool -> ()
+    | Content TInt -> ()
     | Content (TFnFx (in', out', `Stk stack_shape)) ->
         go_ty in';
         go_ty out';
@@ -72,6 +73,7 @@ let pp_ty (_names : named_vars) f t =
     | Unbd i -> fprintf f "<?%d>" i
     | Link t -> go t
     | Content TBool -> fprintf f "bool"
+    | Content TInt -> fprintf f "int"
     | Content (TFnFx (in', out, `Stk stack_shape)) ->
         fprintf f "@[<hov 2>";
         go in';

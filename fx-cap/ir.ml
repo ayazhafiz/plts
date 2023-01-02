@@ -1,6 +1,6 @@
 (** Intermediate representation: STLC *)
 
-type ty = TBool | TFn of ty * ty
+type ty = TBool | TInt | TFn of ty * ty
 type e_str = ty * string
 
 type expr =
@@ -21,7 +21,7 @@ let rec pp_expr f parens =
   let rec go parens (_, e) =
     match e with
     | Var x -> pp_print_string f x
-    | Lit (`Bool b) -> pp_print_bool f b
+    | Lit l -> Ast.pp_lit f l
     | Abs ((_, x), e) ->
         let app () =
           fprintf f "@[<hov 2>\\%s ->@ " x;
@@ -66,6 +66,7 @@ let pp_ty f t =
   let rec go parens t =
     match t with
     | TBool -> fprintf f "bool"
+    | TInt -> fprintf f "int"
     | TFn (in', out) ->
         let fn () =
           fprintf f "@[<hov 2>";

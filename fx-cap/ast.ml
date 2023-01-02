@@ -7,6 +7,7 @@ type stack_shape = [ `Stk of ty list  (** ordered stack shape *) ]
 
 and ty_content =
   | TBool
+  | TInt
   | TFnFx of (ty * ty * stack_shape)
       (** effectful function type t -> [t]_{\bar{t}} where \bar{t} is the stack shape *)
 
@@ -20,7 +21,7 @@ and ty = ty_var ref [@@deriving show]
 
 let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 
-type literal = [ `Bool of bool ]
+type literal = [ `Bool of bool | `Int of int ]
 type e_str = loc * ty * string
 
 type e_expr = loc * ty * expr
@@ -51,7 +52,7 @@ let xv (_, _, v) = v
 
 let pp_lit f =
   let open Format in
-  function `Bool b -> pp_print_bool f b
+  function `Bool b -> pp_print_bool f b | `Int n -> pp_print_int f n
 
 let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2
 let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2
