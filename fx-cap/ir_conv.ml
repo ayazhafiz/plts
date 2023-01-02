@@ -2,7 +2,7 @@
 
 type ctx = { fresh_name : string -> string }
 
-let new_ctx =
+let new_ctx () =
   let fresh_name =
     let taken = ref [] in
     fun hint ->
@@ -127,3 +127,10 @@ and conv_stmt : ctx -> Ast.e_stmt -> Ast.stack_shape -> Ir.e_expr =
         Ir.Abs ((t_k, k_var), e)
   in
   (ir_t, ir_e)
+
+let conv_program : Ast.program -> Ir.e_expr =
+ fun p ->
+  let ctx = new_ctx () in
+  (* top-levels start off with the empty stack shape *)
+  let top_stack = `Stk [] in
+  conv_stmt ctx p top_stack
