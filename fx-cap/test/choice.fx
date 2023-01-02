@@ -1,13 +1,13 @@
 let choice[flip : Flip, fail : Fail] = \n ->
-  if n < 1
+  if @lt n 1 then
     do fail()
-  else if (do flip())
+  else if (do flip()) then
     return n
-  else choice(n − 1)
+  else choice (@sub n 1)
 in 
 let handledChoice = \n -> 
-  handle flip = Flip((), k) => append (do (k True)) (do (k False)) in
-  handle fail = Fail((), k) => Nil in
-  Cons(choice[lift flip, fail] n, Nil)
+  handle flip = Flip((), k) => @mul (do (k True)) (do (k False)) in
+  handle fail = Fail((), k) => 0 in
+  choice[lift flip, fail] n
 in
-handledChoice 1
+handledChoice 5

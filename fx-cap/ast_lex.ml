@@ -30,6 +30,9 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | newline -> read lexbuf
   | "let" -> make lexbuf (fun i -> LET i)
   | "in" -> make lexbuf (fun i -> IN i)
+  | "if" -> make lexbuf (fun i -> IF i)
+  | "then" -> make lexbuf (fun i -> THEN i)
+  | "else" -> make lexbuf (fun i -> ELSE i)
   | "=" -> make lexbuf (fun i -> EQ i)
   | "->" -> make lexbuf (fun i -> ARROW i)
   | "(" -> make lexbuf (fun i -> LPAREN i)

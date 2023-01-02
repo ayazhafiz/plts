@@ -36,6 +36,7 @@ and e_stmt = loc * ty * stmt
 
 and stmt =
   | App of e_expr * e_expr  (** f x *)
+  | If of e_expr * e_expr * e_expr
   | Let of e_str * e_stmt * e_stmt  (** x <- s; s' *)
   | Return of e_expr  (** return e *)
 
@@ -97,6 +98,19 @@ and pp_stmt f parens =
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
     | Return e -> pp_expr f `Free e
+    | If (c, t, e) ->
+        fprintf f "@[<hv 0>";
+        let if' () =
+          fprintf f "@[<hv 2>if@ ";
+          pp_expr f `Free c;
+          fprintf f "@]@ @[<hv 2>then@ ";
+          pp_expr f `Free t;
+          fprintf f "@]@ @[<hv 2>else@ ";
+          pp_expr f `Free e;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) if';
+        fprintf f "@]"
   in
   go parens
 

@@ -16,6 +16,9 @@ let xv = Ast.xv
 
 %token <Surface.loc> LET
 %token <Surface.loc> IN
+%token <Surface.loc> IF
+%token <Surface.loc> THEN
+%token <Surface.loc> ELSE
 %token <Surface.loc> LAMBDA
 %token <Surface.loc> LPAREN
 %token <Surface.loc> RPAREN
@@ -39,6 +42,13 @@ stmt:
   | e=expr { fun c -> (* return *)
       let e = e c in
       (xloc e, xty e, Return e)
+  }
+  | i=IF c=expr THEN t=expr ELSE e=expr { fun ctx ->
+      let c = c ctx in
+      let t = t ctx in
+      let e = e ctx in
+      let loc = range i (xloc e) in
+      (loc, ctx.fresh_var (), If (c, t, e))
   }
 
 stmt_app:
