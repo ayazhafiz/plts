@@ -5,7 +5,7 @@ exception AstError of string
 
 let whitespace = [%sedlex.regexp? Plus (' ' | '\t')]
 let newline = [%sedlex.regexp? '\n' | "\r\n"]
-let nat = [%sedlex.regexp? Plus '0' .. '9']
+let int = [%sedlex.regexp? Opt '-', Plus '0' .. '9']
 
 let lower =
   [%sedlex.regexp?
@@ -37,6 +37,8 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "\\" -> make lexbuf (fun i -> LAMBDA i)
   | "true" -> make lexbuf (fun i -> LITBOOL (i, true))
   | "false" -> make lexbuf (fun i -> LITBOOL (i, false))
+  | int ->
+      make lexbuf (fun i -> LITINT (i, int_of_string @@ Utf8.lexeme lexbuf))
   | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))
   | "#" -> comment lexbuf
   | eof -> EOF

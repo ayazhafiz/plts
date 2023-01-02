@@ -28,6 +28,7 @@ let rec conv_ty : Ast.ty -> Ir.ty =
   let content = unlink_content t in
   match content with
   | Ast.TBool -> Ir.TBool
+  | Ast.TInt -> Ir.TInt
   | Ast.TFnFx (t1, t2, `Stk stkshp) ->
       let t1 = conv_ty t1 in
       let t2 = conv_fx_ty t2 stkshp in

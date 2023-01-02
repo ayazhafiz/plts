@@ -1,12 +1,13 @@
 open Ir
 
-type value = Bool of bool | Lam of (value -> value)
+type value = Bool of bool | Int of int | Lam of (value -> value)
 type typed_value = ty * value
 
 let rec eval venv (_, e) =
   match e with
   | Var x -> List.assoc x venv
   | Lit (`Bool b) -> Bool b
+  | Lit (`Int n) -> Int n
   | App (f, a) -> (
       let a = eval venv a in
       let f = eval venv f in
@@ -25,7 +26,10 @@ let interp e = (fst e, eval [] e)
 
 let readback f =
   let open Format in
-  function Bool b -> pp_print_bool f b | Lam _ -> fprintf f "<function>"
+  function
+  | Bool b -> pp_print_bool f b
+  | Int n -> pp_print_int f n
+  | Lam _ -> fprintf f "<function>"
 
 let string_of_value ?(width = Util.default_width) ((ty, value) : typed_value) =
   let open Format in

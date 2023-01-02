@@ -13,6 +13,7 @@ g
 > let g = f true in
 > #   ^ bool
 > g
+> 
 
 > +ir -print
 > let f = \x -> x in
