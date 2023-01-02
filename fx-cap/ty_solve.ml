@@ -55,6 +55,7 @@ let rec infer_expr fv =
       match e with
       | Lit (`Bool _) -> ref @@ Content TBool
       | Lit (`Int _) -> ref @@ Content TInt
+      | Builtin b -> Ast.ty_of_builtin b
       | Var x -> (
           match List.assoc_opt x venv with
           | Some t -> t
@@ -80,16 +81,18 @@ and infer_stmt fv =
           let stkshp = [] (* TODO stack shapes!!! *) in
           unify t_fn (ref @@ Content (TFnFx (t_arg, t_ret, `Stk stkshp)));
           t_ret
-      | Let ((_, t_x, x), e, b) ->
-          let t_x' = infer venv e in
+      | Let (`Rec recursive, (_, t_x, x), e, b) ->
+          let t_x' =
+            if recursive then infer ((x, t_x) :: venv) e else infer venv e
+          in
           unify t_x t_x';
           infer ((x, t_x) :: venv) b
       | Return e -> infer_expr fv venv e
       | If (c, e1, e2) ->
-          let t_c = infer_expr fv venv c in
+          let t_c = infer venv c in
           unify t_c (ref @@ Content TBool);
-          let t_e1 = infer_expr fv venv e1 in
-          let t_e2 = infer_expr fv venv e2 in
+          let t_e1 = infer venv e1 in
+          let t_e2 = infer venv e2 in
           unify t_e1 t_e2;
           t_e1
     in
