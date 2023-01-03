@@ -23,26 +23,6 @@ let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 
 type literal = [ `Bool of bool | `Int of int ]
 type builtin = [ `Lt | `Gt | `Add | `Sub | `Mul ]
-
-let ty_of_builtin : builtin -> ty =
-  let topstk = `Stk [] in
-  let int = ref @@ Content TInt in
-  let bool = ref @@ Content TBool in
-  let tfn_int_int = ref @@ Content (TFnFx (int, int, topstk)) in
-  let tfn_int_int_int = ref @@ Content (TFnFx (int, tfn_int_int, topstk)) in
-  let tfn_int_bool = ref @@ Content (TFnFx (int, bool, topstk)) in
-  let tfn_int_int_bool = ref @@ Content (TFnFx (int, tfn_int_bool, topstk)) in
-  let map =
-    [
-      (`Lt, tfn_int_int_bool);
-      (`Gt, tfn_int_int_bool);
-      (`Add, tfn_int_int_int);
-      (`Sub, tfn_int_int_int);
-      (`Mul, tfn_int_int_int);
-    ]
-  in
-  fun b -> List.assoc b map
-
 type e_str = loc * ty * string
 type recursive = [ `Rec of bool ]
 
@@ -73,6 +53,25 @@ type parse_ctx = { fresh_var : fresh_var }
 let xloc (l, _, _) = l
 let xty (_, t, _) = t
 let xv (_, _, v) = v
+
+let ty_of_builtin : builtin -> ty =
+  let topstk = `Stk [] in
+  let int = ref @@ Content TInt in
+  let bool = ref @@ Content TBool in
+  let tfn_int_int = ref @@ Content (TFnFx (int, int, topstk)) in
+  let tfn_int_int_int = ref @@ Content (TFnFx (int, tfn_int_int, topstk)) in
+  let tfn_int_bool = ref @@ Content (TFnFx (int, bool, topstk)) in
+  let tfn_int_int_bool = ref @@ Content (TFnFx (int, tfn_int_bool, topstk)) in
+  let map =
+    [
+      (`Lt, tfn_int_int_bool);
+      (`Gt, tfn_int_int_bool);
+      (`Add, tfn_int_int_int);
+      (`Sub, tfn_int_int_int);
+      (`Mul, tfn_int_int_int);
+    ]
+  in
+  fun b -> List.assoc b map
 
 let pp_lit f =
   let open Format in
