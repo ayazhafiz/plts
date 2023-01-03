@@ -23,6 +23,9 @@ let preprocess tys =
         go_ty in';
         go_ty out';
         List.iter go_ty stack_shape
+    | Content (TFnCap (_op, `Stk stack_shape, out')) ->
+        List.iter go_ty stack_shape;
+        go_ty out'
   in
   List.iter go_ty tys;
   (List.rev !claimed, List.rev !hits)
@@ -83,6 +86,15 @@ let pp_ty (_names : named_vars) f t =
           fprintf f "@[<hov 2>@ ^{";
           Util.intersperse f ", " (fun _ _ t -> go t) stack_shape;
           fprintf f "}@]");
+        fprintf f "@]"
+    | Content (TFnCap (`Fx op, `Stk stack_shape, out)) ->
+        fprintf f "@[<hov 2> %s" op;
+        if List.length stack_shape > 0 then (
+          fprintf f "@[<hov 2>@ ^{";
+          Util.intersperse f ", " (fun _ _ t -> go t) stack_shape;
+          fprintf f "}@]");
+        fprintf f "@ -> ";
+        go out;
         fprintf f "@]"
   in
   fprintf f "@[<v 0>";

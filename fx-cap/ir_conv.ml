@@ -33,6 +33,19 @@ let rec conv_ty : Ast.ty -> Ir.ty =
       let t1 = conv_ty t1 in
       let t2 = conv_fx_ty t2 stkshp in
       TFn (t1, t2)
+  | Ast.TFnCap (_op, `Stk stkshp, t) ->
+      (* T[ [F]_t' ] -> t  =>  T[ [F]_t' ] ] -> T[t]
+         T[ [F]_t' ]       =>  T[t1] -> C[t2]_t'
+           where F : t1 -> t2
+      *)
+      let op_ty =
+        let t1, t2 = failwith "todo get types from op signature" in
+        let t1 = conv_ty t1 in
+        let t2_fx = conv_fx_ty t2 stkshp in
+        Ir.TFn (t1, t2_fx)
+      in
+      let t = conv_ty t in
+      TFn (op_ty, t)
 
 (** C[t] translates types are produced via effectful computations to a CPS
         shape. *)

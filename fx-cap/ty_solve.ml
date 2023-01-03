@@ -17,6 +17,8 @@ let occurs x =
     | Content TInt -> false
     | Content (TFnFx (in', out, `Stk stkshp)) ->
         go in' || go out || List.exists go stkshp
+    | Content (TFnCap (_op, `Stk stkshp, out)) ->
+        List.exists go stkshp || go out
   in
   go
 

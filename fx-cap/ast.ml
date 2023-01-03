@@ -3,7 +3,7 @@ open Util
 
 let noloc = ((0, 0), (0, 0))
 
-type effect_op = [ `Fx of string ]
+type effect_op = [ `Fx of string ] [@@deriving show]
 
 type stack_shape = [ `Stk of ty list  (** ordered stack shape *) ]
 
@@ -12,6 +12,10 @@ and ty_content =
   | TInt
   | TFnFx of (ty * ty * stack_shape)
       (** effectful function type t -> [t]_{\bar{t}} where \bar{t} is the stack shape *)
+  | TFnCap of (effect_op * stack_shape * ty)
+      (** capability function type, of a handler
+            [Fx]_{\bar{t}} -> t
+          where Fx is an effect operation [effect_op] *)
 
 and ty_var =
   | Unbd of int  (** unbound type *)
