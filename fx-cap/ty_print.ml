@@ -87,7 +87,7 @@ let pp_ty (_names : named_vars) f t =
           Util.intersperse f ", " (fun _ _ t -> go t) stack_shape;
           fprintf f "}@]");
         fprintf f "@]"
-    | Content (TFnCap (`Fx op, `Stk stack_shape, out)) ->
+    | Content (TFnCap (`Fx (op, _), `Stk stack_shape, out)) ->
         fprintf f "@[<hov 2> %s" op;
         if List.length stack_shape > 0 then (
           fprintf f "@[<hov 2>@ ^{";

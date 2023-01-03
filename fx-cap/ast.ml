@@ -3,9 +3,12 @@ open Util
 
 let noloc = ((0, 0), (0, 0))
 
-type effect_op = [ `Fx of string ] [@@deriving show]
+type effect_op =
+  [ `Fx of string * fx_signature
+    (** an effect operation F has signature t1 -> t2  *) ]
 
-type stack_shape = [ `Stk of ty list  (** ordered stack shape *) ]
+and fx_signature = ty * ty
+and stack_shape = [ `Stk of ty list  (** ordered stack shape *) ]
 
 and ty_content =
   | TBool
@@ -14,8 +17,8 @@ and ty_content =
       (** effectful function type t -> [t]_{\bar{t}} where \bar{t} is the stack shape *)
   | TFnCap of (effect_op * stack_shape * ty)
       (** capability function type, of a handler
-            [Fx]_{\bar{t}} -> t
-          where Fx is an effect operation [effect_op] *)
+        [Fx]_{\bar{t}} -> t
+      where Fx is an effect operation [effect_op] *)
 
 and ty_var =
   | Unbd of int  (** unbound type *)
@@ -54,7 +57,8 @@ and e_cap = loc * ty * cap
 
 and cap =
   | CapVar of string
-  | HandlerImpl of effect_op * (e_str * e_str) * e_stmt  (** F(x, k) -> impl *)
+  | HandlerImpl of (loc * effect_op) * (e_str * e_str) * e_stmt
+      (** F(x, k) -> impl *)
 
 type program = e_stmt
 (** A whole program *)
@@ -178,7 +182,7 @@ and pp_cap f parens =
   let go parens (_, _, c) =
     match c with
     | CapVar x -> pp_print_string f x
-    | HandlerImpl (`Fx op, ((_, _, x), (_, _, k)), impl) ->
+    | HandlerImpl ((_, `Fx (op, _)), ((_, _, x), (_, _, k)), impl) ->
         let app () =
           fprintf f "@[<hov 2>%s %s %s ->@ " op x k;
           pp_stmt f `Apply impl;

@@ -108,7 +108,7 @@ expr_atom:
 cap :
   | c=cap_atom { fun ctx -> c ctx }
   | op=UPPER x=LOWER k=LOWER ARROW body=stmt { fun ctx ->
-      let fx_op = `Fx (snd op) in
+      let fx_op = (fst op, `Fx (snd op, (ctx.fresh_var(), ctx.fresh_var()))) in
       let x = (fst x, ctx.fresh_var (), snd x) in
       let k = (fst k, ctx.fresh_var (), snd k) in
       let body = body ctx in

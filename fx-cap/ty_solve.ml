@@ -103,7 +103,7 @@ and infer_stmt fv =
           t_e1
       | Handle ((_, t_c, c), h, rest) ->
           (* handle c = h in s *)
-          let t_handler, handler_stkshp = infer_cap fv cenv venv h in
+          let t_handler, _handler_stkshp = infer_cap fv cenv venv h in
           unify t_c t_handler;
           let t = infer ((c, t_c) :: cenv) venv rest in
           t (*TODO pop handler result off stack shape*)
@@ -113,23 +113,23 @@ and infer_stmt fv =
   in
   infer
 
-and infer_cap fv =
-  let rec infer cenv venv (_, t, c) =
+and infer_cap _fv =
+  let infer cenv _venv (_, t, c) =
     let ity =
       match c with
       | CapVar c -> (
           match List.assoc_opt c cenv with
           | Some t -> t
           | None -> failsolve ("Effect capability " ^ c ^ " not in scope"))
-      | HandlerImpl (op, ((_, t_x, x), (_, t_k, k)), impl) -> failwith "todo"
+      | HandlerImpl _ -> failwith "todo"
     in
     unify t ity;
-    t
+    (t, failwith "todo")
   in
   infer
 
 let infer_program fresh_var program =
   try
-    let _var = infer_stmt fresh_var [] program in
+    let _var = infer_stmt fresh_var [] [] program in
     Result.ok program
   with Solve_err s -> Error s
