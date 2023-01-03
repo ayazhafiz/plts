@@ -3,37 +3,44 @@ open Util
 
 let tightest_node_at loc program =
   let open Ast in
-  let or_else o f = match o with Some a -> Some a | None -> f () in
-  let str (l, t, x) = if within loc l then Some (l, t, `Def x) else None in
+  let or_else o f = match o with Some a -> Some a | None -> Lazy.force f in
+  let or_with_default deeper (l', t, kind) =
+    or_else deeper (lazy (if within loc l' then Some (l', t, kind) else None))
+  in
+  let or_list l = List.fold_left or_else None l in
+  let def (l, t, x) = if within loc l then Some (l, t, `Def x) else None in
+  let def_cap (l, t, x) = if within loc l then Some (l, t, `Def x) else None in
   let rec stmt (l, t, s) =
     let deeper =
       match s with
       | Let (_, d, s, s') ->
-          or_else (str d) (fun () -> or_else (stmt s) (fun () -> stmt s'))
-      | App (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
+          or_list [ lazy (def d); lazy (stmt s); lazy (stmt s') ]
+      | App (e1, e2) -> or_list [ lazy (expr e1); lazy (expr e2) ]
       | Return e -> expr e
       | If (e1, e2, e3) ->
-          or_else (stmt e1) (fun () -> or_else (stmt e2) (fun () -> stmt e3))
+          or_list [ lazy (stmt e1); lazy (stmt e2); lazy (stmt e3) ]
+      | Handle (c, h, rest) ->
+          or_list [ lazy (def_cap c); lazy (cap h); lazy (stmt rest) ]
     in
-    or_else deeper (fun () ->
-        if within loc l then
-          let kind = `Generic in
-          Some (l, t, kind)
-        else None)
+    or_with_default deeper (l, t, `Generic)
   and expr (l, t, e) =
     let deeper =
       match e with
       | Var _ -> None
       | Lit _ -> None
       | Builtin _ -> None
-      | Abs ((l, t_x, x), e) ->
-          if within loc l then Some (l, t_x, `Var x) else stmt e
+      | Abs (x, e) -> or_list [ lazy (def x); lazy (stmt e) ]
     in
-    or_else deeper (fun () ->
-        if within loc l then
-          let kind = match e with Var x -> `Var x | _ -> `Generic in
-          Some (l, t, kind)
-        else None)
+    let kind = match e with Var x -> `Var x | _ -> `Generic in
+    or_with_default deeper (l, t, kind)
+  and cap (l, t, c) =
+    let deeper =
+      match c with
+      | CapVar _ -> None
+      | HandlerImpl (_op, (x, k), body) ->
+          or_list [ lazy (def x); lazy (def_cap k); lazy (stmt body) ]
+    in
+    or_with_default deeper (l, t, `Generic)
   in
   stmt program
 

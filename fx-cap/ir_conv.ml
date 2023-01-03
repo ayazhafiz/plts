@@ -133,6 +133,7 @@ and conv_stmt : ctx -> Ast.e_stmt -> Ast.stack_shape -> Ir.e_expr =
           | _ -> failwith "translated effectful return is not a continuation"
         in
         Ir.Abs ((t_k, k_var), e)
+    | Ast.Handle _, _ -> failwith "todo"
   in
   (ir_t, ir_e)
 

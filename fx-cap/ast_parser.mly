@@ -10,6 +10,7 @@ let xv = Ast.xv
 
 
 %token <Surface.loc * string> LOWER
+%token <Surface.loc * string> UPPER
 
 %token <Surface.loc * bool> LITBOOL
 %token <Surface.loc * int> LITINT
@@ -22,6 +23,7 @@ let xv = Ast.xv
 %token <Surface.loc> IF
 %token <Surface.loc> THEN
 %token <Surface.loc> ELSE
+%token <Surface.loc> HANDLE
 %token <Surface.loc> LAMBDA
 %token <Surface.loc> LPAREN
 %token <Surface.loc> RPAREN
@@ -52,6 +54,14 @@ stmt:
       let e = e ctx in
       let loc = range i (xloc e) in
       (loc, ctx.fresh_var (), If (c, t, e))
+  }
+  | kwh=HANDLE c=LOWER EQ h=cap IN s=stmt { fun ctx ->
+      let c = (fst c, ctx.fresh_var (), snd c) in
+      let h = h ctx in
+      let s = s ctx in
+      let loc = range kwh (xloc s) in
+      let handle = Handle(c, h, s) in
+      (loc, ctx.fresh_var (), handle)
   }
 
 stmt_app:
@@ -94,3 +104,17 @@ expr_atom:
       let e = e ctx in
       (range l r, xty e, xv e)
   }
+
+cap :
+  | c=cap_atom { fun ctx -> c ctx }
+  | op=UPPER x=LOWER k=LOWER ARROW body=stmt { fun ctx ->
+      let fx_op = `Fx (snd op) in
+      let x = (fst x, ctx.fresh_var (), snd x) in
+      let k = (fst k, ctx.fresh_var (), snd k) in
+      let body = body ctx in
+      let loc = range (fst op) (xloc body) in
+      (loc, ctx.fresh_var (), HandlerImpl (fx_op, (x, k), body))
+  }
+
+cap_atom :
+  | x=LOWER { fun ctx -> (fst x, ctx.fresh_var (), CapVar (snd x)) }

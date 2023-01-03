@@ -95,6 +95,7 @@ and infer_stmt fv =
           let t_e2 = infer venv e2 in
           unify t_e1 t_e2;
           t_e1
+      | Handle _ -> failwith "todo"
     in
     unify t ity;
     t

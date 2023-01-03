@@ -3,6 +3,8 @@ open Util
 
 let noloc = ((0, 0), (0, 0))
 
+type effect_op = [ `Fx of string ]
+
 type stack_shape = [ `Stk of ty list  (** ordered stack shape *) ]
 
 and ty_content =
@@ -42,6 +44,13 @@ and stmt =
   | If of e_stmt * e_stmt * e_stmt
   | Let of recursive * e_str * e_stmt * e_stmt  (** x <- s; s' *)
   | Return of e_expr  (** return e *)
+  | Handle of e_str * e_cap * e_stmt  (** handle c = h in rest *)
+
+and e_cap = loc * ty * cap
+
+and cap =
+  | CapVar of string
+  | HandlerImpl of effect_op * (e_str * e_str) * e_stmt  (** F(x, k) -> impl *)
 
 type program = e_stmt
 (** A whole program *)
@@ -147,6 +156,31 @@ and pp_stmt f parens =
         in
         with_parens f (parens >> `Free) if';
         fprintf f "@]"
+    | Handle ((_, _, cap), handler, rest) ->
+        fprintf f "@[<v 0>@[<hv 0>";
+        let expr () =
+          fprintf f "@[<hv 2>handle %s =@ " cap;
+          pp_cap f `Free handler;
+          fprintf f "@]@ in@]@,";
+          go `Free rest
+        in
+        with_parens f (parens >> `Free) expr;
+        fprintf f "@]"
+  in
+  go parens
+
+and pp_cap f parens =
+  let open Format in
+  let go parens (_, _, c) =
+    match c with
+    | CapVar x -> pp_print_string f x
+    | HandlerImpl (`Fx op, ((_, _, x), (_, _, k)), impl) ->
+        let app () =
+          fprintf f "@[<hov 2>%s %s %s ->@ " op x k;
+          pp_stmt f `Apply impl;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) app
   in
   go parens
 

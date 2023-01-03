@@ -34,6 +34,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "if" -> make lexbuf (fun i -> IF i)
   | "then" -> make lexbuf (fun i -> THEN i)
   | "else" -> make lexbuf (fun i -> ELSE i)
+  | "handle" -> make lexbuf (fun i -> HANDLE i)
   | "=" -> make lexbuf (fun i -> EQ i)
   | "->" -> make lexbuf (fun i -> ARROW i)
   | "(" -> make lexbuf (fun i -> LPAREN i)
@@ -49,6 +50,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | int ->
       make lexbuf (fun i -> LITINT (i, int_of_string @@ Utf8.lexeme lexbuf))
   | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))
+  | upper -> make lexbuf (fun i -> UPPER (i, Utf8.lexeme lexbuf))
   | "#" -> comment lexbuf
   | eof -> EOF
   | _ ->
