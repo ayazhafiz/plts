@@ -51,8 +51,11 @@ let unify t1 t2 =
   in
   unify t1 t2
 
+type ty_env = (string * ty) list
+type cap_env = (string * ty) list
+
 let rec infer_expr fv =
-  let infer venv (_, t, e) =
+  let infer cenv venv (_, t, e) =
     let ity =
       match e with
       | Lit (`Bool _) -> ref @@ Content TBool
@@ -63,7 +66,7 @@ let rec infer_expr fv =
           | Some t -> t
           | None -> failsolve ("Variable " ^ x ^ " not in scope"))
       | Abs ((_, t_x, x), s) ->
-          let t_res = infer_stmt fv ((x, t_x) :: venv) s in
+          let t_res = infer_stmt fv cenv ((x, t_x) :: venv) s in
           let stkshp = [] (* TODO stack shapes!!! *) in
           ref @@ Content (TFnFx (t_x, t_res, `Stk stkshp))
     in
@@ -73,31 +76,52 @@ let rec infer_expr fv =
   infer
 
 and infer_stmt fv =
-  let rec infer venv (_, t, s) =
+  let rec infer cenv venv (_, t, s) =
     let ity =
       match s with
       | App (e1, e2) ->
-          let t_fn = infer_expr fv venv e1 in
-          let t_arg = infer_expr fv venv e2 in
+          let t_fn = infer_expr fv cenv venv e1 in
+          let t_arg = infer_expr fv cenv venv e2 in
           let t_ret = fv () in
           let stkshp = [] (* TODO stack shapes!!! *) in
           unify t_fn (ref @@ Content (TFnFx (t_arg, t_ret, `Stk stkshp)));
           t_ret
       | Let (`Rec recursive, (_, t_x, x), e, b) ->
           let t_x' =
-            if recursive then infer ((x, t_x) :: venv) e else infer venv e
+            if recursive then infer cenv ((x, t_x) :: venv) e
+            else infer cenv venv e
           in
           unify t_x t_x';
-          infer ((x, t_x) :: venv) b
-      | Return e -> infer_expr fv venv e
+          infer cenv ((x, t_x) :: venv) b
+      | Return e -> infer_expr fv cenv venv e
       | If (c, e1, e2) ->
-          let t_c = infer venv c in
+          let t_c = infer cenv venv c in
           unify t_c (ref @@ Content TBool);
-          let t_e1 = infer venv e1 in
-          let t_e2 = infer venv e2 in
+          let t_e1 = infer cenv venv e1 in
+          let t_e2 = infer cenv venv e2 in
           unify t_e1 t_e2;
           t_e1
-      | Handle _ -> failwith "todo"
+      | Handle ((_, t_c, c), h, rest) ->
+          (* handle c = h in s *)
+          let t_handler, handler_stkshp = infer_cap fv cenv venv h in
+          unify t_c t_handler;
+          let t = infer ((c, t_c) :: cenv) venv rest in
+          t (*TODO pop handler result off stack shape*)
+    in
+    unify t ity;
+    t
+  in
+  infer
+
+and infer_cap fv =
+  let rec infer cenv venv (_, t, c) =
+    let ity =
+      match c with
+      | CapVar c -> (
+          match List.assoc_opt c cenv with
+          | Some t -> t
+          | None -> failsolve ("Effect capability " ^ c ^ " not in scope"))
+      | HandlerImpl (op, ((_, t_x, x), (_, t_k, k)), impl) -> failwith "todo"
     in
     unify t ity;
     t
