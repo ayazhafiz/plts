@@ -87,7 +87,8 @@ let pp_ty (_names : named_vars) f t =
           Util.intersperse f ", " (fun _ _ t -> go t) stack_shape;
           fprintf f "}@]");
         fprintf f "@]"
-    | Content (TFnCap (`Fx (op, _), `Stk stack_shape, out)) ->
+    | Content (TFnCap (fxop, `Stk stack_shape, out)) ->
+        let op = string_of_op fxop in
         fprintf f "@[<hov 2> %s" op;
         if List.length stack_shape > 0 then (
           fprintf f "@[<hov 2>@ ^{";
@@ -101,4 +102,24 @@ let pp_ty (_names : named_vars) f t =
   go t;
   fprintf f "@]"
 
+let pp_fx_sig (names : named_vars) f fx_op =
+  let open Format in
+  let rec go op =
+    match !op with
+    | Unbd i -> fprintf f "<?fx%d>" i
+    | Link t -> go t
+    | Content (`Fx (op, (t1, t2))) ->
+        fprintf f "@[<hov 2>%s : " op;
+        pp_ty names f t1;
+        fprintf f "@ -> ";
+        pp_ty names f t2;
+        fprintf f "@]"
+  in
+  fprintf f "@[<v 0>";
+  go fx_op;
+  fprintf f "@]"
+
 let string_of_ty width ty = Util.with_buffer (fun f -> pp_ty [] f ty) width
+
+let string_of_fx_sig width fx =
+  Util.with_buffer (fun f -> pp_fx_sig [] f fx) width

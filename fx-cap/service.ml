@@ -5,11 +5,14 @@ let tightest_node_at loc program =
   let open Ast in
   let or_else o f = match o with Some a -> Some a | None -> Lazy.force f in
   let or_with_default deeper (l', t, kind) =
-    or_else deeper (lazy (if within loc l' then Some (l', t, kind) else None))
+    or_else deeper
+      (lazy (if within loc l' then Some (l', `Ty t, kind) else None))
   in
   let or_list l = List.fold_left or_else None l in
-  let def (l, t, x) = if within loc l then Some (l, t, `Def x) else None in
-  let def_cap (l, t, x) = if within loc l then Some (l, t, `Def x) else None in
+  let def (l, t, x) = if within loc l then Some (l, `Ty t, `Def x) else None in
+  let def_cap (l, t, x) =
+    if within loc l then Some (l, `FxSig t, `Def x) else None
+  in
   let rec stmt (l, t, s) =
     let deeper =
       match s with
@@ -49,11 +52,15 @@ let type_at loc program =
   | Some (l, t, _) when l = loc -> Some t
   | _ -> None
 
+let print_type = function
+  | `Ty t -> Ty_print.string_of_ty default_width t
+  | `FxSig t -> Ty_print.string_of_fx_sig default_width t
+
 let hover_info lineco program =
   let open Printf in
   let wrap_code code = sprintf "```asti\n%s\n```" code in
   let gen_docs (range, t, kind) =
-    let ty_str = Ty_print.string_of_ty default_width t in
+    let ty_str = print_type t in
     let prefix =
       match kind with
       | `Var x -> sprintf "(var) %s: " x

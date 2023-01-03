@@ -56,7 +56,7 @@ stmt:
       (loc, ctx.fresh_var (), If (c, t, e))
   }
   | kwh=HANDLE c=LOWER EQ h=cap IN s=stmt { fun ctx ->
-      let c = (fst c, ctx.fresh_var (), snd c) in
+      let c = (fst c, ctx.fresh_fx_var(), snd c) in
       let h = h ctx in
       let s = s ctx in
       let loc = range kwh (xloc s) in
@@ -108,9 +108,14 @@ expr_atom:
 cap :
   | c=cap_atom { fun ctx -> c ctx }
   | op=UPPER x=LOWER k=LOWER ARROW body=stmt { fun ctx ->
-      let fx_op = (fst op, `Fx (snd op, (ctx.fresh_var(), ctx.fresh_var()))) in
+      let fx_op = (fst op, ref @@
+        Content (`Fx (snd op, (ctx.fresh_var(), ctx.fresh_var()))))
+      in
       let x = (fst x, ctx.fresh_var (), snd x) in
-      let k = (fst k, ctx.fresh_var (), snd k) in
+      let k_fx_op = ref @@ Content
+        (`Fx (ctx.fresh_resume_name(), (ctx.fresh_var(), ctx.fresh_var())))
+      in
+      let k = (fst k, k_fx_op, snd k) in
       let body = body ctx in
       let loc = range (fst op) (xloc body) in
       (loc, ctx.fresh_var (), HandlerImpl (fx_op, (x, k), body))

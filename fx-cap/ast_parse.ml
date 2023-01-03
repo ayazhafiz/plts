@@ -9,7 +9,18 @@ let fresh_var_generator () =
     incr n;
     ref (Unbd !n)
 
-let fresh_parse_ctx () : Ast.parse_ctx = { fresh_var = fresh_var_generator () }
+let fresh_resume_name_generator () =
+  let n = ref 0 in
+  fun () ->
+    incr n;
+    "Resume_" ^ string_of_int !n
+
+let fresh_parse_ctx () : Ast.parse_ctx =
+  {
+    fresh_var = fresh_var_generator ();
+    fresh_fx_var = fresh_var_generator ();
+    fresh_resume_name = fresh_resume_name_generator ();
+  }
 
 let parse s =
   let lexbuf = Ast_lex.from_string s in

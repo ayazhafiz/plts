@@ -101,12 +101,7 @@ and infer_stmt fv =
           let t_e2 = infer cenv venv e2 in
           unify t_e1 t_e2;
           t_e1
-      | Handle ((_, t_c, c), h, rest) ->
-          (* handle c = h in s *)
-          let t_handler, _handler_stkshp = infer_cap fv cenv venv h in
-          unify t_c t_handler;
-          let t = infer ((c, t_c) :: cenv) venv rest in
-          t (*TODO pop handler result off stack shape*)
+      | Handle _ -> failwith "todo"
     in
     unify t ity;
     t

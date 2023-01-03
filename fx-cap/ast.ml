@@ -3,11 +3,23 @@ open Util
 
 let noloc = ((0, 0), (0, 0))
 
-type effect_op =
-  [ `Fx of string * fx_signature
-    (** an effect operation F has signature t1 -> t2  *) ]
+(** A generic type variable.
+    Either unbound, a reference to another type, or a resolved type. *)
+type 'content var =
+  | Unbd of int  (** unbound type *)
+  | Link of 'content var ref
+  | Content of 'content  (** concrete type *)
+[@@deriving show]
+
+type fx_content = [ `Fx of string * fx_signature ]
+(** Effect operation type F has signature t1 -> t2 *)
 
 and fx_signature = ty * ty
+(** effect signature *)
+
+and fx_op = fx_content var ref
+(** an effect type *)
+
 and stack_shape = [ `Stk of ty list  (** ordered stack shape *) ]
 
 and ty_content =
@@ -15,17 +27,12 @@ and ty_content =
   | TInt
   | TFnFx of (ty * ty * stack_shape)
       (** effectful function type t -> [t]_{\bar{t}} where \bar{t} is the stack shape *)
-  | TFnCap of (effect_op * stack_shape * ty)
+  | TFnCap of (fx_op * stack_shape * ty)
       (** capability function type, of a handler
-        [Fx]_{\bar{t}} -> t
-      where Fx is an effect operation [effect_op] *)
+      [Fx]_{\bar{t}} -> t
+      where Fx is an effect operation [fx_op] *)
 
-and ty_var =
-  | Unbd of int  (** unbound type *)
-  | Link of ty
-  | Content of ty_content  (** concrete type *)
-
-and ty = ty_var ref [@@deriving show]
+and ty = ty_content var ref [@@deriving show]
 (** A type *)
 
 let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
@@ -33,6 +40,7 @@ let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 type literal = [ `Bool of bool | `Int of int ]
 type builtin = [ `Lt | `Gt | `Add | `Sub | `Mul ]
 type e_str = loc * ty * string
+type e_cap_var = loc * fx_op * string
 type recursive = [ `Rec of bool ]
 
 type e_expr = loc * ty * expr
@@ -51,20 +59,29 @@ and stmt =
   | If of e_stmt * e_stmt * e_stmt
   | Let of recursive * e_str * e_stmt * e_stmt  (** x <- s; s' *)
   | Return of e_expr  (** return e *)
-  | Handle of e_str * e_cap * e_stmt  (** handle c = h in rest *)
+  | Handle of e_cap_var * e_cap * e_stmt  (** handle c = h in rest *)
 
 and e_cap = loc * ty * cap
 
 and cap =
   | CapVar of string
-  | HandlerImpl of (loc * effect_op) * (e_str * e_str) * e_stmt
+  | HandlerImpl of (loc * fx_op) * (e_str * e_cap_var) * e_stmt
       (** F(x, k) -> impl *)
 
 type program = e_stmt
 (** A whole program *)
 
 type fresh_var = unit -> ty
-type parse_ctx = { fresh_var : fresh_var }
+type fresh_fx_var = unit -> fx_op
+
+type fresh_resume_name = unit -> string
+(** make a new Resume_i *)
+
+type parse_ctx = {
+  fresh_var : fresh_var;
+  fresh_fx_var : fresh_fx_var;
+  fresh_resume_name : fresh_resume_name;
+}
 
 (* extractions *)
 let xloc (l, _, _) = l
@@ -108,6 +125,9 @@ let pp_builtin f b =
 
 let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2
 let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2
+
+let string_of_op op =
+  match !(unlink op) with Content (`Fx (op, _)) -> op | _ -> "?UnknownFx"
 
 let rec pp_expr f parens =
   let open Format in
@@ -182,9 +202,9 @@ and pp_cap f parens =
   let go parens (_, _, c) =
     match c with
     | CapVar x -> pp_print_string f x
-    | HandlerImpl ((_, `Fx (op, _)), ((_, _, x), (_, _, k)), impl) ->
+    | HandlerImpl ((_, fx_op), ((_, _, x), (_, _, k)), impl) ->
         let app () =
-          fprintf f "@[<hov 2>%s %s %s ->@ " op x k;
+          fprintf f "@[<hov 2>%s %s %s ->@ " (string_of_op fx_op) x k;
           pp_stmt f `Apply impl;
           fprintf f "@]"
         in

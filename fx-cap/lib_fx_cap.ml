@@ -227,7 +227,7 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
         match List.assoc loc queries with
         | None -> Right (ElabErr (`TypeNotFound loc))
         | Some ty ->
-            let s_ty = Ty_print.string_of_ty default_width ty in
+            let s_ty = Service.print_type ty in
             Left (reflow_lines prefix s_ty)
       in
       let rec recreate lineno lines =
