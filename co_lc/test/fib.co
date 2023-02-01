@@ -1,0 +1,35 @@
+# +parse -print
+let fib = \n ->
+  yield;
+  if n < 2
+  then n
+  else (fib (n - 1)) + (fib (n - 2))
+in
+
+let exec = \state ->
+  stat state.0
+  | `Pending ->
+    let fib1 = resume runFib in
+    exec {fib1, 0, state.2 + 1}
+  | `Done n -> {state.0, n, state.2}
+
+in
+let runFib = spawn (fib 28) in
+exec {runFib, 0, 0}
+
+> +parse -print
+> let fib =
+>   \n ->
+>     yield;
+>     if n < 2
+>     then n
+>     else (fib (n - 1)) + (fib (n - 2)) in
+> let exec =
+>   \state ->
+>     stat state.0
+>       | `Pending ->
+>         let fib1 = spawn runFib in
+>         exec {fib1, 0, state.2 + 1}
+>       | `Done n -> {state.0, n, state.2} in
+> let runFib = spawn (fib 28) in
+> exec {runFib, 0, 0}

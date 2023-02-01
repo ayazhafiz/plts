@@ -1,0 +1,47 @@
+(menhir
+  (flags --explain --fixed-exception --no-dollars)
+  (modules ast_parser))
+
+(library
+  (name lib_co_lc)
+  (modules
+    lib_co_lc
+    surface
+    ast ast_lex ast_parser ast_parse
+    service util)
+  (libraries
+    str
+    sedlex
+    menhirLib)
+  (js_of_ocaml)
+  (inline_tests)
+  (preprocess
+   (pps ppx_inline_test ppx_deriving.show sedlex.ppx)))
+
+(executable
+  (public_name co_lc)
+  (name co_lc)
+  (modules co_lc)
+  (libraries lib_co_lc))
+
+(executable
+  (public_name co_lc_js)
+  (name co_lc_js)
+  (modules co_lc_js)
+  (libraries lib_co_lc)
+  (modes byte)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(rule
+  (mode (promote (into js)))
+  (targets co_lc.js co_lc.d.ts)
+  (deps (glob_files js/prim.js))
+  (action
+    (progn
+      (run %{bin:js_of_ocaml}
+           js/prim.js
+           %{dep:co_lc_js.bc}
+           -o co_lc.js)
+      (with-outputs-to co_lc.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*js.cmt')")))))
+

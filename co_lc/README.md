@@ -22,9 +22,9 @@ let exec = \state ->
     exec {fib1, 0, state.2 + 1}
   | `Done n -> {state.0, n, state.2}
 
-let @main =
-  let runFib = spawn (fib 28) in
-  exec {runFib, 0, 0}
+in
+let runFib = spawn (fib 28) in
+exec {runFib, 0, 0}
 ```
 
 ## Bytecode
