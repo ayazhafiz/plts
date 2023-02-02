@@ -14,6 +14,7 @@
     "@primer/react": "latest",
     "@types/lz-string": "^1.3.34",
     "assert": "^2.0.0",
+    "co_lc": "workspace:co_lc/js",
     "cor": "workspace:cor/js",
     "events": "^3.3.0",
     "ft": "workspace:ft/js",

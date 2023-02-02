@@ -9,7 +9,8 @@
     "TAL/js",
     "ho21/js",
     "tiger/js",
-    "cor/js"
+    "cor/js",
+    "co_lc/js"
   ],
   "devDependencies": {
     "typescript": "latest"
