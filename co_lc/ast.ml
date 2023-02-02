@@ -3,6 +3,14 @@ open Util
 
 let noloc = ((0, 0), (0, 0))
 
+module IntMap = struct
+  include Map.Make (struct
+    type t = int
+
+    let compare = compare
+  end)
+end
+
 (** A generic type variable.
     Either unbound, a reference to another type, or a resolved type. *)
 type ty_var =
@@ -10,9 +18,15 @@ type ty_var =
   | Link of ty_var ref
   | Content of ty_content  (** concrete type *)
 
-and ty_content = TInt | TBool | TTup of ty list | TFn of (ty * ty)
+and ty_content =
+  | TInt
+  | TBool
+  | TTup of ty list
+  | TTupSparse of ty IntMap.t
+  | TFn of (ty * ty)
+  | TFiber of ty  (** A fiber that completes with a value type. *)
 
-and ty = ty_var ref [@@deriving show]
+and ty = ty_var ref
 (** A type *)
 
 let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
@@ -193,3 +207,49 @@ let string_of_program ?(width = default_width) (program : program) =
       pp_expr f `Free program;
       fprintf f "@]")
     width
+
+let pp_ty f =
+  let open Format in
+  let rec go parens t =
+    match !t with
+    | Unbd i -> fprintf f "?%d" i
+    | Link t -> go parens t
+    | Content c -> (
+        match c with
+        | TInt -> pp_print_string f "int"
+        | TBool -> pp_print_string f "bool"
+        | TTup tys ->
+            fprintf f "@[<hov 2>{@,";
+            intersperse f ";"
+              (fun _ not_fst t ->
+                if not_fst then fprintf f "@ ";
+                go `Free t)
+              tys;
+            fprintf f "@,}@]"
+        | TTupSparse tys ->
+            fprintf f "@[<hov 2>{@,";
+            let tys = List.of_seq @@ IntMap.to_seq tys in
+            intersperse f ";"
+              (fun _ not_fst (i, t) ->
+                if not_fst then fprintf f "%d: @ " i;
+                go `Free t)
+              tys;
+            fprintf f "@,}@]"
+        | TFn (t1, t2) ->
+            fprintf f "@[<hov 2>";
+            let pty () =
+              go `Apply t1;
+              fprintf f "@ -> ";
+              go `Free t2
+            in
+            with_parens f (parens >> `Free) pty;
+            fprintf f "@]"
+        | TFiber t ->
+            fprintf f "@[<hov 2>Fiber@ ";
+            go `Apply t;
+            fprintf f "@]")
+  in
+  go `Free
+
+let string_of_ty ?(width = default_width) (ty : ty) =
+  with_buffer (fun f -> pp_ty f ty) width

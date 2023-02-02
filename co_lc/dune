@@ -8,6 +8,7 @@
     lib_co_lc
     surface
     ast ast_lex ast_parser ast_parse
+    ty_solve
     service util)
   (libraries
     str

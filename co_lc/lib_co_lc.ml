@@ -198,7 +198,9 @@ let reflow_lines prefix lines =
 let process_one _file (lines, queries) (phase, emit) : compile_result =
   let input = unlines lines in
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Ast_parse.parse s in
-  let solve _ = Result.map_error (fun s -> SolveErr s) @@ failwith "todo" in
+  let solve (fresh_var, e) =
+    Result.map_error (fun s -> SolveErr s) @@ Ty_solve.infer_program fresh_var e
+  in
   let ir _ = failwith "todo" in
   let eval _ = Result.ok @@ failwith "todo" in
   let elab program =

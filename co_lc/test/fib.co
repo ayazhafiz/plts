@@ -1,35 +1,48 @@
-# +parse -print
-let fib = \n ->
+# +solve -elab
+let rec fib = \n ->
+#       ^^^
   yield;
   if n < 2
   then n
   else (fib (n - 1)) + (fib (n - 2))
 in
 
-let exec = \state ->
+let rec exec = \state ->
+#       ^^^^
   stat state.0
   | `Pending ->
-    let fib1 = resume runFib in
+    let fib1 = resume state.0 in
+#                     ^^^^^^^
     exec {fib1, 0, state.2 + 1}
   | `Done n -> {state.0, n, state.2}
 
 in
 let runFib = spawn (fib 28) in
-exec {runFib, 0, 0}
+let result = exec {runFib, 0, 0} in
+#   ^^^^^^
+result
 
-> +parse -print
-> let fib =
->   \n ->
->     yield;
->     if n < 2
->     then n
->     else (fib (n - 1)) + (fib (n - 2)) in
-> let exec =
->   \state ->
->     stat state.0
->       | `Pending ->
->         let fib1 = spawn runFib in
->         exec {fib1, 0, state.2 + 1}
->       | `Done n -> {state.0, n, state.2} in
+> +solve -elab
+> let rec fib = \n ->
+> #       ^^^ int -> int
+>   yield;
+>   if n < 2
+>   then n
+>   else (fib (n - 1)) + (fib (n - 2))
+> in
+> 
+> let rec exec = \state ->
+> #       ^^^^ {Fiber int; int; int} -> {Fiber int; int; int}
+>   stat state.0
+>   | `Pending ->
+>     let fib1 = resume state.0 in
+> #                     ^^^^^^^ Fiber int
+>     exec {fib1, 0, state.2 + 1}
+>   | `Done n -> {state.0, n, state.2}
+> 
+> in
 > let runFib = spawn (fib 28) in
-> exec {runFib, 0, 0}
+> let result = exec {runFib, 0, 0} in
+> #   ^^^^^^ {Fiber int; int; int}
+> result
+> 
