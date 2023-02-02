@@ -80,104 +80,108 @@ let rec pp_expr f parens =
     | Var x -> pp_print_string f x
     | Lit l -> pp_lit f l
     | Tup es ->
-      fprintf f "@[<hov 2>{@,";
-      intersperse f "," (fun _ not_fst e -> if not_fst then fprintf f "@ "; go `Free e) es;
-      fprintf f "@,}@]"
+        fprintf f "@[<hov 2>{@,";
+        intersperse f ","
+          (fun _ not_fst e ->
+            if not_fst then fprintf f "@ ";
+            go `Free e)
+          es;
+        fprintf f "@,}@]"
     | Abs ((_, _, x), e) ->
-      let app () =
-        fprintf f "@[<hov 2>\\%s ->@ " x;
-        go `Free e;
-        fprintf f "@]"
-      in
-      with_parens f (parens >> `Free) app
+        let app () =
+          fprintf f "@[<hov 2>\\%s ->@ " x;
+          go `Free e;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) app
     | App (head, arg) ->
-      let app () =
-        fprintf f "@[<hov 2>";
-        pp_expr f `Apply head;
-        fprintf f "@ ";
-        pp_expr f `Apply arg;
-        fprintf f "@]"
-      in
-      with_parens f (parens >> `Free) app
+        let app () =
+          fprintf f "@[<hov 2>";
+          pp_expr f `Apply head;
+          fprintf f "@ ";
+          pp_expr f `Apply arg;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) app
     | Binop (b, l, r) ->
-      let app () =
-        fprintf f "@[<hov 2>";
-        pp_expr f `Apply l;
-        fprintf f "@ ";
-        pp_binop f b;
-        fprintf f " ";
-        pp_expr f `Apply r;
-        fprintf f "@]"
-      in
-      with_parens f (parens >> `Free) app
+        let app () =
+          fprintf f "@[<hov 2>";
+          pp_expr f `Apply l;
+          fprintf f "@ ";
+          pp_binop f b;
+          fprintf f " ";
+          pp_expr f `Apply r;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) app
     | Let (((`Bare | `Rec) as r), (_, _, x), rhs, body) ->
-      let recursive = if r = `Rec then " rec" else "" in
-      fprintf f "@[<v 0>@[<hov 0>";
-      let expr () =
-        fprintf f "@[<hov 2>let%s %s =@ " recursive x;
-        go `Free rhs;
-        fprintf f "@]@ in@]@,";
-        go `Free body
-      in
-      with_parens f (parens >> `Free) expr;
-      fprintf f "@]"
+        let recursive = if r = `Rec then " rec" else "" in
+        fprintf f "@[<v 0>@[<hov 0>";
+        let expr () =
+          fprintf f "@[<hov 2>let%s %s =@ " recursive x;
+          go `Free rhs;
+          fprintf f "@]@ in@]@,";
+          go `Free body
+        in
+        with_parens f (parens >> `Free) expr;
+        fprintf f "@]"
     | Let (`Unit, _, rhs, body) ->
-      fprintf f "@[<v 0>@[<hov 0>";
-      let expr () =
-        fprintf f "@[<hov 2>";
-        go `Free rhs;
-        fprintf f "@];@]@,";
-        go `Free body
-      in
-      with_parens f (parens >> `Free) expr;
-      fprintf f "@]"
+        fprintf f "@[<v 0>@[<hov 0>";
+        let expr () =
+          fprintf f "@[<hov 2>";
+          go `Free rhs;
+          fprintf f "@];@]@,";
+          go `Free body
+        in
+        with_parens f (parens >> `Free) expr;
+        fprintf f "@]"
     | If (c, t, e) ->
-      fprintf f "@[<hv 0>";
-      let if' () =
-        fprintf f "@[<hv 2>if@ ";
-        go `Free c;
-        fprintf f "@]@ @[<hv 2>then@ ";
-        go `Free t;
-        fprintf f "@]@ @[<hv 2>else@ ";
-        go `Free e;
+        fprintf f "@[<hv 0>";
+        let if' () =
+          fprintf f "@[<hv 2>if@ ";
+          go `Free c;
+          fprintf f "@]@ @[<hv 2>then@ ";
+          go `Free t;
+          fprintf f "@]@ @[<hv 2>else@ ";
+          go `Free e;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) if';
         fprintf f "@]"
-      in
-      with_parens f (parens >> `Free) if';
-      fprintf f "@]"
     | Access (e, i) ->
-      fprintf f "@[<hov 2>";
-      go `Free e;
-      fprintf f "@,.%d" i;
-      fprintf f "@]"
-    | Spawn arg ->
-      let app () =
-        fprintf f "@[<hov 2>spawn@ ";
-        pp_expr f `Apply arg;
+        fprintf f "@[<hov 2>";
+        go `Free e;
+        fprintf f "@,.%d" i;
         fprintf f "@]"
-      in
-      with_parens f (parens >> `Free) app
+    | Spawn arg ->
+        let app () =
+          fprintf f "@[<hov 2>spawn@ ";
+          pp_expr f `Apply arg;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) app
     | Yield -> pp_print_string f "yield"
     | Resume arg ->
-      let app () =
-        fprintf f "@[<hov 2>spawn@ ";
-        pp_expr f `Apply arg;
-        fprintf f "@]"
-      in
-      with_parens f (parens >> `Free) app
+        let app () =
+          fprintf f "@[<hov 2>spawn@ ";
+          pp_expr f `Apply arg;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) app
     | Stat { cond; pending; done' = n, done_body } ->
-      fprintf f "@[<v 2>@[<hov 2>stat@ ";
-      go `Free cond;
-      fprintf f "@]";
-      (* pending branch *)
-      fprintf f "@,@[<hov 2>| `Pending ->@ ";
-      go `Free pending;
-      fprintf f "@]";
-      (* done branch *)
-      fprintf f "@,@[<hov 2>| `Done %s ->@ " (xv n);
-      go `Free done_body;
-      fprintf f "@]";
-      (**)
-      fprintf f "@]"
+        fprintf f "@[<v 2>@[<hov 2>stat@ ";
+        go `Free cond;
+        fprintf f "@]";
+        (* pending branch *)
+        fprintf f "@,@[<hov 2>| `Pending ->@ ";
+        go `Free pending;
+        fprintf f "@]";
+        (* done branch *)
+        fprintf f "@,@[<hov 2>| `Done %s ->@ " (xv n);
+        go `Free done_body;
+        fprintf f "@]";
+        (* *)
+        fprintf f "@]"
   in
   go parens
 
@@ -185,7 +189,7 @@ let string_of_program ?(width = default_width) (program : program) =
   let open Format in
   with_buffer
     (fun f ->
-       fprintf f "@[<v 0>";
-       pp_expr f `Free program;
-       fprintf f "@]")
+      fprintf f "@[<v 0>";
+      pp_expr f `Free program;
+      fprintf f "@]")
     width
