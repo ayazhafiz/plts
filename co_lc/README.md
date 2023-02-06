@@ -189,10 +189,10 @@ exec:
 exec-pending:
   push fp[-6..-3]
   resume
+  store-into fp[9]
   store-into fp[8]
   store-into fp[7]
-  store-into fp[6]
-  store-into fp[5] # stored fib1
+  store-into fp[6] # stored fib1
   push fp[-8]
   push 1
   +

@@ -9,6 +9,7 @@
     surface
     ast ast_lex ast_parser ast_parse
     ty_solve
+    vm_op vm_conv
     service util)
   (libraries
     str
