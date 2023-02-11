@@ -43,3 +43,14 @@ let string_of_loc (l1, l2) = string_of_lineco l1 ^ "-" ^ string_of_lineco l2
 let deeper (l1, c1) (l2, c2) = l1 > l2 || (l1 = l2 && c1 >= c2)
 let shallower lc1 lc2 = deeper lc2 lc1
 let within (lc11, lc12) (lc21, lc22) = deeper lc11 lc21 && shallower lc12 lc22
+
+let fresh_name_generator () =
+  let taken = ref [] in
+  let rec find hint i =
+    let cand = if i = 0 then hint else hint ^ string_of_int i in
+    if List.mem cand !taken then find hint (i + 1)
+    else (
+      taken := cand :: !taken;
+      cand)
+  in
+  fun hint -> find hint 0

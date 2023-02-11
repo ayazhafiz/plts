@@ -59,7 +59,8 @@ let unify a b =
                   match List.nth_opt tup i with
                   | Some t' -> unify t t'
                   | None -> error "sparse tuple does not fit in tuple")
-                ts
+                ts;
+              merge a b (TTup tup)
           | TFn (t11, t12), TFn (t21, t22) ->
               unify t11 t21;
               unify t12 t22

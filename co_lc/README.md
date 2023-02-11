@@ -36,7 +36,7 @@ arg2
 arg1
 ----- do call
 fp
-pc
+sp
 ----- new fn, fp=here
 local1
 local2
@@ -54,6 +54,7 @@ Coroutine repr:
 ```
 {bit, return_value, stkidx, stkdirty}
 
+bit - 0=Pending, 1=Done
 stkidx is the stack this coroutine is running on
 stkdirty is a dirty integer marking the last yield point of the stack. this way
   we can check if someone is resuming a coroutine that has already completed.
@@ -164,7 +165,7 @@ exec:
   #   state.0.return    -4
   #   state.0.bit       -3
   #   fp old
-  #   pc old
+  #   sp old
   #   LOCALS
   # locals
   #  ret - 4 (coroutine) + 1 + 1 = 6 bytes
@@ -184,11 +185,19 @@ exec:
   sp-add 11
   # stat looks at .bit, .return
   push fp[-3]
-  0=  # bit = 0 : `Done
-  jmpz exec-done
+  0=  # bit = 0 : `Pending
+  jmpz exec-pending
+exec-done:
+  # n is seen as state.0.return
+  push fp[-8]
+  store-into fp[0] # ret.2 = state.2
+  push fp[-4]
+  store-into fp[0] # ret.1 = state.0.return
+  push fp[-6..-3]
+  store-into fp[5..2] # ret.0 = state.0
 exec-pending:
   push fp[-6..-3]
-  resume
+  resume 1
   store-into fp[9]
   store-into fp[8]
   store-into fp[7]
@@ -202,14 +211,6 @@ exec-pending:
   push fp[6..9] # arg.0 = fib1
   call exec 6
   store-into fp[5..0] # store result
-exec-done:
-  # n is seen as state.0.return
-  push fp[-8]
-  store-into fp[0] # ret.2 = state.2
-  push fp[-4]
-  store-into fp[0] # ret.1 = state.0.return
-  push fp[-6..-3]
-  store-into fp[5..2] # ret.0 = state.0
 exec-fin:
   ret 4   # return value is 4 cells
 
