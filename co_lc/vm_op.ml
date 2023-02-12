@@ -6,6 +6,7 @@ type label = [ `Label of string ]
 type locator = [ `Imm of int | `FpOffset of int | label ]
 
 let locator_of_label (`Label s : label) : locator = `Label s
+let main = `Label "@main"
 
 type op =
   | Eq

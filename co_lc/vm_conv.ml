@@ -541,8 +541,8 @@ and compile_expr ctx bound_proc e target =
 
 let compile : Ast.program -> Vm_op.program =
  fun program ->
+  let open Vm_op in
   let ctx = Ctx.new_ctx () in
-  let main = `Label "@main" in
   compile_proc ctx main None (T.unit, "") program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in

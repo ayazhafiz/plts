@@ -1,0 +1,185 @@
+open Vm_op
+module Fiber = Vm_fiber
+
+let bbs_of_procs procs =
+  List.flatten @@ List.map (fun { blocks; _ } -> blocks) procs
+
+let build_instruction_table bbs =
+  let _, label_tbl =
+    List.fold_left
+      (fun (n_instr, label_tbl) (label, instrs) ->
+        let label_tbl = (label, n_instr) :: label_tbl in
+        let next_label_start = n_instr + List.length instrs in
+        (next_label_start, label_tbl))
+      (0, []) bbs
+  in
+  let flat_instrs = List.flatten @@ List.map snd bbs in
+  (Array.of_list flat_instrs, label_tbl)
+
+type fiber_cell = { fiber : Fiber.t; dirty : int ref; pc : int ref }
+
+let eval instrs label_tbl main_fiber =
+  let next_idx = ref 1 in
+  let next_dirty = ref 1 in
+  let i_main = List.assoc main label_tbl in
+  let all_fibers =
+    ref [ (0, { fiber = main_fiber; dirty = ref 0; pc = ref i_main }) ]
+  in
+  let fiber_stack = ref [] in
+  (* Setup the initial fiber state to the main fiber. *)
+  let fiber_idx = ref 0 in
+  let fiber = ref main_fiber in
+  let rec go i =
+    match Array.get instrs i with
+    | Eq ->
+        let l = Fiber.pop_int fiber in
+        Fiber.in_place_int fiber (fun r -> if l = r then 1 else 0);
+        go (i + 1)
+    | Lt ->
+        let l = Fiber.pop_int fiber in
+        Fiber.in_place_int fiber (fun r -> if l < r then 1 else 0);
+        go (i + 1)
+    | Sub ->
+        let l = Fiber.pop_int fiber in
+        Fiber.in_place_int fiber (fun r -> l - r);
+        go (i + 1)
+    | Add ->
+        let l = Fiber.pop_int fiber in
+        Fiber.in_place_int fiber (fun r -> l + r);
+        go (i + 1)
+    | Mul ->
+        let l = Fiber.pop_int fiber in
+        Fiber.in_place_int fiber (fun r -> l * r);
+        go (i + 1)
+    | Yield ->
+        if !fiber_idx = 0 then
+          (* yielding the main fiber does nothing *)
+          go (i + 1)
+        else
+          let child_idx = !fiber_idx in
+          (* Pop to the last fiber *)
+          let parent_fiber_idx = List.hd !fiber_stack in
+          let { fiber = parent_fiber; pc = parent_pc; _ } =
+            List.assoc parent_fiber_idx !all_fibers
+          in
+          fiber_stack := List.tl !fiber_stack;
+          fiber_idx := parent_fiber_idx;
+          fiber := parent_fiber;
+          (* Increment the child's dirty bit, so that it can't be resumed
+             multiple times. *)
+          let child_dirty = !next_dirty in
+          incr next_dirty;
+          let { dirty = child_dirty_cell; pc = child_pc; _ } =
+            List.assoc child_idx !all_fibers
+          in
+          child_dirty_cell := child_dirty;
+          child_pc := i + 1;
+          (* We now need to put the fiber that just finished onto the parent
+             fiber's stack. The stack layout is
+
+             stkdirty
+             stkidx
+             zeroed_return
+             bit           < stack top
+          *)
+          Fiber.push_int fiber child_dirty;
+          Fiber.push_int fiber child_idx;
+          (* TODO: how much to push on?? *)
+          Fiber.push_zeroed fiber n;
+          (* pending = 0 *)
+          Fiber.push_int fiber 0;
+          (* Continue on the parent fiber *)
+          go !parent_pc
+    | Spawn n ->
+        (* Grab the arguments and pc for the fiber *)
+        let proc = Fiber.pop_label fiber in
+        let child_pc = List.assoc proc label_tbl in
+        let args = Fiber.pop_block fiber n in
+        (* Setup and associate the new child fiber *)
+        let child_fiber = Fiber.make args in
+        let child_idx = !next_idx in
+        incr next_idx;
+        all_fibers := (child_idx, child_fiber) :: !all_fibers;
+        (* Store the parent's program counter, and yield control to the child. *)
+        let parent_idx = !fiber_idx in
+        (List.assoc parent_idx !all_fibers).pc := i + 1;
+        fiber_stack := parent_idx :: !fiber_stack;
+        fiber_idx := child_idx;
+        fiber := child_fiber;
+        go child_pc
+    | Resume return_size ->
+        (*
+           stkdirty
+           stkidx
+           zeroed_return
+           bit           < stack top
+        *)
+        let bit = Fiber.pop_int fiber in
+        if bit = 1 then (
+          (* The fiber is already done; nothing to resume. Simply leave it on
+             the stack. *)
+          Fiber.push_int bit;
+          go (i + 1))
+        else
+          (* Pop off the zeroed return value, since we don't care about that. *)
+          let _ = Fiber.pop_block fiber return_size in
+          let child_idx = Fiber.pop_int fiber in
+          let expected_dirty = Fiber.pop_int fiber in
+          let { fiber = child_fiber; dirty = child_dirty; pc = child_pc } =
+            List.assoc child_idx !all_fibers
+          in
+          if !child_dirty <> expected_dirty then
+            failwith
+              "Cannot resume a fiber multiple times! Be sure to resume only \
+               the most recently invoked version of a fiber.";
+          (* Store the parent's program counter, then yield control to the
+             resumed child. *)
+          let parent_idx = !fiber_idx in
+          (List.assoc parent_idx !all_fibers).pc := i + 1;
+          fiber_stack := parent_idx :: !fiber_stack;
+          fiber_idx := child_idx fiber := child_fiber;
+          go !child_pc
+    | Push locator -> Fiber.push fiber locator
+    | Drop ->
+        let _ = Fiber.pop fiber in
+        ();
+        go (i + 1)
+    | Store fp_offset ->
+        Fiber.store fiber fp_offset;
+        go (i + 1)
+    | SpAdd n ->
+        Fiber.sp_add fiber n;
+        go (i + 1)
+    | Jmp l ->
+        let j = List.assoc l label_tbl in
+        go j
+    | Jmpz l ->
+        let isz = Fiber.pop_int fiber = 0 in
+        let j = if isz then List.assoc l label_tbl else i + 1 in
+        go j
+    | Call _n ->
+        (* TODO pop args *)
+        let proc = Fiber.pop_label fiber in
+        Fiber.setup_new_frame fiber (i + 1);
+        let j = List.assoc proc label_tbl in
+        go j
+    | Ret n -> (
+        (* Restore to frame pointer, save the return value, then restore the old
+           frame, and push the return value back on. *)
+        Fiber.reset_to_fp fiber;
+        let ret_val = Fiber.pop_block fiber n in
+        match Fiber.restore_old_frame fiber with
+        | `Pc j ->
+            Fiber.push_block fiber ret_val;
+            go j
+        | `Done ->
+            (* TODO handle case of child fiber being complete *)
+            ret_val)
+  in
+  go i_main
+
+let interp procs =
+  let bbs = bbs_of_procs procs in
+  let instrs, label_tbl = build_instruction_table bbs in
+  let main_fiber = Fiber.make Fiber.empty_block in
+  eval instrs label_tbl main_fiber
