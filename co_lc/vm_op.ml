@@ -15,21 +15,21 @@ type op =
   | Add
   | Mul
   | Yield
-  | Spawn of int
+  | Spawn of { args_size : int; ret_size : int }
       (**
      call_args
      fn
      ---
-     spawn (size_of call_args)
+     spawn
   *)
   | Resume of int  (** size of return value *)
   | Push of locator
-  | Drop
   | Store of int  (** store-into fp[offset] *)
   | SpAdd of int
+  | SpSub of int
   | Jmp of label
   | Jmpz of label
-  | Call of int  (** args byte size *)
+  | Call
   | Ret of int  (** return byte size *)
 
 type basic_block = label * op list
@@ -40,7 +40,7 @@ type proc = {
   debug_frame : debug_frame;
 }
 
-type program = proc list
+type program = { procs : proc list; ret_size : int }
 
 let pp_locator f =
   let open Format in
@@ -59,17 +59,17 @@ let pp_op f op =
   | Add -> pp_print_string f "add"
   | Mul -> pp_print_string f "mul"
   | Yield -> pp_print_string f "yield"
-  | Spawn n -> fprintf f "spawn %d" n
+  | Spawn { args_size; ret_size } -> fprintf f "spawn %d %d" args_size ret_size
   | Resume n -> fprintf f "resume %d" n
   | Push l ->
       fprintf f "push ";
       pp_locator f l
-  | Drop -> fprintf f "drop"
   | Store n -> fprintf f "store-into fp[%d] " n
   | SpAdd n -> fprintf f "sp-add %d" n
+  | SpSub n -> fprintf f "sp-sub %d" n
   | Jmp (`Label l) -> fprintf f "jmp %s" l
   | Jmpz (`Label l) -> fprintf f "jmpz %s" l
-  | Call n -> fprintf f "call %d" n
+  | Call -> fprintf f "call"
   | Ret n -> fprintf f "ret %d" n);
   fprintf f "@]"
 
@@ -106,4 +106,4 @@ let pp_program f procs =
   fprintf f "@]"
 
 let string_of_program ?(width = Util.default_width) (program : program) =
-  Util.with_buffer (fun f -> pp_program f program) width
+  Util.with_buffer (fun f -> pp_program f program.procs) width

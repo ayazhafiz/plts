@@ -48,6 +48,9 @@ val sp_add : t -> int -> unit
 (** Advances the stack pointer by an amount.
     Can be used to reserve space on the stack. *)
 
+val sp_sub : t -> int -> unit
+(** Subtracts the stack pointer by an amount. *)
+
 val setup_new_frame : t -> pc:int -> unit
 (** Sets up a new call frame, given the program counter of the last call frame.
     Expects all arguments to already be set up per the calling convention. *)

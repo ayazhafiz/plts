@@ -16,14 +16,27 @@ let build_instruction_table bbs =
   let flat_instrs = List.flatten @@ List.map snd bbs in
   (Array.of_list flat_instrs, label_tbl)
 
-type fiber_cell = { fiber : Fiber.t; dirty : int ref; pc : int ref }
+type fiber_cell = {
+  fiber : Fiber.t;
+  dirty : int ref;
+  pc : int ref;
+  ret_size : int;
+}
 
-let eval instrs label_tbl main_fiber =
+let eval instrs label_tbl main_fiber main_size =
   let next_idx = ref 1 in
   let next_dirty = ref 1 in
   let i_main = List.assoc main label_tbl in
   let all_fibers =
-    ref [ (0, { fiber = main_fiber; dirty = ref 0; pc = ref i_main }) ]
+    let main_cell =
+      {
+        fiber = main_fiber;
+        dirty = ref 0;
+        pc = ref i_main;
+        ret_size = main_size;
+      }
+    in
+    ref [ (0, main_cell) ]
   in
   let fiber_stack = ref [] in
   (* Setup the initial fiber state to the main fiber. *)
@@ -69,7 +82,12 @@ let eval instrs label_tbl main_fiber =
              multiple times. *)
           let child_dirty = !next_dirty in
           incr next_dirty;
-          let { dirty = child_dirty_cell; pc = child_pc; _ } =
+          let {
+            dirty = child_dirty_cell;
+            pc = child_pc;
+            ret_size = child_ret_size;
+            _;
+          } =
             List.assoc child_idx !all_fibers
           in
           child_dirty_cell := child_dirty;
@@ -84,24 +102,24 @@ let eval instrs label_tbl main_fiber =
           *)
           Fiber.push_int !fiber child_dirty;
           Fiber.push_int !fiber child_idx;
-          (* TODO: how much to push on?? *)
-          Fiber.push_zeroed !fiber n;
+          Fiber.push_zeroed !fiber child_ret_size;
           (* pending = 0 *)
           Fiber.push_int !fiber 0;
           (* Continue on the parent fiber *)
           go !parent_pc
-    | Spawn n ->
+    | Spawn { args_size; ret_size } ->
         (* Grab the arguments and pc for the fiber *)
         let proc = Fiber.pop_label !fiber in
         let child_pc = List.assoc proc label_tbl in
-        let args = Fiber.pop_block !fiber n in
+        let args = Fiber.pop_block !fiber args_size in
         (* Setup and associate the new child fiber *)
         let child_fiber = Fiber.make args in
         let child_idx = !next_idx in
         incr next_idx;
-        all_fibers :=
-          (child_idx, { fiber = child_fiber; dirty = ref (-1); pc = ref (-1) })
-          :: !all_fibers;
+        let child_cell =
+          { fiber = child_fiber; dirty = ref (-1); pc = ref (-1); ret_size }
+        in
+        all_fibers := (child_idx, child_cell) :: !all_fibers;
         (* Store the parent's program counter, and yield control to the child. *)
         let parent_idx = !fiber_idx in
         (List.assoc parent_idx !all_fibers).pc := i + 1;
@@ -127,7 +145,7 @@ let eval instrs label_tbl main_fiber =
           let _ = Fiber.pop_block !fiber return_size in
           let child_idx = Fiber.pop_int !fiber in
           let expected_dirty = Fiber.pop_int !fiber in
-          let { fiber = child_fiber; dirty = child_dirty; pc = child_pc } =
+          let { fiber = child_fiber; dirty = child_dirty; pc = child_pc; _ } =
             List.assoc child_idx !all_fibers
           in
           if !child_dirty <> expected_dirty then
@@ -145,14 +163,14 @@ let eval instrs label_tbl main_fiber =
     | Push locator ->
         Fiber.push !fiber locator;
         go (i + 1)
-    | Drop ->
-        let _ = Fiber.pop !fiber in
-        go (i + 1)
     | Store fp_offset ->
         Fiber.store !fiber fp_offset;
         go (i + 1)
     | SpAdd n ->
         Fiber.sp_add !fiber n;
+        go (i + 1)
+    | SpSub n ->
+        Fiber.sp_sub !fiber n;
         go (i + 1)
     | Jmp l ->
         let j = List.assoc l label_tbl in
@@ -161,7 +179,7 @@ let eval instrs label_tbl main_fiber =
         let isz = Fiber.pop_int !fiber = 0 in
         let j = if isz then List.assoc l label_tbl else i + 1 in
         go j
-    | Call _n ->
+    | Call ->
         (* TODO pop args on return *)
         let proc = Fiber.pop_label !fiber in
         Fiber.setup_new_frame !fiber ~pc:(i + 1);
@@ -210,8 +228,8 @@ let eval instrs label_tbl main_fiber =
   in
   go i_main
 
-let interp procs =
+let interp { procs; ret_size } =
   let bbs = bbs_of_procs procs in
   let instrs, label_tbl = build_instruction_table bbs in
   let main_fiber = Fiber.make Fiber.empty_block in
-  eval instrs label_tbl main_fiber
+  eval instrs label_tbl main_fiber ret_size

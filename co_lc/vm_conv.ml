@@ -355,13 +355,11 @@ let load_access ctx (target_rcd : target) t idx (target_access : opt_target) =
       `Stack
   | `Stack, (`Any | `Stack) ->
       (* drop until start is reached *)
-      let drops = List.init offset_from_top (fun _ -> Vm_op.Drop) in
-      Ctx.extend ctx drops;
+      Ctx.push ctx (Vm_op.SpSub offset_from_top);
       `Stack
   | `Stack, `FpOffset base ->
       (* drop until start is reached, then store *)
-      let drops = List.init offset_from_top (fun _ -> Vm_op.Drop) in
-      Ctx.extend ctx drops;
+      Ctx.push ctx (Vm_op.SpSub offset_from_top);
       store_into ctx (`FpOffset base) item_size;
       `FpOffset base
 
@@ -435,11 +433,9 @@ and compile_expr ctx bound_proc e target =
     | Ast.App (fn, arg) ->
         (* call: fn args, fn < stack top *)
         assert (stack_size (Ast.xty fn) = 1);
-        (* -1 for function label *)
-        let arg_size = stack_size (Ast.xty arg) + stack_size (Ast.xty fn) - 1 in
         let _ = go arg `Stack in
         let _ = go fn `Stack in
-        Ctx.push ctx (Vm_op.Call arg_size);
+        Ctx.push ctx Vm_op.Call;
         let ret_target = or_stack target in
         store_from_stack ctx ret_target t;
         ret_target
@@ -543,8 +539,10 @@ let compile : Ast.program -> Vm_op.program =
  fun program ->
   let open Vm_op in
   let ctx = Ctx.new_ctx () in
+  let ret_size = stack_size (Ast.xty program) in
   compile_proc ctx main None (T.unit, "") program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in
   Hashtbl.remove procs main;
-  (List.of_seq @@ Hashtbl.to_seq_values procs) @ [ main_proc ]
+  let procs = (List.of_seq @@ Hashtbl.to_seq_values procs) @ [ main_proc ] in
+  { procs; ret_size }

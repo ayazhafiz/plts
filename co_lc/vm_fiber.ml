@@ -126,6 +126,11 @@ let sp_add fiber n =
   let block = Array.make n debug_word in
   push_block fiber block
 
+let sp_sub { stack; fp } n =
+  let new_len = Stack.len stack - n in
+  Stack.truncate stack new_len;
+  assert (new_len >= !fp)
+
 let setup_new_frame fiber ~pc =
   (*
     ...args (set elsewhere)
