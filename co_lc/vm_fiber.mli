@@ -9,6 +9,11 @@ type block
 val empty_block : block
 (** Zero-sized [block]. *)
 
+type value = [ `Int of int | `Label of Vm_op.label ]
+
+val show_value : value -> string
+val vals_of_block : block -> value list
+
 val make : block -> t
 (** Creates a new fiber with a block of values positioned in calling-convention
     order at the top of the stack. *)
@@ -61,5 +66,7 @@ val restore_old_frame : t -> [ `Pc of int | `Done ]
     Must happen with the frame's stack restored to the current frame's start,
     via e.g. [reset_to_fp]. *)
 
-val reset_to_fp : t -> unit
-(** Restores the stack pointer to the current frame pointer. *)
+val reset_to_fp_offset : t -> int -> unit
+(** Restores the stack pointer to an offset relative to the current frame pointer. *)
+
+val debug_fiber : t -> string

@@ -9,7 +9,7 @@
     surface
     ast ast_lex ast_parser ast_parse
     ty_solve
-    vm_layout vm_debug vm_op vm_conv vm_fiber vm_interp
+    vm_layout vm_debug vm_op vm_conv vm_fiber vm_interp vm_readback
     service util)
   (libraries
     str

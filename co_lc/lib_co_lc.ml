@@ -250,7 +250,7 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
     Ast.string_of_program ~width:default_width program
   in
   let print_ir program = Vm_op.string_of_program ~width:default_width program in
-  let print_evaled _ = failwith "todo print evaled" in
+  let print_evaled (values, ty) = Vm_readback.readback values ty in
   match (phase, emit) with
   | Parse, Print -> input |> parse &> print_parsed
   | Solve, Print -> input |> parse >>= solve &> print_solved

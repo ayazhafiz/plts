@@ -83,12 +83,20 @@ module Ctx = struct
     c.names <- (x, (depth, ty, target)) :: c.names;
     target
 
+  let add_proc_name c x t_proc proc =
+    let depth = current_depth c in
+    c.names <- (x, (depth, t_proc, `Proc proc)) :: c.names
+
   let lookup c x : name =
     let current_depth = current_depth c in
     match List.assoc_opt x c.names with
     | Some (depth, _, `FpOffset n) when current_depth = depth -> `FpOffset n
     | Some (_, _, `Proc l) -> `Proc l
-    | _ ->
+    | Some (_, _, `FpOffset _) ->
+        let (`Label proc) = current_proc c in
+        failwith
+          (Printf.sprintf "%s found in %s, but it's at a lower depth" x proc)
+    | None ->
         let (`Label proc) = current_proc c in
         failwith (Printf.sprintf "%s not found in %s" x proc)
 
@@ -115,7 +123,7 @@ module Ctx = struct
 
   (** Creates a new procedure and enters it.
       Returns the target of the return value. *)
-  let enter_proc c proc_label ~opt_recursive_name ~arg:(arg_ty, arg_name) ~ret =
+  let enter_proc c proc_label ~arg:(arg_ty, arg_name) ~ret =
     assert (not (Hashtbl.mem c.program proc_label));
     (* arrange the entry of the proc as follows:
 
@@ -164,13 +172,8 @@ module Ctx = struct
        to the calling convention *)
     let return_target = add_local c return_local ret in
 
-    (* if this function is recursive, store the surface-syntax name pointing to this proc name. *)
-    (* TODO: tail recursion optimization *)
-    (match opt_recursive_name with
-    | Some name ->
-        c.names <- (name, (depth, T.int, `Proc proc_label)) :: c.names
-    | None -> ());
-
+    (* TODO: if this is a recursive closures, we need to store the captures
+       somewhere locally *)
     return_target
 
   let exit_proc c proc_label =
@@ -219,14 +222,23 @@ module Ctx = struct
     new_map
 end
 
-type target = [ `FpOffset of int | `Stack ] [@@deriving show]
+type target =
+  [ `FpOffset of int  (** stored into an offset from the frame pointer. *)
+  | `Stack  (** stored on the top of the stack. *)
+  | `NonCapturingProc of Vm_op.label
+    (** the value is a non-capturing proc and can be referenced directly by name. *)
+  ]
+[@@deriving show]
+(** How a value is stored. *)
 
 let target_add n = function
   | `FpOffset m -> `FpOffset (m + n)
   | `Stack -> `Stack (* already on the stack, nowhere to look forward *)
 
 type opt_target =
-  [ `Any  (** compiler chooses, returns where value is stored *) | target ]
+  [ `Any  (** compiler chooses, returns where value is stored *)
+  | `FpOffset of int
+  | `Stack ]
 
 let compile_lit ctx l (target : opt_target) =
   let imm = match l with `Bool b -> if b then 1 else 0 | `Int n -> n in
@@ -363,6 +375,7 @@ let load_access ctx (target_rcd : target) t idx (target_access : opt_target) =
       Ctx.push ctx (Vm_op.SpSub offset_from_top);
       store_into ctx (`FpOffset base) item_size;
       `FpOffset base
+  | `NonCapturingProc _, _ -> failwith "records are not procs"
 
 let store_from_stack ctx target t =
   match target with
@@ -372,35 +385,45 @@ let store_from_stack ctx target t =
       let ret_size = stack_size t in
       store_into ctx (`FpOffset n) ret_size
 
-let or_stack (target : opt_target) =
+let get_content t =
+  let open Ast in
+  match !(unlink t) with
+  | Content c -> c
+  | _ -> failwith "not contentful variable during code gen"
+
+let or_stack target =
   match target with (`Stack | `FpOffset _) as n -> n | `Any -> `Stack
 
-let as_opt (target : target) : opt_target =
+let as_opt target : opt_target =
   match target with `Stack -> `Stack | `FpOffset n -> `FpOffset n
 
-let rec compile_proc ctx proc_name opt_recursive_name (t_x, x) body =
+let rec compile_proc ctx proc_name (t_x, x) body =
   let t_body = Ast.xty body in
   let size_ret = stack_size t_body in
-  let return_target =
-    Ctx.enter_proc ctx proc_name ~opt_recursive_name ~arg:(t_x, x) ~ret:t_body
-  in
+  let return_target = Ctx.enter_proc ctx proc_name ~arg:(t_x, x) ~ret:t_body in
   (* compile the body into the special return local *)
   let _ = compile_expr ctx None body return_target in
   Ctx.push ctx (Vm_op.Ret size_ret);
   Ctx.exit_proc ctx proc_name
 
-and compile_proc_expr ctx proc_name opt_recursive_name t_proc (t_x, x) body
-    target =
-  compile_proc ctx proc_name opt_recursive_name (t_x, x) body;
+and compile_proc_expr ctx proc_name t_proc (t_x, x) body target =
+  compile_proc ctx proc_name (t_x, x) body;
   (* leave behind the proc to call *)
   (* TODO: also leave behind closure data *)
   Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label proc_name));
-  let target = or_stack target in
-  store_from_stack ctx target t_proc;
-  target
+  let has_captures = false in
+  if has_captures then (
+    let target = or_stack target in
+    store_from_stack ctx target t_proc;
+    target)
+  else (
+    (* The proc should have been compiled with no expectation of its target,
+       because we can reference the label directly. *)
+    assert (target = `Any);
+    `NonCapturingProc proc_name)
 
 and compile_expr ctx bound_proc e target =
-  let rec go ?(bound_proc = None) (_, t, e) (target : [ `Any | target ]) =
+  let rec go ?(bound_proc = None) (_, t, e) (target : opt_target) =
     match e with
     | Ast.Var x ->
         let target_x = Ctx.lookup ctx x in
@@ -418,19 +441,45 @@ and compile_expr ctx bound_proc e target =
         in
         target
     | Ast.Let (kind, (_, t_x, x), e, rest) ->
-        let target_x = Ctx.add_local ctx x t_x in
-        let _ = go ~bound_proc:(Some (x, kind = `Rec)) e target_x in
+        let target_x, bound_proc =
+          match get_content t_x with
+          | Ast.TFn _ ->
+              let has_captures = false in
+              let target =
+                if not has_captures then
+                  (* This is a non-capturing proc; we don't need to allocate a
+                     local for it, because it can be passed around by-name. *)
+                  `Any
+                else failwith "TODO"
+              in
+              let proc_name = Ctx.new_label ctx x in
+              (* If this binding is recursive, associate the recursive proc name now.
+                 TODO: handle case of recursive, capturing procs. *)
+              if kind = `Rec then Ctx.add_proc_name ctx x t_x proc_name;
+              (target, Some proc_name)
+          | _ ->
+              (* non-proc must always be stored locally *)
+              (Ctx.add_local ctx x t_x, None)
+        in
+        let stored_x = go ~bound_proc e target_x in
+        (* If we compiled a binding to a non-capturing proc, be sure to
+           associate the binding name to that proc, without any additional
+           storage. *)
+        (match stored_x with
+        | `NonCapturingProc name ->
+            assert (Some name = bound_proc);
+            Ctx.add_proc_name ctx x t_x name
+        | _ -> ());
+        (* Build the rest of the program following the binding. *)
         let end_target = go rest target in
         end_target
     | Ast.Abs ((_, t_x, x), e) ->
-        let name_hint, opt_recursive_name =
+        let proc_name =
           match bound_proc with
-          | Some (name, true) -> (name, Some name)
-          | Some (name, false) -> (name, None)
-          | None -> ("proc", None)
+          | Some proc -> proc
+          | None -> Ctx.new_label ctx "proc"
         in
-        let proc_name = Ctx.new_label ctx name_hint in
-        compile_proc_expr ctx proc_name opt_recursive_name t (t_x, x) e target
+        compile_proc_expr ctx proc_name t (t_x, x) e target
     | Ast.App (fn, arg) ->
         (* call: fn args, fn < stack top *)
         assert (stack_size (Ast.xty fn) = 1);
@@ -441,13 +490,14 @@ and compile_expr ctx bound_proc e target =
         store_from_stack ctx ret_target t;
         ret_target
     | Ast.Binop (op, arg1, arg2) ->
-        let _ = go arg1 `Stack in
         let _ = go arg2 `Stack in
+        let _ = go arg1 `Stack in
         let call =
           match op with
           | `Lt -> Vm_op.Lt
           | `Add -> Vm_op.Add
           | `Sub -> Vm_op.Sub
+          | `Mul -> Vm_op.Mul
         in
         Ctx.push ctx call;
         let ret_target = or_stack target in
@@ -477,7 +527,7 @@ and compile_expr ctx bound_proc e target =
     | Ast.Access (rcd, idx) ->
         let target_rcd = go rcd `Any in
         load_access ctx target_rcd (Ast.xty rcd) idx target
-    | Ast.Spawn e ->
+    | Ast.Spawn body ->
         (* Convert
              spawn e
            to
@@ -485,11 +535,20 @@ and compile_expr ctx bound_proc e target =
              spawn proc
         *)
         let proc_name = Ctx.new_label ctx "spawn_wrapper" in
-        let t_spawn_wrapper =
-          ref @@ Ast.Content (Ast.TFn (T.unit, Ast.xty e))
+        let t_body = Ast.xty body in
+        let t_spawn_wrapper = ref @@ Ast.Content (Ast.TFn (T.unit, t_body)) in
+        let arg = (T.unit, "") in
+        let _ =
+          compile_proc_expr ctx proc_name t_spawn_wrapper arg body `Stack
         in
-        compile_proc_expr ctx proc_name None t_spawn_wrapper (T.unit, "") e
-          target
+        (* Call spawn, then store the returned fiber into the target. *)
+        let args_size = 0 (* TODO material once closures are supported *) in
+        let ret_size = stack_size t_body in
+        Ctx.push ctx (Vm_op.Spawn { args_size; ret_size });
+        let fiber_target = or_stack target in
+        let t_fiber = ref @@ Ast.Content (Ast.TFiber t_body) in
+        store_from_stack ctx fiber_target t_fiber;
+        fiber_target
     | Ast.Yield ->
         Ctx.push ctx Vm_op.Yield;
         `Stack (* yield is zero-sized *)
@@ -540,10 +599,11 @@ let compile : Ast.program -> Vm_op.program =
  fun program ->
   let open Vm_op in
   let ctx = Ctx.new_ctx () in
-  let ret_size = stack_size (Ast.xty program) in
-  compile_proc ctx main None (T.unit, "") program;
+  let ret_ty = Ast.xty program in
+  let ret_size = stack_size ret_ty in
+  compile_proc ctx main (T.unit, "") program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in
   Hashtbl.remove procs main;
   let procs = (List.of_seq @@ Hashtbl.to_seq_values procs) @ [ main_proc ] in
-  { procs; ret_size }
+  { procs; ret_size; ret_ty }

@@ -188,11 +188,8 @@ let eval instrs label_tbl main_fiber main_size =
     | Ret n -> (
         (* Restore to frame pointer, save the return value, then restore the old
            frame, and push the return value back on. *)
-        Fiber.reset_to_fp !fiber;
-        let ret_val =
-          Fiber.sp_add !fiber n;
-          Fiber.pop_block !fiber n
-        in
+        Fiber.reset_to_fp_offset !fiber n;
+        let ret_val = Fiber.pop_block !fiber n in
         match Fiber.restore_old_frame !fiber with
         | `Pc j ->
             Fiber.push_block !fiber ret_val;
@@ -228,8 +225,10 @@ let eval instrs label_tbl main_fiber main_size =
   in
   go i_main
 
-let interp { procs; ret_size } =
+let interp { procs; ret_size; ret_ty } =
   let bbs = bbs_of_procs procs in
   let instrs, label_tbl = build_instruction_table bbs in
   let main_fiber = Fiber.make Fiber.empty_block in
-  eval instrs label_tbl main_fiber ret_size
+  let ret_val = eval instrs label_tbl main_fiber ret_size in
+  let ret_words = Fiber.vals_of_block ret_val in
+  (ret_words, ret_ty)

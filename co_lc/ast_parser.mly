@@ -43,6 +43,7 @@ let xv = Ast.xv
 %token <Surface.loc> LT
 %token <Surface.loc> PLUS
 %token <Surface.loc> MINUS
+%token <Surface.loc> MUL
 
 %token EOF
 
@@ -163,3 +164,4 @@ binop:
   | LT    { `Lt }
   | PLUS  { `Add }
   | MINUS { `Sub }
+  | MUL   { `Mul }

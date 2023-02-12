@@ -11,11 +11,13 @@ exception Bad_stack of string
 
 let invalid_state s = raise (Bad_stack s)
 
-type word = [ `Int of int | `Label of Vm_op.label ] [@@deriving show]
+type value = [ `Int of int | `Label of Vm_op.label ] [@@deriving show]
+type word = value [@@deriving show]
 type block = word Array.t
 
 let debug_word = `Int 0xAAAAAAAA
 let empty_block = Array.make 0 debug_word
+let vals_of_block words = Array.to_list words
 
 module Stack = struct
   type t = { len : int ref; arr : word Array.t ref }
@@ -64,9 +66,17 @@ module Stack = struct
   let truncate { len; _ } new_len =
     assert (new_len <= !len);
     len := new_len
+
+  type pretty = word list [@@deriving show]
+
+  let pp f { len; arr } =
+    let pretty : pretty = Array.to_list @@ Array.sub !arr 0 !len in
+    pp_pretty f pretty
 end
 
-type t = { stack : Stack.t; fp : int ref }
+type t = { stack : Stack.t; fp : int ref } [@@deriving show]
+
+let debug_fiber = show
 
 let make block =
   let stack = Stack.make 64 in
@@ -147,7 +157,7 @@ let setup_new_frame fiber ~pc =
   push_int fiber old_sp;
   fiber.fp := Stack.len fiber.stack
 
-let reset_to_fp { stack; fp } = Stack.truncate stack !fp
+let reset_to_fp_offset { stack; fp } n = Stack.truncate stack (!fp + n)
 
 let restore_old_frame fiber =
   (*

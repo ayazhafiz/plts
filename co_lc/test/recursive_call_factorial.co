@@ -1,0 +1,61 @@
+# +ir -print
+# +eval -print
+let rec fact = \n ->
+  if n < 1
+  then 1
+  else n * fact (n - 1)
+in
+fact 10
+
+> +ir -print
+> fact: {
+> % Stack relative to frame pointer:
+> %   -4  n
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  #return
+> fact:
+>   sp-add 1
+> start1:
+>   push 1
+>   push fp[-4]
+>   <
+>   jmpz else
+> then:
+>   push 1
+>   store-into fp[0] 
+>   jmp join
+> else:
+>   push 1
+>   push fp[-4]
+>   sub
+>   push &fact
+>   call
+>   push fp[-4]
+>   mul
+>   store-into fp[0] 
+>   jmp join
+> join:
+>   ret 1
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  #return
+> @main:
+>   sp-add 1
+> start:
+>   push &fact
+>   push 10
+>   push &fact
+>   call
+>   store-into fp[0] 
+>   ret 1
+> }
+
+> +eval -print
+> 3628800

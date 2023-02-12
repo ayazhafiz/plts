@@ -32,7 +32,7 @@ and ty = ty_var ref
 let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 
 type literal = [ `Bool of bool | `Int of int ]
-type binop = [ `Lt | `Add | `Sub ]
+type binop = [ `Lt | `Add | `Sub | `Mul ]
 type co_op = [ `Spawn | `Yield | `Resume ]
 type e_str = loc * ty * string
 
@@ -74,7 +74,7 @@ let pp_lit f =
 
 let pp_binop f (b : binop) =
   let open Format in
-  let s = match b with `Lt -> "<" | `Add -> "+" | `Sub -> "-" in
+  let s = match b with `Lt -> "<" | `Add -> "+" | `Sub -> "-" | `Mul -> "*" in
   fprintf f "%s" s
 
 let pp_co_op f (b : co_op) =

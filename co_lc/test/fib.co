@@ -20,10 +20,10 @@ let rec exec = \state ->
   | `Done n -> {state.0, n, state.2}
 
 in
-let runFib = spawn (fib 28) in
+let runFib = spawn (fib 5) in
 let result = exec {runFib, 0, 0} in
 #   ^^^^^^
-result
+{result.1, result.2}
 
 > +solve -elab
 > let rec fib = \n ->
@@ -45,10 +45,10 @@ result
 >   | `Done n -> {state.0, n, state.2}
 > 
 > in
-> let runFib = spawn (fib 28) in
+> let runFib = spawn (fib 5) in
 > let result = exec {runFib, 0, 0} in
 > #   ^^^^^^ {Fiber int; int; int}
-> result
+> {result.1, result.2}
 > 
 
 > +ir -print
@@ -107,8 +107,8 @@ result
 >   store-into fp[8] 
 >   store-into fp[9] 
 >   store-into fp[10] 
->   push fp[-9]
 >   push 1
+>   push fp[-9]
 >   add
 >   push 0
 >   push fp[10]
@@ -139,8 +139,8 @@ result
 >   sp-add 1
 > start1:
 >   yield
->   push fp[-4]
 >   push 2
+>   push fp[-4]
 >   <
 >   jmpz else
 > then:
@@ -148,13 +148,13 @@ result
 >   store-into fp[0] 
 >   jmp join
 > else:
+>   push 2
 >   push fp[-4]
->   push 1
 >   sub
 >   push &fib
 >   call
+>   push 1
 >   push fp[-4]
->   push 2
 >   sub
 >   push &fib
 >   call
@@ -174,7 +174,7 @@ result
 > spawn_wrapper:
 >   sp-add 1
 > start3:
->   push 28
+>   push 5
 >   push &fib
 >   call
 >   store-into fp[0] 
@@ -186,58 +186,53 @@ result
 > %   -3  @old_pc
 > %   -2  @old_fp
 > %   -1  @old_sp
-> %    0  #return.2
-> %    1  #return.1
-> %    2  #return.0.stkdirty
-> %    3  #return.0.stkidx
-> %    4  #return.0.return
-> %    5  #return.0.bit
-> %    6  fib
-> %    7  exec
-> %    8  runFib.stkdirty
-> %    9  runFib.stkidx
-> %   10  runFib.return
-> %   11  runFib.bit
-> %   12  result.2
-> %   13  result.1
-> %   14  result.0.stkdirty
-> %   15  result.0.stkidx
-> %   16  result.0.return
-> %   17  result.0.bit
+> %    0  #return.1
+> %    1  #return.0
+> %    2  fib
+> %    3  exec
+> %    4  runFib.stkdirty
+> %    5  runFib.stkidx
+> %    6  runFib.return
+> %    7  runFib.bit
+> %    8  result.2
+> %    9  result.1
+> %   10  result.0.stkdirty
+> %   11  result.0.stkidx
+> %   12  result.0.return
+> %   13  result.0.bit
 > @main:
->   sp-add 18
+>   sp-add 14
 > start:
 >   push &fib
->   store-into fp[6] 
->   push &exec
->   store-into fp[7] 
->   push &spawn_wrapper
->   store-into fp[8] 
->   push 0
->   push 0
->   push fp[11]
->   push fp[10]
->   push fp[9]
->   push fp[8]
->   push &exec
->   call
->   store-into fp[12] 
->   store-into fp[13] 
->   store-into fp[14] 
->   store-into fp[15] 
->   store-into fp[16] 
->   store-into fp[17] 
->   push fp[17]
->   push fp[16]
->   push fp[15]
->   push fp[14]
->   push fp[13]
->   push fp[12]
->   store-into fp[0] 
->   store-into fp[1] 
 >   store-into fp[2] 
+>   push &exec
 >   store-into fp[3] 
+>   push &spawn_wrapper
+>   spawn 0 1
 >   store-into fp[4] 
 >   store-into fp[5] 
->   ret 6
+>   store-into fp[6] 
+>   store-into fp[7] 
+>   push 0
+>   push 0
+>   push fp[7]
+>   push fp[6]
+>   push fp[5]
+>   push fp[4]
+>   push &exec
+>   call
+>   store-into fp[8] 
+>   store-into fp[9] 
+>   store-into fp[10] 
+>   store-into fp[11] 
+>   store-into fp[12] 
+>   store-into fp[13] 
+>   push fp[8]
+>   store-into fp[0] 
+>   push fp[9]
+>   store-into fp[1] 
+>   ret 2
 > }
+
+> +eval -print
+> {0, 0}

@@ -40,7 +40,7 @@ type proc = {
   debug_frame : debug_frame;
 }
 
-type program = { procs : proc list; ret_size : int }
+type program = { procs : proc list; ret_size : int; ret_ty : Ast.ty }
 
 let pp_locator f =
   let open Format in

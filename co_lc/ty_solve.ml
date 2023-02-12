@@ -110,7 +110,7 @@ let infer fresh_var =
           let t_arg1, t_arg2, t_ret =
             match b with
             | `Lt -> (T.int, T.int, T.bool)
-            | `Add | `Sub -> (T.int, T.int, T.int)
+            | `Add | `Sub | `Mul -> (T.int, T.int, T.int)
           in
           unify t1 t_arg1;
           unify t2 t_arg2;
