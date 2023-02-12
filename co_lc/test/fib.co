@@ -1,5 +1,6 @@
 # +solve -elab
 # +ir -print
+# +eval -print
 let rec fib = \n ->
 #       ^^^
   yield;

@@ -11,7 +11,7 @@ exception Bad_stack of string
 
 let invalid_state s = raise (Bad_stack s)
 
-type word = [ `Int of int | `Label of Vm_op.label ]
+type word = [ `Int of int | `Label of Vm_op.label ] [@@deriving show]
 type block = word Array.t
 
 let debug_word = `Int 0xAAAAAAAA
@@ -37,8 +37,8 @@ module Stack = struct
     incr vec.len
 
   let pop vec =
-    let word = Array.get !(vec.arr) !(vec.len) in
     decr vec.len;
+    let word = Array.get !(vec.arr) !(vec.len) in
     word
 
   let extend vec block =
@@ -91,7 +91,9 @@ let pop_int fiber =
   match pop fiber with `Int n -> n | _ -> invalid_state "not an int"
 
 let pop_label fiber =
-  match pop fiber with `Label l -> l | _ -> invalid_state "not a label"
+  match pop fiber with
+  | `Label l -> l
+  | word -> invalid_state ("not a label: " ^ show_word word)
 
 let pop_block { stack; _ } block_size = Stack.splice_off stack block_size
 
