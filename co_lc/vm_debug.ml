@@ -49,7 +49,8 @@ let fill_out (offset, (x, ty)) =
 
 let pp_debug_frame f { locals } =
   let locals =
-    ("@old_fp", (T.int, `FpOffset (-2)))
+    ("@old_pc", (T.int, `FpOffset (-3)))
+    :: ("@old_fp", (T.int, `FpOffset (-2)))
     :: ("@old_sp", (T.int, `FpOffset (-1)))
     :: locals
   in

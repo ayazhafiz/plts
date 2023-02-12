@@ -145,18 +145,19 @@ module Ctx = struct
        arg
        closure
        ---
-       old_fp
        old_pc
+       old_fp
+       old_sp
        --- < new frame pointer = new stack pointer
        return_value
 
-       so, the arg starts at at fp[-2 - closure_stksize - argstksize]
+       so, the arg starts at at fp[-3 - closure_stksize - argstksize]
 
        TODO: also record the closure arguments
     *)
     let depth = current_depth c in
     let arg_stksize = stack_size arg_ty in
-    let arg_target = `FpOffset (-2 - arg_stksize) in
+    let arg_target = `FpOffset (-3 - arg_stksize) in
     c.names <- (arg_name, (depth, arg_ty, arg_target)) :: c.names;
 
     (* add a local for the return value; this must always be the first local due
