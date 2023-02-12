@@ -1,0 +1,82 @@
+# +ir -print
+# +eval -print
+let double = \n -> n * 2 in
+let plus5 = \m -> m + 5 in
+let addTo5AndDouble = \n -> double (plus5 n) in
+addTo5AndDouble 10
+
+> +ir -print
+> plus5: {
+> % Stack relative to frame pointer:
+> %   -4  m
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  #return
+> plus5:
+>   sp-add 1
+> start2:
+>   push 5
+>   push fp[-4]
+>   add
+>   store-into fp[0] 
+>   ret 1
+> }
+> 
+> addTo5AndDouble: {
+> % Stack relative to frame pointer:
+> %   -4  n
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  #return
+> addTo5AndDouble:
+>   sp-add 1
+> start3:
+>   push fp[-4]
+>   push &plus5
+>   call
+>   push &double
+>   call
+>   store-into fp[0] 
+>   ret 1
+> }
+> 
+> double: {
+> % Stack relative to frame pointer:
+> %   -4  n
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  #return
+> double:
+>   sp-add 1
+> start1:
+>   push 2
+>   push fp[-4]
+>   mul
+>   store-into fp[0] 
+>   ret 1
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  #return
+> @main:
+>   sp-add 1
+> start:
+>   push &double
+>   push &plus5
+>   push &addTo5AndDouble
+>   push 10
+>   push &addTo5AndDouble
+>   call
+>   store-into fp[0] 
+>   ret 1
+> }
+
+> +eval -print
+> 30
