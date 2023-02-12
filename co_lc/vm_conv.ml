@@ -82,6 +82,19 @@ module Ctx = struct
     c.names <- (x, (depth, ty, target)) :: c.names;
     target
 
+  type reserved = { target : [ `FpOffset of int ]; ty : Ast.ty }
+
+  let reserve_local c ty =
+    let offset = current_fp_offset c in
+    let target = `FpOffset !offset in
+    let stksize = stack_size ty in
+    offset := !offset + stksize;
+    { target; ty }
+
+  let add_reserved_local c x { target = `FpOffset n; ty } =
+    let depth = current_depth c in
+    c.names <- (x, (depth, ty, `FpOffset n)) :: c.names
+
   let add_proc_name c x t_proc proc =
     let depth = current_depth c in
     c.names <- (x, (depth, t_proc, `Proc proc)) :: c.names
@@ -243,6 +256,7 @@ type opt_target =
   [ `Any  (** compiler chooses, returns where value is stored *)
   | `FpOffset of int
   | `Stack ]
+[@@deriving show]
 
 let compile_lit ctx l (target : opt_target) =
   let imm = match l with `Bool b -> if b then 1 else 0 | `Int n -> n in
@@ -454,35 +468,44 @@ and compile_expr ctx bound_proc e target =
         in
         target
     | Ast.Let (kind, (_, t_x, x), e, rest) ->
-        let target_x, bound_proc =
+        let target_x, reserved_x, bound_proc =
           match get_content t_x with
           | Ast.TFn _ ->
               let has_captures = false in
               let target =
-                if not has_captures then
+                if not has_captures then `Any
                   (* This is a non-capturing proc; we don't need to allocate a
                      local for it, because it can be passed around by-name. *)
-                  `Any
                 else failwith "TODO"
               in
               let proc_name = Ctx.new_label ctx x in
               (* If this binding is recursive, associate the recursive proc name now.
                  TODO: handle case of recursive, capturing procs. *)
               if kind = `Rec then Ctx.add_proc_name ctx x t_x proc_name;
-              (target, Some proc_name)
+              (target, None, Some proc_name)
           | _ ->
               (* non-proc must always be stored locally *)
-              (Ctx.add_local ctx x t_x, None)
+              let reserved_local = Ctx.reserve_local ctx t_x in
+              let target =
+                match reserved_local.target with `FpOffset n -> `FpOffset n
+              in
+              (target, Some reserved_local, None)
         in
         let stored_x = go ~bound_proc e target_x in
-        (* If we compiled a binding to a non-capturing proc, be sure to
-           associate the binding name to that proc, without any additional
-           storage. *)
         (match stored_x with
         | `NonCapturingProc name ->
+            (* If we compiled a binding to a non-capturing proc, be sure to
+               associate the binding name to that proc, without any additional
+               storage. *)
             assert (Some name = bound_proc);
+            assert (Option.is_none reserved_x);
             Ctx.add_proc_name ctx x t_x name
-        | _ -> ());
+        | `FpOffset _ ->
+            (* Fill in the reserved slot with the actual name now that we're
+               going to compile the rest of the program. *)
+            let reserved_x = Option.get reserved_x in
+            Ctx.add_reserved_local ctx x reserved_x
+        | `Stack -> failwith "named binding cannot be stored on stack");
         (* Build the rest of the program following the binding. *)
         let end_target = go rest target in
         end_target
@@ -588,7 +611,7 @@ and compile_expr ctx bound_proc e target =
         fiber_target
     | Ast.Yield ->
         Ctx.push ctx Vm_op.Yield;
-        `Stack (* yield is zero-sized *)
+        or_stack target (* yield is zero-sized *)
     | Ast.Resume e ->
         let _ = go e `Stack in
         Ctx.push ctx (Vm_op.Resume (fiber_return_stack_size t));
