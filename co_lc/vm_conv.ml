@@ -288,39 +288,39 @@ let store_into ctx (`FpOffset fp_base) pop_n =
    *)
   let rec go n =
     assert (n >= 0);
-    if n == pop_n then ()
-    else (
+    if n == 0 then ()
+    else
       (* earlier pops are done first, they store into the higher indices
          pop1 ... popn
       *)
-      Ctx.push ctx (Vm_op.Store (fp_base + n));
-      go (n + 1))
+      let offset = n - 1 in
+      Ctx.push ctx (Vm_op.Store (fp_base + offset));
+      go (n - 1)
   in
-  go 0
+  go pop_n
 
 (** Store data from frame-pointer offsets onto the ephemeral stack. *)
 let push_from ctx (`FpOffset fp_base) push_n =
   (*
-    xn=fp base
+    x1=fp base
     ..
-    x1=fp top
+    xn=fp top
     ==>
-    push1 xn
+    push1 x1
     ..
-    pushn x1 < stack top
+    pushn xn < stack top
    *)
   let rec go n =
     assert (n >= 0);
-    if n == 0 then ()
-    else
+    if n == push_n then ()
+    else (
       (* earlier pushes push from the higher indices
          push1 @ xn ... pushn @ x1
       *)
-      let offset = n - 1 in
-      Ctx.push ctx (Vm_op.Push (`FpOffset (fp_base + offset)));
-      go (n - 1)
+      Ctx.push ctx (Vm_op.Push (`FpOffset (fp_base + n)));
+      go (n + 1))
   in
-  go push_n
+  go 0
 
 let load_name ctx name t target =
   match (name, target) with

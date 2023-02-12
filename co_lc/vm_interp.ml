@@ -215,7 +215,7 @@ let eval instrs label_tbl main_fiber main_size =
               Fiber.push_int !fiber (-1);
               Fiber.push_int !fiber (-1);
               Fiber.push_block !fiber ret_val;
-              (* done = 0 *)
+              (* done = 1 *)
               Fiber.push_int !fiber 1;
               go !parent_pc)
   in
