@@ -64,7 +64,7 @@ let pp_op f op =
   | Push l ->
       fprintf f "push ";
       pp_locator f l
-  | Store n -> fprintf f "store-into fp[%d] " n
+  | Store n -> fprintf f "store-into fp[%d]" n
   | SpAdd n -> fprintf f "sp-add %d" n
   | SpSub n -> fprintf f "sp-sub %d" n
   | Jmp (`Label l) -> fprintf f "jmp %s" l

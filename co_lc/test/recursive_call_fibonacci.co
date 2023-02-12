@@ -24,7 +24,7 @@ fib 28
 >   jmpz else
 > then:
 >   push fp[-4]
->   store-into fp[-5] 
+>   store-into fp[-5]
 >   jmp join
 > else:
 >   sp-add 1
@@ -42,7 +42,7 @@ fib 28
 >   call
 >   sp-sub 1
 >   add
->   store-into fp[-5] 
+>   store-into fp[-5]
 >   jmp join
 > join:
 >   ret
@@ -63,7 +63,7 @@ fib 28
 >   push &fib
 >   call
 >   sp-sub 1
->   store-into fp[-4] 
+>   store-into fp[-4]
 >   ret
 > }
 

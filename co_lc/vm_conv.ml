@@ -329,7 +329,7 @@ let load_name ctx name t target =
       store_into ctx (`FpOffset target) 1;
       `FpOffset target
 
-let load_access ctx (target_rcd : target) t idx (target_access : opt_target) =
+let load_access ctx (target_tup : target) t idx (target_access : opt_target) =
   (*
     |     | .n < bottom
     |     | ..
@@ -344,10 +344,11 @@ let load_access ctx (target_rcd : target) t idx (target_access : opt_target) =
     |-stksize_rcd
    *)
   let stksize_rcd = stack_size t in
-  let item_size, offset_from_top, offset_from_bottom =
+  let t_item, item_size, offset_from_top, offset_from_bottom =
     match !(Ast.unlink t) with
     | Content (TTup ts) ->
-        let item_size = stack_size @@ List.nth ts idx in
+        let t_item = List.nth ts idx in
+        let item_size = stack_size @@ t_item in
         let before = List.filteri (fun i _ -> i < idx) ts in
         let after = List.filteri (fun i _ -> i > idx) ts in
         let offset_from_top =
@@ -356,11 +357,11 @@ let load_access ctx (target_rcd : target) t idx (target_access : opt_target) =
         let offset_from_bottom =
           List.fold_left ( + ) 0 @@ List.map stack_size @@ after
         in
-        (item_size, offset_from_top, offset_from_bottom)
+        (t_item, item_size, offset_from_top, offset_from_bottom)
     | _ -> failwith "not a tuple"
   in
   assert (stksize_rcd = item_size + offset_from_top + offset_from_bottom);
-  match (target_rcd, target_access) with
+  match (target_tup, target_access) with
   | `FpOffset base, `Any -> `FpOffset (base + offset_from_bottom)
   | `FpOffset base, `FpOffset other ->
       (* push to stack, then load from it *)
@@ -373,11 +374,21 @@ let load_access ctx (target_rcd : target) t idx (target_access : opt_target) =
   | `Stack, (`Any | `Stack) ->
       (* drop until start is reached *)
       Ctx.push ctx (Vm_op.SpSub offset_from_top);
+      (* create a new local for temporarily saving the item *)
+      let local = "#access_tmp" in
+      let local_target = Ctx.add_local ctx local t_item in
+      store_into ctx local_target item_size;
+      (* drop all remaining items of the tuple off the stack *)
+      Ctx.push ctx (Vm_op.SpSub offset_from_bottom);
+      (* push the single wanted item back on *)
+      push_from ctx local_target item_size;
       `Stack
   | `Stack, `FpOffset base ->
       (* drop until start is reached, then store *)
       Ctx.push ctx (Vm_op.SpSub offset_from_top);
       store_into ctx (`FpOffset base) item_size;
+      (* drop all remaining items of the tuple off the stack *)
+      Ctx.push ctx (Vm_op.SpSub offset_from_bottom);
       `FpOffset base
   | `NonCapturingProc _, _ -> failwith "records are not procs"
 
@@ -552,8 +563,8 @@ and compile_expr ctx bound_proc e target =
         assert (then_target = else_target);
         then_target
     | Ast.Access (rcd, idx) ->
-        let target_rcd = go rcd `Any in
-        load_access ctx target_rcd (Ast.xty rcd) idx target
+        let target_tup = go rcd `Any in
+        load_access ctx target_tup (Ast.xty rcd) idx target
     | Ast.Spawn body ->
         (* Convert
              spawn e
