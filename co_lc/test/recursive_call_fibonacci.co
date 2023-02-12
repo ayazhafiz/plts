@@ -57,7 +57,6 @@ fib 28
 > @main:
 >   sp-add 0
 > start:
->   push &fib
 >   sp-add 1
 >   push 28
 >   push &fib

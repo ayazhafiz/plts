@@ -424,17 +424,16 @@ and compile_proc_expr ctx proc_name t_proc (t_x, x) body target =
   compile_proc ctx proc_name (t_x, x) body;
   (* leave behind the proc to call *)
   (* TODO: also leave behind closure data *)
-  Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label proc_name));
   let has_captures = false in
-  if has_captures then (
-    let target = or_stack target in
-    store_from_stack ctx target t_proc;
-    target)
-  else (
-    (* The proc should have been compiled with no expectation of its target,
-       because we can reference the label directly. *)
-    assert (target = `Any);
-    `NonCapturingProc proc_name)
+  match (has_captures, target) with
+  | false, `Any ->
+      (* Return the proc reference directly *)
+      `NonCapturingProc proc_name
+  | _ ->
+      Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label proc_name));
+      let target = or_stack target in
+      store_from_stack ctx target t_proc;
+      target
 
 and compile_expr ctx bound_proc e target =
   let rec go ?(bound_proc = None) (_, t, e) (target : opt_target) =
@@ -614,18 +613,28 @@ and compile_expr ctx bound_proc e target =
         Ctx.push ctx (Vm_op.Jmpz lbl_pending);
         (* The overall result must join into the same location. *)
         let join_target = or_stack target in
-        (* Done branch - load the return value into x, then evaluate the body.
+        (* Done branch - load the return value into x, drop the remaining bits.
+           Then evaluate the body.
            The return value is on the top of the stack now, so can be loaded as a
            return. *)
-        Ctx.new_bb ctx lbl_done;
-        let target_x = Ctx.add_local ctx x t_x in
-        store_from_stack ctx target_x t_x;
-        let done_target = go done_body join_target in
-        Ctx.push ctx (Vm_op.Jmp lbl_join);
+        let done_target =
+          Ctx.new_bb ctx lbl_done;
+          let target_x = Ctx.add_local ctx x t_x in
+          store_from_stack ctx target_x t_x;
+          Ctx.push ctx (Vm_op.SpSub 2) (* drop idx, dirty *);
+          let done_target = go done_body join_target in
+          Ctx.push ctx (Vm_op.Jmp lbl_join);
+          done_target
+        in
         (* Pending branch *)
-        Ctx.new_bb ctx lbl_pending;
-        let pending_target = go pending join_target in
-        Ctx.push ctx (Vm_op.Jmp lbl_join);
+        let pending_target =
+          Ctx.new_bb ctx lbl_pending;
+          (* drop ret, idx, dirty *)
+          Ctx.push ctx (Vm_op.SpSub (2 + stack_size t_x));
+          let pending_target = go pending join_target in
+          Ctx.push ctx (Vm_op.Jmp lbl_join);
+          pending_target
+        in
         (* the rest of the procedure starts at the join *)
         Ctx.new_bb ctx lbl_join;
         assert (done_target = pending_target);

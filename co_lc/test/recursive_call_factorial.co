@@ -51,7 +51,6 @@ fact 10
 > @main:
 >   sp-add 0
 > start:
->   push &fact
 >   sp-add 1
 >   push 10
 >   push &fact
