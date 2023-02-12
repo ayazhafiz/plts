@@ -1,0 +1,71 @@
+# +ir -print
+# +eval -print
+let rec fib = \n ->
+  if n < 2
+  then n
+  else (fib (n - 1)) + (fib (n - 2))
+in
+fib 28
+
+> +ir -print
+> fib: {
+> % Stack relative to frame pointer:
+> %   -5  #return
+> %   -4  n
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> fib:
+>   sp-add 0
+> start1:
+>   push 2
+>   push fp[-4]
+>   <
+>   jmpz else
+> then:
+>   push fp[-4]
+>   store-into fp[-5] 
+>   jmp join
+> else:
+>   sp-add 1
+>   push 2
+>   push fp[-4]
+>   sub
+>   push &fib
+>   call
+>   sp-sub 1
+>   sp-add 1
+>   push 1
+>   push fp[-4]
+>   sub
+>   push &fib
+>   call
+>   sp-sub 1
+>   add
+>   store-into fp[-5] 
+>   jmp join
+> join:
+>   ret
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -4  #return
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> @main:
+>   sp-add 0
+> start:
+>   push &fib
+>   sp-add 1
+>   push 28
+>   push &fib
+>   call
+>   sp-sub 1
+>   store-into fp[-4] 
+>   ret
+> }
+
+> +eval -print
+> 317811

@@ -10,19 +10,18 @@
 
     Stack representation of calls:
 
-      ...
-      arg_last
-      ...
-      arg_1
+      return_value
+      arg
+      <captures>
       fn_name
-      === < stack top
+      --- < stack top on call
+      old_pc
+      old_fp
+      old_sp
+      --- < new frame pointer = new stack pointer on enter
 *)
 
 open Vm_layout
-
-(* Synthetic name for a return local, not typable in the surface syntax. *)
-let return_local = "#return"
-
 module T = Ty_solve.T
 
 module Ctx = struct
@@ -121,6 +120,9 @@ module Ctx = struct
     let bb = current_bb c in
     bb := List.rev ops @ !bb
 
+  (* Synthetic name for a return local, not typable in the surface syntax. *)
+  let return_local = "#return"
+
   (** Creates a new procedure and enters it.
       Returns the target of the return value. *)
   let enter_proc c proc_label ~arg:(arg_ty, arg_name) ~ret =
@@ -150,14 +152,14 @@ module Ctx = struct
     (* add the argument and its offset to the locals.
        for a given call, we have the stack layout
 
+       #return_value
        arg
-       closure
+       <captures>
        ---
        old_pc
        old_fp
        old_sp
        --- < new frame pointer = new stack pointer
-       return_value
 
        so, the arg starts at at fp[-3 - closure_stksize - argstksize]
 
@@ -165,14 +167,16 @@ module Ctx = struct
     *)
     let depth = current_depth c in
     let arg_stksize = stack_size arg_ty in
-    let arg_target = `FpOffset (-3 - arg_stksize) in
-    c.names <- (arg_name, (depth, arg_ty, arg_target)) :: c.names;
+    let arg_offset = -3 - arg_stksize in
+    c.names <- (arg_name, (depth, arg_ty, `FpOffset arg_offset)) :: c.names;
 
-    (* add a local for the return value; this must always be the first local due
-       to the calling convention *)
-    let return_target = add_local c return_local ret in
+    (* add a local for the return value *)
+    let ret_stksize = stack_size ret in
+    let ret_target = arg_offset - ret_stksize in
+    let return_target = `FpOffset ret_target in
+    c.names <- (return_local, (depth, ret, return_target)) :: c.names;
 
-    (* TODO: if this is a recursive closures, we need to store the captures
+    (* TODO: if this is a recursive closures, we also need to store the captures
        somewhere locally *)
     return_target
 
@@ -399,11 +403,10 @@ let as_opt target : opt_target =
 
 let rec compile_proc ctx proc_name (t_x, x) body =
   let t_body = Ast.xty body in
-  let size_ret = stack_size t_body in
   let return_target = Ctx.enter_proc ctx proc_name ~arg:(t_x, x) ~ret:t_body in
   (* compile the body into the special return local *)
   let _ = compile_expr ctx None body return_target in
-  Ctx.push ctx (Vm_op.Ret size_ret);
+  Ctx.push ctx Vm_op.Ret;
   Ctx.exit_proc ctx proc_name
 
 and compile_proc_expr ctx proc_name t_proc (t_x, x) body target =
@@ -481,11 +484,35 @@ and compile_expr ctx bound_proc e target =
         in
         compile_proc_expr ctx proc_name t (t_x, x) e target
     | Ast.App (fn, arg) ->
-        (* call: fn args, fn < stack top *)
-        assert (stack_size (Ast.xty fn) = 1);
+        (* call:
+           #return
+           arg
+           <captures>
+           fn_label < stack top
+        *)
+        (* TODO support captures *)
+        let t_fn = Ast.xty fn in
+        let fn_stksize = stack_size t_fn in
+        assert (fn_stksize = 1);
+        let t_ret =
+          match get_content t_fn with
+          | Ast.TFn (_, ret) -> ret
+          | _ -> failwith "not a function"
+        in
+        (* Allocate space for the return value *)
+        Ctx.push ctx (Vm_op.SpAdd (stack_size t_ret));
+        (* Push the arg, and function, then call *)
         let _ = go arg `Stack in
         let _ = go fn `Stack in
         Ctx.push ctx Vm_op.Call;
+        (* After the call, rollback whatever space we allocated for the captures
+           and arguments, so that the return value is on the top of the stack.
+
+           -1 for the proc label, which was already popped during the call.
+        *)
+        let allocated_arg_space = stack_size (Ast.xty arg) + fn_stksize - 1 in
+        Ctx.push ctx (Vm_op.SpSub allocated_arg_space);
+        (* Store the return value into the target. *)
         let ret_target = or_stack target in
         store_from_stack ctx ret_target t;
         ret_target

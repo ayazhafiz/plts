@@ -74,26 +74,30 @@ module Stack = struct
     pp_pretty f pretty
 end
 
-type t = { stack : Stack.t; fp : int ref } [@@deriving show]
+type t = { stack : Stack.t; fp : int ref; top : int ref } [@@deriving show]
 
 let debug_fiber = show
 
-let make block =
+let make ~ret ~arg =
   let stack = Stack.make 64 in
   (*
       Setup initial frame s
+      ret
+      --- < top
       args (block)
       END_pc
       END_fp
       END_sp
       --- current frame
     *)
-  Stack.extend stack block;
+  Stack.extend stack (Array.make ret debug_word);
+  let top = Stack.len stack in
+  Stack.extend stack arg;
   Stack.push stack (`Int 0);
   Stack.push stack (`Int 0);
-  Stack.push stack (`Int 0);
+  Stack.push stack (`Int top);
   let fp = Stack.len stack in
-  { stack; fp = ref fp }
+  { stack; fp = ref fp; top = ref top }
 
 let pop { stack; _ } = Stack.pop stack
 
@@ -129,7 +133,7 @@ let push fiber = function
       Stack.push fiber.stack word
   | `Label l -> push_label fiber (`Label l)
 
-let store { stack; fp } fp_offset =
+let store { stack; fp; _ } fp_offset =
   let idx = !fp + fp_offset in
   let word = Stack.pop stack in
   Stack.set stack idx word
@@ -138,7 +142,7 @@ let sp_add fiber n =
   let block = Array.make n debug_word in
   push_block fiber block
 
-let sp_sub { stack; fp } n =
+let sp_sub { stack; fp; _ } n =
   let new_len = Stack.len stack - n in
   Stack.truncate stack new_len;
   assert (new_len >= !fp)
@@ -157,7 +161,7 @@ let setup_new_frame fiber ~pc =
   push_int fiber old_sp;
   fiber.fp := Stack.len fiber.stack
 
-let reset_to_fp_offset { stack; fp } n = Stack.truncate stack (!fp + n)
+let reset_to_fp { stack; fp; _ } = Stack.truncate stack !fp
 
 let restore_old_frame fiber =
   (*
@@ -173,4 +177,7 @@ let restore_old_frame fiber =
   let old_pc = pop_int fiber in
   Stack.truncate fiber.stack old_sp;
   fiber.fp := old_fp;
-  if old_fp = 0 then `Done else `Pc old_pc
+  if old_sp = !(fiber.top) then
+    let ret_val = Stack.splice_off fiber.stack !(fiber.top) in
+    `Done ret_val
+  else `Pc old_pc

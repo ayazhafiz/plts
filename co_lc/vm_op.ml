@@ -30,7 +30,7 @@ type op =
   | Jmp of label
   | Jmpz of label
   | Call
-  | Ret of int  (** return byte size *)
+  | Ret
 
 type basic_block = label * op list
 
@@ -70,7 +70,7 @@ let pp_op f op =
   | Jmp (`Label l) -> fprintf f "jmp %s" l
   | Jmpz (`Label l) -> fprintf f "jmpz %s" l
   | Call -> fprintf f "call"
-  | Ret n -> fprintf f "ret %d" n);
+  | Ret -> fprintf f "ret");
   fprintf f "@]"
 
 let pp_bb f (`Label l, ops) =

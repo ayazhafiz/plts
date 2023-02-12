@@ -32,8 +32,9 @@ exec {runFib, 0, 0}
 Stack on call:
 
 ```
-arg2
+#return
 arg1
+<captures, if any>
 ----- do call
 fp
 sp
