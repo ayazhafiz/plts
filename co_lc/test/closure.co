@@ -1,0 +1,4 @@
+# +solve -elab
+let add = \m -> \n -> m + n in
+#   ^^^         ^^^^^^^^^^^
+add 5 6
