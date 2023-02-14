@@ -4,3 +4,6 @@
 [submodule "cor"]
 	path = cor
 	url = https://github.com/ayazhafiz/cor
+[submodule "asti"]
+	path = asti
+	url = https://github.com/ayazhafiz/asti
