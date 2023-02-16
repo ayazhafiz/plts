@@ -6,7 +6,7 @@
   (name lib_co_lc)
   (modules
     lib_co_lc
-    surface
+    surface symbol
     ast ast_lex ast_parser ast_parse
     ty_solve
     vm_layout vm_debug vm_op vm_conv vm_fiber vm_interp vm_readback

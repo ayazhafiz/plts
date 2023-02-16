@@ -1,5 +1,6 @@
 open Surface
 open Util
+open Symbol
 
 let noloc = ((0, 0), (0, 0))
 
@@ -34,7 +35,7 @@ let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 type literal = [ `Bool of bool | `Int of int ]
 type binop = [ `Lt | `Add | `Sub | `Mul ]
 type co_op = [ `Spawn | `Yield | `Resume ]
-type e_str = loc * ty * string
+type e_sym = loc * ty * symbol
 
 type letkind =
   [ `Bare | `Rec  (** let rec **) | `Unit  (** foo; e => let _ = foo in e *) ]
@@ -43,11 +44,11 @@ type e_expr = loc * ty * expr
 (** An elaborated expression *)
 
 and expr =
-  | Var of string
+  | Var of symbol
   | Lit of literal
   | Tup of e_expr list
-  | Let of letkind * e_str * e_expr * e_expr
-  | Abs of e_str * e_expr
+  | Let of letkind * e_sym * e_expr * e_expr
+  | Abs of e_sym * e_expr
   | App of e_expr * e_expr
   | Binop of binop * e_expr * e_expr
   | If of e_expr * e_expr * e_expr
@@ -55,13 +56,13 @@ and expr =
   | Spawn of e_expr
   | Yield
   | Resume of e_expr
-  | Stat of { cond : e_expr; pending : e_expr; done' : e_str * e_expr }
+  | Stat of { cond : e_expr; pending : e_expr; done' : e_sym * e_expr }
 
 type program = e_expr
 (** A whole program *)
 
 type fresh_var = unit -> ty
-type parse_ctx = { fresh_var : fresh_var }
+type parse_ctx = { fresh_var : fresh_var; symbols : Symbol.t }
 
 (* extractions *)
 let xloc (l, _, _) = l
@@ -87,11 +88,11 @@ let pp_co_op f (b : co_op) =
 let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2
 let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2
 
-let rec pp_expr f parens =
+let pp_expr f symbols parens =
   let open Format in
   let rec go parens (_, _, e) =
     match e with
-    | Var x -> pp_print_string f x
+    | Var x -> pp_print_string f (Symbol.string_of symbols x)
     | Lit l -> pp_lit f l
     | Tup es ->
         fprintf f "@[<hov 2>{@,";
@@ -103,7 +104,7 @@ let rec pp_expr f parens =
         fprintf f "@,}@]"
     | Abs ((_, _, x), e) ->
         let app () =
-          fprintf f "@[<hov 2>\\%s ->@ " x;
+          fprintf f "@[<hov 2>\\%s ->@ " (Symbol.string_of symbols x);
           go `Free e;
           fprintf f "@]"
         in
@@ -111,20 +112,20 @@ let rec pp_expr f parens =
     | App (head, arg) ->
         let app () =
           fprintf f "@[<hov 2>";
-          pp_expr f `Apply head;
+          go `Apply head;
           fprintf f "@ ";
-          pp_expr f `Apply arg;
+          go `Apply arg;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
     | Binop (b, l, r) ->
         let app () =
           fprintf f "@[<hov 2>";
-          pp_expr f `Apply l;
+          go `Apply l;
           fprintf f "@ ";
           pp_binop f b;
           fprintf f " ";
-          pp_expr f `Apply r;
+          go `Apply r;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
@@ -132,7 +133,8 @@ let rec pp_expr f parens =
         let recursive = if r = `Rec then " rec" else "" in
         fprintf f "@[<v 0>@[<hov 0>";
         let expr () =
-          fprintf f "@[<hov 2>let%s %s =@ " recursive x;
+          fprintf f "@[<hov 2>let%s %s =@ " recursive
+            (Symbol.string_of symbols x);
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free body
@@ -170,7 +172,7 @@ let rec pp_expr f parens =
     | Spawn arg ->
         let app () =
           fprintf f "@[<hov 2>spawn@ ";
-          pp_expr f `Apply arg;
+          go `Apply arg;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
@@ -178,7 +180,7 @@ let rec pp_expr f parens =
     | Resume arg ->
         let app () =
           fprintf f "@[<hov 2>spawn@ ";
-          pp_expr f `Apply arg;
+          go `Apply arg;
           fprintf f "@]"
         in
         with_parens f (parens >> `Free) app
@@ -191,7 +193,7 @@ let rec pp_expr f parens =
         go `Free pending;
         fprintf f "@]";
         (* done branch *)
-        fprintf f "@,@[<hov 2>| `Done %s ->@ " (xv n);
+        fprintf f "@,@[<hov 2>| `Done %s ->@ " (Symbol.string_of symbols @@ xv n);
         go `Free done_body;
         fprintf f "@]";
         (* *)
@@ -199,12 +201,13 @@ let rec pp_expr f parens =
   in
   go parens
 
-let string_of_program ?(width = default_width) (program : program) =
+let string_of_program ?(width = default_width) (symbols : Symbol.t)
+    (program : program) =
   let open Format in
   with_buffer
     (fun f ->
       fprintf f "@[<v 0>";
-      pp_expr f `Free program;
+      pp_expr f symbols `Free program;
       fprintf f "@]")
     width
 

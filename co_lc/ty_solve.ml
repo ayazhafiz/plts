@@ -75,14 +75,16 @@ module T = struct
   let unit = ref @@ Content (TTup [])
 end
 
-let infer fresh_var =
+let infer symbols fresh_var =
   let rec infer venv (_, t, e) : ty =
     let ty =
       match e with
       | Var x -> (
           match List.assoc_opt x venv with
           | Some t -> t
-          | None -> failsolve ("Variable " ^ x ^ " not in scope"))
+          | None ->
+              failsolve
+                ("Variable " ^ Symbol.string_of symbols x ^ " not in scope"))
       | Lit l -> ( match l with `Bool _ -> T.bool | `Int _ -> T.int)
       | Tup es ->
           let ts = List.map (infer venv) es in
@@ -152,8 +154,8 @@ let infer fresh_var =
   in
   infer
 
-let infer_program fresh_var program =
+let infer_program fresh_var symbols program =
   try
-    let _var = infer fresh_var [] program in
-    Result.ok program
+    let _var = infer symbols fresh_var [] program in
+    Result.ok (symbols, program)
   with Solve_err s -> Error s

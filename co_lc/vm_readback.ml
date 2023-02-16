@@ -42,7 +42,7 @@ let rec build_ast vals ty =
         | TFn _ ->
             (* TODO closure size *)
             let `Label proc, rest = expect_label vals in
-            (Var proc, rest)
+            (Var (`Sym proc), rest)
         | TFiber t ->
             (* TODO: print pending/done state of fiber *)
             let t_s = string_of_ty t in
@@ -53,7 +53,7 @@ let rec build_ast vals ty =
               | _, [] -> raise @@ Bad_value "values over before fiber"
             in
             let rest = dropper (0, vals) in
-            (Var ("(Fiber " ^ t_s ^ ")"), rest)
+            (Var (`Sym ("(Fiber " ^ t_s ^ ")")), rest)
         | TTupSparse _ -> failwith "unreachable")
   in
   let node = (Ast.noloc, ref (Unbd (-1)), expr) in
@@ -62,4 +62,4 @@ let rec build_ast vals ty =
 let readback ?(width = Util.default_width) (vals : value list) (ty : Ast.ty) =
   let ast, vals = build_ast vals ty in
   assert (vals = []);
-  Ast.string_of_program ~width ast
+  Ast.string_of_program ~width (Symbol.make ()) ast

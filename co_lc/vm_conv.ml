@@ -22,6 +22,7 @@
 *)
 
 open Vm_layout
+open Symbol
 module T = Ty_solve.T
 
 module Ctx = struct
@@ -52,7 +53,7 @@ module Ctx = struct
        This way we can handle shadowing without any prior alpha-conversion pass.
     *)
     mutable names :
-      (string * (int * Ast.ty * [ `FpOffset of int | `Proc of label ])) list;
+      (symbol * (int * Ast.ty * [ `FpOffset of int | `Proc of label ])) list;
   }
 
   let new_ctx () =
@@ -68,6 +69,7 @@ module Ctx = struct
     }
 
   let new_label c s = c.new_label s
+  let label_of_sym (`Sym x) = `Label x
   let current_depth c = List.length c.procs_stack
   let current_fp_offset c = List.hd c.fp_offsets_stack
   let current_proc c = List.hd c.procs_stack
@@ -106,10 +108,12 @@ module Ctx = struct
     | Some (_, _, `Proc l) -> `Proc l
     | Some (_, _, `FpOffset _) ->
         let (`Label proc) = current_proc c in
+        let (`Sym x) = x in
         failwith
           (Printf.sprintf "%s found in %s, but it's at a lower depth" x proc)
     | None ->
         let (`Label proc) = current_proc c in
+        let (`Sym x) = x in
         failwith (Printf.sprintf "%s not found in %s" x proc)
 
   let new_bb c label =
@@ -134,10 +138,10 @@ module Ctx = struct
     bb := List.rev ops @ !bb
 
   (* Synthetic name for a return local, not typable in the surface syntax. *)
-  let return_local = "#return"
+  let return_local = `Sym "#return"
 
   (** Creates a new procedure and enters it.
-      Returns the target of the return value. *)
+    Returns the target of the return value. *)
   let enter_proc c proc_label ~arg:(arg_ty, arg_name) ~ret =
     assert (not (Hashtbl.mem c.program proc_label));
     (* arrange the entry of the proc as follows:
@@ -389,7 +393,7 @@ let load_access ctx (target_tup : target) t idx (target_access : opt_target) =
       (* drop until start is reached *)
       Ctx.push ctx (Vm_op.SpSub offset_from_top);
       (* create a new local for temporarily saving the item *)
-      let local = "#access_tmp" in
+      let local = `Sym "#access_tmp" in
       let local_target = Ctx.add_local ctx local t_item in
       store_into ctx local_target item_size;
       (* drop all remaining items of the tuple off the stack *)
@@ -478,7 +482,7 @@ and compile_expr ctx bound_proc e target =
                      local for it, because it can be passed around by-name. *)
                 else failwith "TODO"
               in
-              let proc_name = Ctx.new_label ctx x in
+              let proc_name = Ctx.label_of_sym x in
               (* If this binding is recursive, associate the recursive proc name now.
                  TODO: handle case of recursive, capturing procs. *)
               if kind = `Rec then Ctx.add_proc_name ctx x t_x proc_name;
@@ -597,7 +601,7 @@ and compile_expr ctx bound_proc e target =
         let proc_name = Ctx.new_label ctx "spawn_wrapper" in
         let t_body = Ast.xty body in
         let t_spawn_wrapper = ref @@ Ast.Content (Ast.TFn (T.unit, t_body)) in
-        let arg = (T.unit, "") in
+        let arg = (T.unit, `Sym "") in
         let _ =
           compile_proc_expr ctx proc_name t_spawn_wrapper arg body `Stack
         in
@@ -671,7 +675,7 @@ let compile : Ast.program -> Vm_op.program =
   let ctx = Ctx.new_ctx () in
   let ret_ty = Ast.xty program in
   let ret_size = stack_size ret_ty in
-  compile_proc ctx main (T.unit, "") program;
+  compile_proc ctx main (T.unit, `Sym "") program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in
   Hashtbl.remove procs main;

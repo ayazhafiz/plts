@@ -44,15 +44,15 @@ let type_at loc program =
 
 let print_type = function `Ty t -> Ast.string_of_ty t
 
-let hover_info lineco program =
+let hover_info symbols lineco program =
   let open Printf in
   let wrap_code code = sprintf "```co_lc\n%s\n```" code in
   let gen_docs (range, t, kind) =
     let ty_str = print_type t in
     let prefix =
       match kind with
-      | `Var x -> sprintf "(var) %s: " x
-      | `Def x -> sprintf "(decl) %s: " x
+      | `Var x -> sprintf "(var) %s: " (Symbol.string_of symbols x)
+      | `Def x -> sprintf "(decl) %s: " (Symbol.string_of symbols x)
       | `Generic -> ""
     in
     let ty_doc = prefix ^ ty_str in

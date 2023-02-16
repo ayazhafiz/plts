@@ -1,22 +1,25 @@
 open Vm_layout
+open Symbol
 module T = Ty_solve.T
 
-type debug_frame = { locals : (string * (Ast.ty * [ `FpOffset of int ])) list }
+type debug_frame = { locals : (symbol * (Ast.ty * [ `FpOffset of int ])) list }
 
 let new_debug_frame () = { locals = [] }
 
-let rec elaborate_local (offset, (x, ty)) =
+let rec elaborate_local symbols (offset, (x, ty)) =
   let open Ast in
   match !(unlink ty) with
   | Link _ | Unbd _ -> failwith "unreachable"
   | Content c -> (
       match c with
-      | TInt | TBool | TFn _ -> [ (offset, (x, ty)) ]
+      | TInt | TBool | TFn _ ->
+          let x = Symbol.string_of symbols x in
+          [ (offset, (x, ty)) ]
       | TTup ts ->
           let numbered_indices =
             List.rev @@ List.mapi (fun i t -> (string_of_int i, t)) ts
           in
-          elaborate_struct x offset numbered_indices
+          elaborate_struct symbols x offset numbered_indices
       | TFiber t ->
           let indices =
             [
@@ -26,16 +29,16 @@ let rec elaborate_local (offset, (x, ty)) =
               ("bit", T.int);
             ]
           in
-          elaborate_struct x offset indices
+          elaborate_struct symbols x offset indices
       | TTupSparse _ -> failwith "unreachable")
 
-and elaborate_struct x offset = function
+and elaborate_struct symbols x offset = function
   | [] -> []
   | (i, t) :: rest ->
-      let name = Printf.sprintf "%s.%s" x i in
+      let name = Printf.sprintf "%s.%s" (Symbol.string_of symbols x) i in
       let stksize = stack_size t in
-      elaborate_local (offset, (name, t))
-      @ elaborate_struct x (offset + stksize) rest
+      elaborate_local symbols (offset, (`Sym name, t))
+      @ elaborate_struct symbols x (offset + stksize) rest
 
 let fill_out (offset, (x, ty)) =
   let stksize = stack_size ty in
@@ -47,11 +50,11 @@ let fill_out (offset, (x, ty)) =
       let addt_lines = List.init (n - 1) (fun m -> (offset + m + 1, None)) in
       (offset, Some x) :: addt_lines
 
-let pp_debug_frame f { locals } =
+let pp_debug_frame symbols f { locals } =
   let locals =
-    ("@old_pc", (T.int, `FpOffset (-3)))
-    :: ("@old_fp", (T.int, `FpOffset (-2)))
-    :: ("@old_sp", (T.int, `FpOffset (-1)))
+    (`Sym "@old_pc", (T.int, `FpOffset (-3)))
+    :: (`Sym "@old_fp", (T.int, `FpOffset (-2)))
+    :: (`Sym "@old_sp", (T.int, `FpOffset (-1)))
     :: locals
   in
   let by_offset =
@@ -59,7 +62,7 @@ let pp_debug_frame f { locals } =
     @@ List.map (fun (x, (t, `FpOffset offset)) -> (offset, (x, t))) locals
   in
   let by_offset_elaborated =
-    List.flatten @@ List.map elaborate_local by_offset
+    List.flatten @@ List.map (elaborate_local symbols) by_offset
   in
   let filled_out = List.flatten @@ List.map fill_out by_offset_elaborated in
   let widest_n =

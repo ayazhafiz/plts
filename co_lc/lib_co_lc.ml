@@ -198,12 +198,13 @@ let reflow_lines prefix lines =
 let process_one _file (lines, queries) (phase, emit) : compile_result =
   let input = unlines lines in
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Ast_parse.parse s in
-  let solve (fresh_var, e) =
-    Result.map_error (fun s -> SolveErr s) @@ Ty_solve.infer_program fresh_var e
+  let solve (fresh_var, symbols, e) =
+    Result.map_error (fun s -> SolveErr s)
+    @@ Ty_solve.infer_program fresh_var symbols e
   in
-  let ir e = Result.ok @@ Vm_conv.compile e in
-  let eval ir = Result.ok @@ Vm_interp.interp ir in
-  let elab program =
+  let ir (symbols, e) = Result.ok @@ (symbols, Vm_conv.compile e) in
+  let eval (_symbols, ir) = Result.ok @@ Vm_interp.interp ir in
+  let elab (_symbols, program) =
     if List.length queries = 0 then Error (ElabErr `NoQueries)
     else
       let open Either in
@@ -243,13 +244,15 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
   in
 
   let ( &> ) a b = Result.map b a in
-  let print_parsed (_tenv, program) =
-    Ast.string_of_program ~width:default_width program
+  let print_parsed (_tenv, symbols, program) =
+    Ast.string_of_program ~width:default_width symbols program
   in
-  let print_solved program =
-    Ast.string_of_program ~width:default_width program
+  let print_solved (symbols, program) =
+    Ast.string_of_program ~width:default_width symbols program
   in
-  let print_ir program = Vm_op.string_of_program ~width:default_width program in
+  let print_ir (symbols, program) =
+    Vm_op.string_of_program ~width:default_width symbols program
+  in
   let print_evaled (values, ty) = Vm_readback.readback values ty in
   match (phase, emit) with
   | Parse, Print -> input |> parse &> print_parsed
@@ -262,8 +265,8 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
 let hover_info lines lineco =
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Ast_parse.parse s in
   let solve _s = Error (SolveErr "unimplemented") in
-  let hover (_tenv, program) =
-    Service.hover_info lineco program |> Option.to_result ~none:NoHover
+  let hover (_tenv, symbols, program) =
+    Service.hover_info symbols lineco program |> Option.to_result ~none:NoHover
   in
   let hover_info = unlines lines |> parse >>= solve >>= hover in
   hover_info

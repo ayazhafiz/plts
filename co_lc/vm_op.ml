@@ -83,10 +83,10 @@ let pp_bb f (`Label l, ops) =
     ops;
   fprintf f "@]"
 
-let pp_proc f { name = `Label proc; blocks = bbs; debug_frame } =
+let pp_proc symbols f { name = `Label proc; blocks = bbs; debug_frame } =
   let open Format in
   fprintf f "@[<v 0>%s: {@," proc;
-  pp_debug_frame f debug_frame;
+  pp_debug_frame symbols f debug_frame;
   fprintf f "@,";
   List.iter
     (fun op ->
@@ -95,15 +95,16 @@ let pp_proc f { name = `Label proc; blocks = bbs; debug_frame } =
     bbs;
   fprintf f "}@]"
 
-let pp_program f procs =
+let pp_program symbols f procs =
   let open Format in
   fprintf f "@[<v 0>";
   Util.intersperse f ""
     (fun f not_first proc ->
       if not_first then fprintf f "@,@,";
-      pp_proc f proc)
+      pp_proc symbols f proc)
     procs;
   fprintf f "@]"
 
-let string_of_program ?(width = Util.default_width) (program : program) =
-  Util.with_buffer (fun f -> pp_program f program.procs) width
+let string_of_program ?(width = Util.default_width) symbols (program : program)
+    =
+  Util.with_buffer (fun f -> pp_program symbols f program.procs) width

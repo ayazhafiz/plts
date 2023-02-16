@@ -62,9 +62,12 @@ expr:
   | binop=expr_binop { fun ctx -> binop ctx }
   | lets=expr_lets { fun c -> lets c }
   | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
+      let loc_arg = fst arg in
+      let arg_sym = ctx.symbols.fresh_symbol_scoped (snd arg) in
       let body = body ctx in
+      Symbol.exit_scope ctx.symbols (snd arg);
+      let arg = (loc_arg, ctx.fresh_var (), arg_sym) in
       let loc = range lam (xloc body) in
-      let arg = (fst arg, ctx.fresh_var (), snd arg) in
       (loc, ctx.fresh_var (), Abs(arg, body))
   }
   | i=IF c=expr THEN t=expr ELSE e=expr { fun ctx ->
@@ -77,8 +80,12 @@ expr:
   | s=STAT cond=expr PIPE TAG_PENDING ARROW pending=expr PIPE TAG_DONE n=LOWER ARROW done_body=expr { fun ctx ->
       let cond = cond ctx in
       let pending = pending ctx in
-      let n = (fst n, ctx.fresh_var(), snd n) in
+
+      let loc_n = fst n in
+      let n_sym = ctx.symbols.fresh_symbol_scoped (snd n) in
       let done_body = done_body ctx in
+      Symbol.exit_scope ctx.symbols (snd n);
+      let n = (loc_n, ctx.fresh_var(), n_sym) in
       let loc = range s (xloc done_body) in
       (loc, ctx.fresh_var(), Stat { cond; pending; done'=(n, done_body) })
   }
@@ -112,19 +119,25 @@ expr_binop:
 
 expr_lets:
   | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
+      let e = e c in
+      let x_sym = c.symbols.fresh_symbol_scoped (snd loc_x) in
       let body = body c in
+      Symbol.exit_scope c.symbols (snd loc_x);
       let loc = range l (xloc body) in
-      let x = (fst loc_x, c.fresh_var(), snd loc_x) in
-      (loc, c.fresh_var(), Let(`Bare, x, e c, body))
+      let x = (fst loc_x, c.fresh_var(), x_sym) in
+      (loc, c.fresh_var(), Let(`Bare, x, e, body))
   }
   | l=LET REC loc_x=LOWER EQ e=expr IN body=expr { fun c ->
+      let x_sym = c.symbols.fresh_symbol_scoped (snd loc_x) in
+      let e = e c in
       let body = body c in
+      Symbol.exit_scope c.symbols (snd loc_x);
       let loc = range l (xloc body) in
-      let x = (fst loc_x, c.fresh_var(), snd loc_x) in
-      (loc, c.fresh_var(), Let(`Rec, x, e c, body))
+      let x = (fst loc_x, c.fresh_var(), x_sym) in
+      (loc, c.fresh_var(), Let(`Rec, x, e, body))
   }
   | e=expr SEMI rest=expr { fun c ->
-      let noname = (noloc, c.fresh_var(), "") in
+      let noname = (noloc, c.fresh_var(), c.symbols.fresh_symbol "") in
       let e = e c in
       let rest = rest c in
       let loc = range (xloc e) (xloc rest) in
@@ -132,7 +145,11 @@ expr_lets:
   }
 
 expr_atom:
-  | x=LOWER { fun ctx -> (fst x, ctx.fresh_var (), Var (snd x)) }
+  | x=LOWER { fun ctx ->
+      let loc_x = fst x in
+      let x = Symbol.scoped_name ctx.symbols (snd x) in
+      (loc_x, ctx.fresh_var (), Var x)
+  }
   | b=LITBOOL { fun ctx -> (fst b, ctx.fresh_var (), Lit (`Bool (snd b))) }
   | n=LITINT { fun ctx -> (fst n, ctx.fresh_var (), Lit (`Int (snd n))) }
   | l=LBRACE tup=expr_tup { fun ctx ->

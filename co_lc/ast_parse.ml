@@ -15,7 +15,8 @@ let fresh_resume_name_generator () =
     incr n;
     "Resume_" ^ string_of_int !n
 
-let fresh_parse_ctx () : Ast.parse_ctx = { fresh_var = fresh_var_generator () }
+let fresh_parse_ctx () : Ast.parse_ctx =
+  { fresh_var = fresh_var_generator (); symbols = Symbol.make () }
 
 let parse s =
   let lexbuf = Ast_lex.from_string s in
@@ -26,7 +27,7 @@ let parse s =
   let parse_ctx = fresh_parse_ctx () in
   try
     let parsed = parse lex parse_ctx in
-    Ok (parse_ctx.fresh_var, parsed)
+    Ok (parse_ctx.fresh_var, parse_ctx.symbols, parsed)
   with
   | Ast_lex.AstError what ->
       Error
