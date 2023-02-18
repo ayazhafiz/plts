@@ -202,8 +202,17 @@ let infer symbols fresh_var =
           let t_idx = fresh_var () in
           unify t_tup (ref @@ Content (TTupSparse (IntMap.singleton idx t_idx)));
           (t_idx, free)
-      | Spawn e ->
+      | Spawn (e, r_captures) ->
+          assert (!r_captures = []);
           let t, free = infer venv e in
+
+          let free_xs = List.of_seq @@ SymbolSet.to_seq free in
+          let free_tys = List.map (fun x -> List.assoc x venv) free_xs in
+          let captures =
+            drop_immaterial_captures @@ List.combine free_xs free_tys
+          in
+          r_captures := captures;
+
           (ref @@ Content (TFiber t), free)
       | Yield -> (T.unit, SymbolSet.empty)
       | Resume e ->

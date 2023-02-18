@@ -696,7 +696,7 @@ and compile_expr ctx e target =
     | Ast.Access (rcd, idx) ->
         let target_tup = go rcd `Any in
         load_access ctx target_tup (Ast.xty rcd) idx target
-    | Ast.Spawn body ->
+    | Ast.Spawn (body, captures) ->
         (* Convert
              spawn e
            to
@@ -705,7 +705,8 @@ and compile_expr ctx e target =
         *)
         let proc_name = Ctx.new_label ctx "spawn_wrapper" in
         let t_body = Ast.xty body in
-        let lambda_set = [ (Ctx.sym_of_label proc_name, []) ] in
+        let captures = !captures in
+        let lambda_set = [ (Ctx.sym_of_label proc_name, captures) ] in
         let t_spawn_wrapper =
           ref @@ Ast.Content (Ast.TFn (T.unit, lambda_set, t_body))
         in
@@ -715,7 +716,7 @@ and compile_expr ctx e target =
             `Stack
         in
         (* Call spawn, then store the returned fiber into the target. *)
-        let args_size = 0 (* TODO material once closures are supported *) in
+        let args_size = captures_stksize captures in
         let ret_size = stack_size t_body in
         Ctx.push ctx (Vm_op.Spawn { proc = proc_name; args_size; ret_size });
         let fiber_target = or_stack target in

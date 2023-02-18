@@ -22,7 +22,7 @@ let tightest_node_at loc program =
           or_list [ lazy (expr e1); lazy (expr e2) ]
       | If (e1, e2, e3) ->
           or_list [ lazy (expr e1); lazy (expr e2); lazy (expr e3) ]
-      | Access (e, _) | Spawn e | Resume e -> expr e
+      | Access (e, _) | Spawn (e, _) | Resume e -> expr e
       | Stat { cond; pending; done' = n, done_body } ->
           or_list
             [

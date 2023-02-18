@@ -109,7 +109,7 @@ expr_app:
   | s=SPAWN arg=expr_atom { fun ctx ->
       let arg = arg ctx in
       let loc = range s (xloc arg) in
-      (loc, ctx.fresh_var(), Spawn arg)
+      (loc, ctx.fresh_var(), Spawn (arg, ref []))
   }
   | r=RESUME arg=expr_atom { fun ctx ->
       let arg = arg ctx in

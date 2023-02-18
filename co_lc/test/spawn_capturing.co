@@ -1,0 +1,101 @@
+# +ir -print
+# +eval -print
+let child = \n ->
+  n + 5
+in
+let x = 10 in
+let y = 20 in
+let child = spawn (child (x + y)) in
+#   ^^^^^
+stat child
+| `Pending -> 101
+| `Done n -> n
+
+> +ir -print
+> child: {
+> % Stack relative to frame pointer:
+> %   -5  #return
+> %   -4  n
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> child:
+>   sp-add 0
+> start1:
+>   push 5
+>   push fp[-4]
+>   add
+>   store-into fp[-5]
+>   ret
+> }
+> 
+> spawn_wrapper: {
+> % Stack relative to frame pointer:
+> %   -6  #return
+> %   -5  y
+> %   -4  x
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> spawn_wrapper:
+>   sp-add 0
+> start2:
+>   sp-add 1
+>   push fp[-5]
+>   push fp[-4]
+>   add
+>   call child
+>   sp-sub 1
+>   store-into fp[-6]
+>   ret
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -4  #return
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> %    0  x
+> %    1  y
+> %    2  child1.stkdirty
+> %    3  child1.stkidx
+> %    4  child1.return
+> %    5  child1.bit
+> %    6  n1
+> @main:
+>   sp-add 7
+> start:
+>   push 10
+>   store-into fp[0]
+>   push 20
+>   store-into fp[1]
+>   push fp[1]
+>   push fp[0]
+>   spawn spawn_wrapper 2 1
+>   store-into fp[5]
+>   store-into fp[4]
+>   store-into fp[3]
+>   store-into fp[2]
+>   push fp[2]
+>   push fp[3]
+>   push fp[4]
+>   push fp[5]
+>   jmpz pending
+> done:
+>   store-into fp[6]
+>   sp-sub 2
+>   push fp[6]
+>   store-into fp[-4]
+>   jmp join
+> pending:
+>   sp-sub 3
+>   push 101
+>   store-into fp[-4]
+>   jmp join
+> join:
+>   ret
+> }
+
+> +eval -print
+> 35

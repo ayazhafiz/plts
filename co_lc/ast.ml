@@ -56,7 +56,7 @@ and expr =
   | Binop of binop * e_expr * e_expr
   | If of e_expr * e_expr * e_expr
   | Access of e_expr * int
-  | Spawn of e_expr
+  | Spawn of e_expr * captures ref
   | Yield
   | Resume of e_expr
   | Stat of { cond : e_expr; pending : e_expr; done' : e_sym * e_expr }
@@ -186,7 +186,7 @@ let pp_expr f symbols parens =
         go `Free e;
         fprintf f "@,.%d" i;
         fprintf f "@]"
-    | Spawn arg ->
+    | Spawn (arg, _) ->
         let app () =
           fprintf f "@[<hov 2>spawn@ ";
           go `Apply arg;
