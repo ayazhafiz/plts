@@ -8,14 +8,14 @@ in
 fact 10
 
 > +ir -print
-> fact: {
+> fact1: {
 > % Stack relative to frame pointer:
 > %   -5  #return
 > %   -4  n
 > %   -3  @old_pc
 > %   -2  @old_fp
 > %   -1  @old_sp
-> fact:
+> fact1:
 >   sp-add 0
 > start1:
 >   push 1
@@ -31,7 +31,7 @@ fact 10
 >   push 1
 >   push fp[-4]
 >   sub
->   push &fact
+>   push &fact1
 >   call
 >   sp-sub 1
 >   push fp[-4]
@@ -53,7 +53,7 @@ fact 10
 > start:
 >   sp-add 1
 >   push 10
->   push &fact
+>   push &fact1
 >   call
 >   sp-sub 1
 >   store-into fp[-4]

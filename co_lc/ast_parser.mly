@@ -8,6 +8,13 @@ let range (start, _) (_, fin) = (start, fin)
 let xloc = Ast.xloc
 let xty = Ast.xty
 let xv = Ast.xv
+
+let with_name c name f =
+  let old_name = !(c.opt_name) in
+  c.opt_name := Some name;
+  let r = f () in
+  c.opt_name := old_name;
+  r
 %}
 
 
@@ -62,13 +69,15 @@ expr:
   | binop=expr_binop { fun ctx -> binop ctx }
   | lets=expr_lets { fun c -> lets c }
   | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
+      let lambda_name = Option.value (!(ctx.opt_name)) ~default:"lam" in
+      let lambda_name = ctx.symbols.fresh_symbol lambda_name in
       let loc_arg = fst arg in
       let arg_sym = ctx.symbols.fresh_symbol_scoped (snd arg) in
       let body = body ctx in
       Symbol.exit_scope ctx.symbols (snd arg);
       let arg = (loc_arg, ctx.fresh_var (), arg_sym) in
       let loc = range lam (xloc body) in
-      (loc, ctx.fresh_var (), Abs(arg, body))
+      (loc, ctx.fresh_var (), Abs(lambda_name, arg, body))
   }
   | i=IF c=expr THEN t=expr ELSE e=expr { fun ctx ->
       let c = c ctx in
@@ -119,19 +128,21 @@ expr_binop:
 
 expr_lets:
   | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
-      let e = e c in
-      let x_sym = c.symbols.fresh_symbol_scoped (snd loc_x) in
+      let str_x = snd loc_x in
+      let e = with_name c str_x (fun () -> e c) in
+      let x_sym = c.symbols.fresh_symbol_scoped str_x in
       let body = body c in
-      Symbol.exit_scope c.symbols (snd loc_x);
+      Symbol.exit_scope c.symbols str_x;
       let loc = range l (xloc body) in
       let x = (fst loc_x, c.fresh_var(), x_sym) in
       (loc, c.fresh_var(), Let(`Bare, x, e, body))
   }
   | l=LET REC loc_x=LOWER EQ e=expr IN body=expr { fun c ->
-      let x_sym = c.symbols.fresh_symbol_scoped (snd loc_x) in
-      let e = e c in
+      let str_x = snd loc_x in
+      let x_sym = c.symbols.fresh_symbol_scoped str_x in
+      let e = with_name c str_x (fun () -> e c) in
       let body = body c in
-      Symbol.exit_scope c.symbols (snd loc_x);
+      Symbol.exit_scope c.symbols str_x;
       let loc = range l (xloc body) in
       let x = (fst loc_x, c.fresh_var(), x_sym) in
       (loc, c.fresh_var(), Let(`Rec, x, e, body))

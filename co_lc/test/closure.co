@@ -5,7 +5,7 @@ add 5 6
 
 > +solve -elab
 > let add = \m -> \n -> m + n in
-> #               ^^^^^^^^^^^ int -> int
-> #   ^^^ int -> int -> int
+> #               ^^^^^^^^^^^ int -[add1 {m}]-> int
+> #   ^^^ int -[add {}]-> int -[add1 {m}]-> int
 > add 5 6
 > 

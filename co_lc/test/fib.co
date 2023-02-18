@@ -27,7 +27,7 @@ let result = exec {runFib, 0, 0} in
 
 > +solve -elab
 > let rec fib = \n ->
-> #       ^^^ int -> int
+> #       ^^^ int -[fib1 {fib}]-> int
 >   yield;
 >   if n < 2
 >   then n
@@ -35,7 +35,8 @@ let result = exec {runFib, 0, 0} in
 > in
 > 
 > let rec exec = \state ->
-> #       ^^^^ {Fiber int; int; int} -> {Fiber int; int; int}
+> #       ^^^^ {Fiber int; int; int}
+> #       ^^^^   -[exec1 {exec}]-> {Fiber int; int; int}
 >   stat state.0
 > #      ^^^^^ {Fiber int; int; int}
 >   | `Pending ->
@@ -52,7 +53,48 @@ let result = exec {runFib, 0, 0} in
 > 
 
 > +ir -print
-> exec: {
+> fib1: {
+> % Stack relative to frame pointer:
+> %   -5  #return
+> %   -4  n
+> %   -3  @old_pc
+> %   -2  @old_fp
+> %   -1  @old_sp
+> fib1:
+>   sp-add 0
+> start1:
+>   yield
+>   push 2
+>   push fp[-4]
+>   <
+>   jmpz else
+> then:
+>   push fp[-4]
+>   store-into fp[-5]
+>   jmp join
+> else:
+>   sp-add 1
+>   push 2
+>   push fp[-4]
+>   sub
+>   push &fib1
+>   call
+>   sp-sub 1
+>   sp-add 1
+>   push 1
+>   push fp[-4]
+>   sub
+>   push &fib1
+>   call
+>   sp-sub 1
+>   add
+>   store-into fp[-5]
+>   jmp join
+> join:
+>   ret
+> }
+> 
+> exec1: {
 > % Stack relative to frame pointer:
 > %   -15  #return.2
 > %   -14  #return.1
@@ -74,7 +116,7 @@ let result = exec {runFib, 0, 0} in
 > %     2  fib1.stkidx
 > %     3  fib1.return
 > %     4  fib1.bit
-> exec:
+> exec1:
 >   sp-add 5
 > start2:
 >   push fp[-7]
@@ -118,7 +160,7 @@ let result = exec {runFib, 0, 0} in
 >   push fp[2]
 >   push fp[3]
 >   push fp[4]
->   push &exec
+>   push &exec1
 >   call
 >   sp-sub 6
 >   store-into fp[-10]
@@ -129,47 +171,6 @@ let result = exec {runFib, 0, 0} in
 >   store-into fp[-15]
 >   jmp join1
 > join1:
->   ret
-> }
-> 
-> fib: {
-> % Stack relative to frame pointer:
-> %   -5  #return
-> %   -4  n
-> %   -3  @old_pc
-> %   -2  @old_fp
-> %   -1  @old_sp
-> fib:
->   sp-add 0
-> start1:
->   yield
->   push 2
->   push fp[-4]
->   <
->   jmpz else
-> then:
->   push fp[-4]
->   store-into fp[-5]
->   jmp join
-> else:
->   sp-add 1
->   push 2
->   push fp[-4]
->   sub
->   push &fib
->   call
->   sp-sub 1
->   sp-add 1
->   push 1
->   push fp[-4]
->   sub
->   push &fib
->   call
->   sp-sub 1
->   add
->   store-into fp[-5]
->   jmp join
-> join:
 >   ret
 > }
 > 
@@ -184,7 +185,7 @@ let result = exec {runFib, 0, 0} in
 > start3:
 >   sp-add 1
 >   push 20
->   push &fib
+>   push &fib1
 >   call
 >   sp-sub 1
 >   store-into fp[-4]
@@ -224,7 +225,7 @@ let result = exec {runFib, 0, 0} in
 >   push fp[1]
 >   push fp[2]
 >   push fp[3]
->   push &exec
+>   push &exec1
 >   call
 >   sp-sub 6
 >   store-into fp[9]

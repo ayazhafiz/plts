@@ -24,8 +24,11 @@ and ty_content =
   | TBool
   | TTup of ty list
   | TTupSparse of ty IntMap.t
-  | TFn of (ty * ty)
+  | TFn of (ty * lambda_set * ty)
   | TFiber of ty  (** A fiber that completes with a value type. *)
+
+and lambda_set = (symbol * captures) list
+and captures = (symbol * ty) list
 
 and ty = ty_var ref
 (** A type *)
@@ -48,7 +51,7 @@ and expr =
   | Lit of literal
   | Tup of e_expr list
   | Let of letkind * e_sym * e_expr * e_expr
-  | Abs of e_sym * e_expr
+  | Abs of symbol * e_sym * e_expr
   | App of e_expr * e_expr
   | Binop of binop * e_expr * e_expr
   | If of e_expr * e_expr * e_expr
@@ -62,7 +65,12 @@ type program = e_expr
 (** A whole program *)
 
 type fresh_var = unit -> ty
-type parse_ctx = { fresh_var : fresh_var; symbols : Symbol.t }
+
+type parse_ctx = {
+  fresh_var : fresh_var;
+  symbols : Symbol.t;
+  opt_name : string option ref;
+}
 
 (* extractions *)
 let xloc (l, _, _) = l
@@ -102,9 +110,11 @@ let pp_expr f symbols parens =
             go `Free e)
           es;
         fprintf f "@,}@]"
-    | Abs ((_, _, x), e) ->
+    | Abs (s, (_, _, x), e) ->
         let app () =
-          fprintf f "@[<hov 2>\\%s ->@ " (Symbol.string_of symbols x);
+          fprintf f "@[<hov 2>\\%s -[%s]->@ "
+            (Symbol.string_of symbols x)
+            (Symbol.string_of symbols s);
           go `Free e;
           fprintf f "@]"
         in
@@ -211,7 +221,7 @@ let string_of_program ?(width = default_width) (symbols : Symbol.t)
       fprintf f "@]")
     width
 
-let pp_ty f =
+let pp_ty f symbols =
   let open Format in
   let rec go parens t =
     match !t with
@@ -238,11 +248,13 @@ let pp_ty f =
                 go `Free t)
               tys;
             fprintf f "@,}@]"
-        | TFn (t1, t2) ->
+        | TFn (t1, lambda_set, t2) ->
             fprintf f "@[<hov 2>";
             let pty () =
               go `Apply t1;
-              fprintf f "@ -> ";
+              fprintf f "@ -[";
+              pp_lambda_set lambda_set;
+              fprintf f "]-> ";
               go `Free t2
             in
             with_parens f (parens >> `Free) pty;
@@ -251,8 +263,17 @@ let pp_ty f =
             fprintf f "@[<hov 2>Fiber@ ";
             go `Apply t;
             fprintf f "@]")
+  and pp_lambda_set set =
+    intersperse f " | "
+      (fun _ _ (l, captures) ->
+        fprintf f "%s {" (Symbol.string_of symbols l);
+        intersperse f ", "
+          (fun _ _ (x, _) -> pp_print_string f (Symbol.string_of symbols x))
+          captures;
+        fprintf f "}")
+      set
   in
   go `Free
 
-let string_of_ty ?(width = default_width) (ty : ty) =
-  with_buffer (fun f -> pp_ty f ty) width
+let string_of_ty ?(width = default_width) (symbols : Symbol.t) (ty : ty) =
+  with_buffer (fun f -> pp_ty f symbols ty) width

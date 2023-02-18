@@ -16,7 +16,11 @@ let fresh_resume_name_generator () =
     "Resume_" ^ string_of_int !n
 
 let fresh_parse_ctx () : Ast.parse_ctx =
-  { fresh_var = fresh_var_generator (); symbols = Symbol.make () }
+  {
+    fresh_var = fresh_var_generator ();
+    symbols = Symbol.make ();
+    opt_name = ref None;
+  }
 
 let parse s =
   let lexbuf = Ast_lex.from_string s in

@@ -21,7 +21,7 @@ let child = spawn (child 10) in
 exec child
 
 > +ir -print
-> exec: {
+> exec1: {
 > % Stack relative to frame pointer:
 > %   -8  #return
 > %   -7  fiber.stkdirty
@@ -32,7 +32,7 @@ exec child
 > %   -2  @old_fp
 > %   -1  @old_sp
 > %    0  n
-> exec:
+> exec1:
 >   sp-add 1
 > start2:
 >   push fp[-7]
@@ -54,7 +54,7 @@ exec child
 >   push fp[-5]
 >   push fp[-4]
 >   resume 1
->   push &exec
+>   push &exec1
 >   call
 >   sp-sub 4
 >   store-into fp[-8]
@@ -145,7 +145,7 @@ exec child
 >   push fp[1]
 >   push fp[2]
 >   push fp[3]
->   push &exec
+>   push &exec1
 >   call
 >   sp-sub 4
 >   store-into fp[-4]

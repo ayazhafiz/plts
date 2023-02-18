@@ -70,6 +70,7 @@ module Ctx = struct
 
   let new_label c s = c.new_label s
   let label_of_sym (`Sym x) = `Label x
+  let sym_of_label (`Label x) = `Sym x
   let current_depth c = List.length c.procs_stack
   let current_fp_offset c = List.hd c.fp_offsets_stack
   let current_proc c = List.hd c.procs_stack
@@ -97,9 +98,10 @@ module Ctx = struct
     let depth = current_depth c in
     c.names <- (x, (depth, ty, `FpOffset n)) :: c.names
 
-  let add_proc_name c x t_proc proc =
+  let add_proc_name c x proc =
     let depth = current_depth c in
-    c.names <- (x, (depth, t_proc, `Proc proc)) :: c.names
+    (* don't care about the types of procedures here *)
+    c.names <- (x, (depth, T.unit, `Proc proc)) :: c.names
 
   let lookup c x : name =
     let current_depth = current_depth c in
@@ -210,8 +212,6 @@ module Ctx = struct
       | (x, (d, ty, `FpOffset n)) :: rest when d = depth ->
           popper ((x, (ty, `FpOffset n)) :: locals) rest
       | (x, (d, ty, `Proc n)) :: rest ->
-          (* TODO this is an awful hack to make procedures always visible.
-             Remove it when closures are supported. *)
           let debug_frame, l = popper locals rest in
           (debug_frame, (x, (d, ty, `Proc n)) :: l)
       | l ->
@@ -430,16 +430,19 @@ let or_stack target =
 let as_opt target : opt_target =
   match target with `Stack -> `Stack | `FpOffset n -> `FpOffset n
 
-let rec compile_proc ctx proc_name (t_x, x) body =
+let rec compile_proc ctx rec_name proc_name (t_x, x) body =
   let t_body = Ast.xty body in
+  (match rec_name with
+  | Some name -> Ctx.add_proc_name ctx name proc_name
+  | None -> ());
   let return_target = Ctx.enter_proc ctx proc_name ~arg:(t_x, x) ~ret:t_body in
   (* compile the body into the special return local *)
   let _ = compile_expr ctx None body return_target in
   Ctx.push ctx Vm_op.Ret;
   Ctx.exit_proc ctx proc_name
 
-and compile_proc_expr ctx proc_name t_proc (t_x, x) body target =
-  compile_proc ctx proc_name (t_x, x) body;
+and compile_proc_expr ctx rec_name proc_name t_proc (t_x, x) body target =
+  compile_proc ctx rec_name proc_name (t_x, x) body;
   (* leave behind the proc to call *)
   (* TODO: also leave behind closure data *)
   let has_captures = false in
@@ -453,8 +456,8 @@ and compile_proc_expr ctx proc_name t_proc (t_x, x) body target =
       store_from_stack ctx target t_proc;
       target
 
-and compile_expr ctx bound_proc e target =
-  let rec go ?(bound_proc = None) (_, t, e) (target : opt_target) =
+and compile_expr ctx rec_name e target =
+  let rec go ?(rec_name = None) (_, t, e) (target : opt_target) =
     match e with
     | Ast.Var x ->
         let target_x = Ctx.lookup ctx x in
@@ -472,7 +475,7 @@ and compile_expr ctx bound_proc e target =
         in
         target
     | Ast.Let (kind, (_, t_x, x), e, rest) ->
-        let target_x, reserved_x, bound_proc =
+        let target_x, reserved_x =
           match get_content t_x with
           | Ast.TFn _ ->
               let has_captures = false in
@@ -482,28 +485,24 @@ and compile_expr ctx bound_proc e target =
                      local for it, because it can be passed around by-name. *)
                 else failwith "TODO"
               in
-              let proc_name = Ctx.label_of_sym x in
-              (* If this binding is recursive, associate the recursive proc name now.
-                 TODO: handle case of recursive, capturing procs. *)
-              if kind = `Rec then Ctx.add_proc_name ctx x t_x proc_name;
-              (target, None, Some proc_name)
+              (target, None)
           | _ ->
               (* non-proc must always be stored locally *)
               let reserved_local = Ctx.reserve_local ctx t_x in
               let target =
                 match reserved_local.target with `FpOffset n -> `FpOffset n
               in
-              (target, Some reserved_local, None)
+              (target, Some reserved_local)
         in
-        let stored_x = go ~bound_proc e target_x in
+        let rec_name = if kind = `Rec then Some x else None in
+        let stored_x = go ~rec_name e target_x in
         (match stored_x with
         | `NonCapturingProc name ->
             (* If we compiled a binding to a non-capturing proc, be sure to
                associate the binding name to that proc, without any additional
                storage. *)
-            assert (Some name = bound_proc);
             assert (Option.is_none reserved_x);
-            Ctx.add_proc_name ctx x t_x name
+            Ctx.add_proc_name ctx x name
         | `FpOffset _ ->
             (* Fill in the reserved slot with the actual name now that we're
                going to compile the rest of the program. *)
@@ -513,13 +512,9 @@ and compile_expr ctx bound_proc e target =
         (* Build the rest of the program following the binding. *)
         let end_target = go rest target in
         end_target
-    | Ast.Abs ((_, t_x, x), e) ->
-        let proc_name =
-          match bound_proc with
-          | Some proc -> proc
-          | None -> Ctx.new_label ctx "proc"
-        in
-        compile_proc_expr ctx proc_name t (t_x, x) e target
+    | Ast.Abs (lam, (_, t_x, x), e) ->
+        let proc = Ctx.label_of_sym lam in
+        compile_proc_expr ctx rec_name proc t (t_x, x) e target
     | Ast.App (fn, arg) ->
         (* call:
            #return
@@ -533,7 +528,7 @@ and compile_expr ctx bound_proc e target =
         assert (fn_stksize = 1);
         let t_ret =
           match get_content t_fn with
-          | Ast.TFn (_, ret) -> ret
+          | Ast.TFn (_, _, ret) -> ret
           | _ -> failwith "not a function"
         in
         (* Allocate space for the return value *)
@@ -600,10 +595,13 @@ and compile_expr ctx bound_proc e target =
         *)
         let proc_name = Ctx.new_label ctx "spawn_wrapper" in
         let t_body = Ast.xty body in
-        let t_spawn_wrapper = ref @@ Ast.Content (Ast.TFn (T.unit, t_body)) in
+        let t_spawn_wrapper =
+          let lambda_set = [ (Ctx.sym_of_label proc_name, []) ] in
+          ref @@ Ast.Content (Ast.TFn (T.unit, lambda_set, t_body))
+        in
         let arg = (T.unit, `Sym "") in
         let _ =
-          compile_proc_expr ctx proc_name t_spawn_wrapper arg body `Stack
+          compile_proc_expr ctx None proc_name t_spawn_wrapper arg body `Stack
         in
         (* Call spawn, then store the returned fiber into the target. *)
         let args_size = 0 (* TODO material once closures are supported *) in
@@ -667,7 +665,7 @@ and compile_expr ctx bound_proc e target =
         assert (done_target = pending_target);
         done_target
   in
-  go ?bound_proc e target
+  go ~rec_name e target
 
 let compile : Ast.program -> Vm_op.program =
  fun program ->
@@ -675,7 +673,7 @@ let compile : Ast.program -> Vm_op.program =
   let ctx = Ctx.new_ctx () in
   let ret_ty = Ast.xty program in
   let ret_size = stack_size ret_ty in
-  compile_proc ctx main (T.unit, `Sym "") program;
+  compile_proc ctx None main (T.unit, `Sym "") program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in
   Hashtbl.remove procs main;

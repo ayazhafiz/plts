@@ -16,7 +16,7 @@ let expect_label l =
   | `Label n -> (n, List.tl l)
   | v -> raise @@ Bad_value ("not a label: " ^ show_value v)
 
-let rec build_ast vals ty =
+let rec build_ast symbols vals ty =
   let open Ast in
   let expr, rest =
     match !(unlink ty) with
@@ -34,7 +34,7 @@ let rec build_ast vals ty =
             let items, rest =
               List.fold_left
                 (fun (items, vals) t ->
-                  let item, rest_vals = build_ast vals t in
+                  let item, rest_vals = build_ast symbols vals t in
                   (item :: items, rest_vals))
                 ([], vals) rev_ts
             in
@@ -45,7 +45,7 @@ let rec build_ast vals ty =
             (Var (`Sym proc), rest)
         | TFiber t ->
             (* TODO: print pending/done state of fiber *)
-            let t_s = string_of_ty t in
+            let t_s = string_of_ty symbols t in
             let size = Vm_layout.stack_size t + 3 in
             let rec dropper = function
               | n, l when n = size -> l
@@ -59,7 +59,8 @@ let rec build_ast vals ty =
   let node = (Ast.noloc, ref (Unbd (-1)), expr) in
   (node, rest)
 
-let readback ?(width = Util.default_width) (vals : value list) (ty : Ast.ty) =
-  let ast, vals = build_ast vals ty in
+let readback ?(width = Util.default_width) (symbols : Symbol.t)
+    (vals : value list) (ty : Ast.ty) =
+  let ast, vals = build_ast symbols vals ty in
   assert (vals = []);
   Ast.string_of_program ~width (Symbol.make ()) ast

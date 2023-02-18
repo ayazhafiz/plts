@@ -203,8 +203,8 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
     @@ Ty_solve.infer_program fresh_var symbols e
   in
   let ir (symbols, e) = Result.ok @@ (symbols, Vm_conv.compile e) in
-  let eval (_symbols, ir) = Result.ok @@ Vm_interp.interp ir in
-  let elab (_symbols, program) =
+  let eval (symbols, ir) = Result.ok @@ (symbols, Vm_interp.interp ir) in
+  let elab (symbols, program) =
     if List.length queries = 0 then Error (ElabErr `NoQueries)
     else
       let open Either in
@@ -224,7 +224,7 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
         match List.assoc loc queries with
         | None -> Right (ElabErr (`TypeNotFound loc))
         | Some ty ->
-            let s_ty = Service.print_type ty in
+            let s_ty = Service.print_type symbols ty in
             Left (reflow_lines prefix s_ty)
       in
       let rec recreate lineno lines =
@@ -253,7 +253,9 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
   let print_ir (symbols, program) =
     Vm_op.string_of_program ~width:default_width symbols program
   in
-  let print_evaled (values, ty) = Vm_readback.readback values ty in
+  let print_evaled (symbols, (values, ty)) =
+    Vm_readback.readback symbols values ty
+  in
   match (phase, emit) with
   | Parse, Print -> input |> parse &> print_parsed
   | Solve, Print -> input |> parse >>= solve &> print_solved

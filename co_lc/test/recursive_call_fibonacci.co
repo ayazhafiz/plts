@@ -8,14 +8,14 @@ in
 fib 28
 
 > +ir -print
-> fib: {
+> fib1: {
 > % Stack relative to frame pointer:
 > %   -5  #return
 > %   -4  n
 > %   -3  @old_pc
 > %   -2  @old_fp
 > %   -1  @old_sp
-> fib:
+> fib1:
 >   sp-add 0
 > start1:
 >   push 2
@@ -31,14 +31,14 @@ fib 28
 >   push 2
 >   push fp[-4]
 >   sub
->   push &fib
+>   push &fib1
 >   call
 >   sp-sub 1
 >   sp-add 1
 >   push 1
 >   push fp[-4]
 >   sub
->   push &fib
+>   push &fib1
 >   call
 >   sp-sub 1
 >   add
@@ -59,7 +59,7 @@ fib 28
 > start:
 >   sp-add 1
 >   push 28
->   push &fib
+>   push &fib1
 >   call
 >   sp-sub 1
 >   store-into fp[-4]

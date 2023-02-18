@@ -15,7 +15,7 @@ let tightest_node_at loc program =
       match e with
       | Var _ | Lit _ | Yield -> None
       | Tup es -> or_list @@ List.map (fun e -> lazy (expr e)) es
-      | Abs (x, e) -> or_list [ lazy (def x); lazy (expr e) ]
+      | Abs (_, x, e) -> or_list [ lazy (def x); lazy (expr e) ]
       | Let (_, d, s, s') ->
           or_list [ lazy (def d); lazy (expr s); lazy (expr s') ]
       | App (e1, e2) | Binop (_, e1, e2) ->
@@ -42,13 +42,13 @@ let type_at loc program =
   | Some (l, t, _) when l = loc -> Some t
   | _ -> None
 
-let print_type = function `Ty t -> Ast.string_of_ty t
+let print_type symbols = function `Ty t -> Ast.string_of_ty symbols t
 
 let hover_info symbols lineco program =
   let open Printf in
   let wrap_code code = sprintf "```co_lc\n%s\n```" code in
   let gen_docs (range, t, kind) =
-    let ty_str = print_type t in
+    let ty_str = print_type symbols t in
     let prefix =
       match kind with
       | `Var x -> sprintf "(var) %s: " (Symbol.string_of symbols x)
