@@ -1,0 +1,10 @@
+# +eval -print
+let x = 5 in
+let y = 6 in
+let z = 7 in
+let f = \n ->
+  if n == 1 then \w -> w + x
+  else if n == 2 then \w -> w + x + y
+  else \w -> w + x + y + z
+in
+f 5

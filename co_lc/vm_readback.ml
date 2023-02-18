@@ -7,6 +7,16 @@ let show_value = Vm_fiber.show_value
 exception Bad_value of string
 
 let expect_int l = match List.hd l with `Int n -> (n, List.tl l)
+let noloc = Ast.noloc
+let noty = ref (Ast.Unbd (-1))
+
+let drop_n vals n =
+  let rec dropper = function
+    | m, l when n = m -> l
+    | m, _ :: l -> dropper (m + 1, l)
+    | _, [] -> raise @@ Bad_value "values over before drop end"
+  in
+  dropper (0, vals)
 
 let rec build_ast symbols vals ty =
   let open Ast in
@@ -31,21 +41,35 @@ let rec build_ast symbols vals ty =
                 ([], vals) rev_ts
             in
             (Tup items, rest)
-        | TFn _ -> failwith "todo readback closures"
+        | TFn (_, lambda_set, _) ->
+            let stksize = Vm_layout.stack_size ty in
+            let lambda, captures =
+              if List.length lambda_set = 1 then List.hd lambda_set
+              else
+                let (`Int bit) = List.nth vals (stksize - 1) in
+                List.nth lambda_set bit
+            in
+
+            let captures = List.rev captures in
+            let captures, _ =
+              List.fold_left
+                (fun (items, vals) (x, t) ->
+                  let item, rest_vals = build_ast symbols vals t in
+                  ((noloc, noty, Var x) :: item :: items, rest_vals))
+                ([], vals) captures
+            in
+
+            let rest = drop_n vals stksize in
+            (App ((noloc, noty, Var lambda), (noloc, noty, Tup captures)), rest)
         | TFiber t ->
             (* TODO: print pending/done state of fiber *)
             let t_s = string_of_ty symbols t in
             let size = Vm_layout.stack_size t + 3 in
-            let rec dropper = function
-              | n, l when n = size -> l
-              | n, _ :: l -> dropper (n + 1, l)
-              | _, [] -> raise @@ Bad_value "values over before fiber"
-            in
-            let rest = dropper (0, vals) in
+            let rest = drop_n vals size in
             (Var (`Sym ("(Fiber " ^ t_s ^ ")")), rest)
         | TTupSparse _ -> failwith "unreachable")
   in
-  let node = (Ast.noloc, ref (Unbd (-1)), expr) in
+  let node = (noloc, noty, expr) in
   (node, rest)
 
 let readback ?(width = Util.default_width) (symbols : Symbol.t)
