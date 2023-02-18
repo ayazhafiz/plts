@@ -128,9 +128,8 @@ let infer symbols fresh_var =
           match List.assoc_opt x venv with
           | Some t ->
               let free =
-                match rec_name with
-                | Some _ -> SymbolSet.empty
-                | None -> SymbolSet.singleton x
+                if rec_name = Some x then SymbolSet.empty
+                else SymbolSet.singleton x
               in
               (t, free)
           | None ->
