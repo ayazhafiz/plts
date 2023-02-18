@@ -156,7 +156,7 @@ module Ctx = struct
 
   (** Creates a new procedure and enters it.
       Returns the target of the return value. *)
-  let enter_proc c proc_label ~arg:(arg_ty, arg_name)
+  let enter_proc c proc_label ~is_rec t_fn ~arg:(arg_ty, arg_name)
       ~captures:(captures, closure_stksize) ~ret =
     assert (not (Hashtbl.mem c.program proc_label));
     (* arrange the entry of the proc as follows:
@@ -219,8 +219,12 @@ module Ctx = struct
     let return_target = `FpOffset ret_target in
     c.names <- (return_local, (depth, ret, return_target)) :: c.names;
 
-    (* TODO: if this is a recursive closures, we also need to store the captures
-       somewhere locally *)
+    (* If this is a recursive closure, bind the name to the captures now too *)
+    if is_rec && closure_stksize <> 0 then
+      c.names <-
+        (sym_of_label proc_label, (depth, t_fn, `FpOffset captures_offset))
+        :: c.names;
+
     return_target
 
   let exit_proc c proc_label =
@@ -451,21 +455,23 @@ let or_stack target =
 let as_opt target : opt_target =
   match target with `Stack -> `Stack | `FpOffset n -> `FpOffset n
 
-let rec compile_proc ctx proc_name (t_x, x) ~captures body =
+let rec compile_proc ctx ~is_rec proc_name t_proc (t_x, x) ~captures body =
   let t_body = Ast.xty body in
   let return_target =
-    Ctx.enter_proc ctx proc_name ~arg:(t_x, x) ~ret:t_body ~captures
+    Ctx.enter_proc ctx proc_name ~is_rec t_proc ~arg:(t_x, x) ~ret:t_body
+      ~captures
   in
   (* compile the body into the special return local *)
   let _ = compile_expr ctx body return_target in
   Ctx.push ctx Vm_op.Ret;
   Ctx.exit_proc ctx proc_name
 
-and compile_proc_expr ctx proc_name t_proc (t_x, x) lambda_set body target =
+and compile_proc_expr ctx proc_name ~is_rec t_proc (t_x, x) lambda_set body
+    target =
   let { tag; captures; captures_stksize } =
     callee_set_storage (Ctx.sym_of_label proc_name) lambda_set
   in
-  compile_proc ctx proc_name (t_x, x)
+  compile_proc ctx proc_name ~is_rec t_proc (t_x, x)
     ~captures:(captures, captures_stksize)
     body;
   (* leave behind the proc to call *)
@@ -574,14 +580,16 @@ and compile_expr ctx e target =
         (* Build the rest of the program following the binding. *)
         let end_target = go rest target in
         end_target
-    | Ast.Abs (lam, (_, t_x, x), e) ->
+    | Ast.Abs ((lam, is_rec), (_, t_x, x), e) ->
         let proc = Ctx.label_of_sym lam in
         let lambda_set =
           match get_content t with
           | Ast.TFn (_, lambda_set, _) -> lambda_set
           | _ -> failwith "not a function"
         in
-        compile_proc_expr ctx proc t (t_x, x) lambda_set e target
+        print_endline (string_of_bool !is_rec);
+        compile_proc_expr ctx proc ~is_rec:!is_rec t (t_x, x) lambda_set e
+          target
     | Ast.App (fn, arg) ->
         (* call:
            #return
@@ -712,8 +720,8 @@ and compile_expr ctx e target =
         in
         let arg = (T.unit, `Sym "") in
         let _ =
-          compile_proc_expr ctx proc_name t_spawn_wrapper arg lambda_set body
-            `Stack
+          compile_proc_expr ctx proc_name ~is_rec:false t_spawn_wrapper arg
+            lambda_set body `Stack
         in
         (* Call spawn, then store the returned fiber into the target. *)
         let args_size = captures_stksize captures in
@@ -786,7 +794,11 @@ let compile : Ast.program -> Vm_op.program =
   let ret_ty = Ast.xty program in
   let ret_size = stack_size ret_ty in
   let captures = ([], 0) in
-  compile_proc ctx main (T.unit, `Sym "") ~captures program;
+  let t_main =
+    ref
+    @@ Ast.Content (Ast.TFn (T.unit, [ (Ctx.sym_of_label main, []) ], ret_ty))
+  in
+  compile_proc ctx main ~is_rec:false t_main (T.unit, `Sym "") ~captures program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in
   Hashtbl.remove procs main;

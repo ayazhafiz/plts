@@ -159,9 +159,11 @@ let infer symbols fresh_var =
           in
           let free_b = SymbolSet.remove x free_b in
           (t_b, SymbolSet.union free_x free_b)
-      | Abs (lam, (_, t_x, x), e) ->
+      | Abs ((lam, is_rec), (_, t_x, x), e) ->
           let t_res, free_e = infer ((x, t_x) :: venv) e in
           let free = SymbolSet.remove x free_e in
+
+          is_rec := SymbolSet.mem lam free || rec_name = Some lam;
 
           let free_xs = List.of_seq @@ SymbolSet.to_seq free in
           let free_tys = List.map (fun x -> List.assoc x venv) free_xs in

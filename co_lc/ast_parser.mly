@@ -81,7 +81,7 @@ expr:
       Symbol.exit_scope ctx.symbols (snd arg);
       let arg = (loc_arg, ctx.fresh_var (), arg_sym) in
       let loc = range lam (xloc body) in
-      (loc, ctx.fresh_var (), Abs(lambda_name, arg, body))
+      (loc, ctx.fresh_var (), Abs((lambda_name, ref false), arg, body))
   }
   | i=IF c=expr THEN t=expr ELSE e=expr { fun ctx ->
       let c = c ctx in

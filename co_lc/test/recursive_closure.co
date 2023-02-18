@@ -1,0 +1,20 @@
+# +solve -elab
+# +ir -print
+# +eval -print
+let inc = 2 in
+let rec incTo = \n ->
+#       ^^^^^
+  if n == 0 then 0
+  else inc + (incTo (n - 1))
+in
+incTo 7
+
+> +solve -elab
+> let inc = 2 in
+> let rec incTo = \n ->
+> #       ^^^^^ int -[incTo {inc}]-> int
+>   if n == 0 then inc
+>   else inc + (incTo (n - 1))
+> in
+> incTo 7
+> 

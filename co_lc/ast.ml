@@ -51,7 +51,7 @@ and expr =
   | Lit of literal
   | Tup of e_expr list
   | Let of letkind * e_sym * e_expr * e_expr
-  | Abs of symbol * e_sym * e_expr
+  | Abs of (symbol * bool ref) * e_sym * e_expr
   | App of e_expr * e_expr
   | Binop of binop * e_expr * e_expr
   | If of e_expr * e_expr * e_expr
@@ -117,7 +117,7 @@ let pp_expr f symbols parens =
             go `Free e)
           es;
         fprintf f "@,}@]"
-    | Abs (s, (_, _, x), e) ->
+    | Abs ((s, _), (_, _, x), e) ->
         let app () =
           fprintf f "@[<hov 2>\\%s -[%s]->@ "
             (Symbol.string_of symbols x)
