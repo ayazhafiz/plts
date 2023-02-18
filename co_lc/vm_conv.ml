@@ -587,7 +587,6 @@ and compile_expr ctx e target =
           | Ast.TFn (_, lambda_set, _) -> lambda_set
           | _ -> failwith "not a function"
         in
-        print_endline (string_of_bool !is_rec);
         compile_proc_expr ctx proc ~is_rec:!is_rec t (t_x, x) lambda_set e
           target
     | Ast.App (fn, arg) ->

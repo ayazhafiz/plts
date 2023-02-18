@@ -62,11 +62,20 @@ let rec build_ast symbols vals ty =
             let rest = drop_n vals stksize in
             (App ((noloc, noty, Var lambda), (noloc, noty, Tup captures)), rest)
         | TFiber t ->
-            (* TODO: print pending/done state of fiber *)
-            let t_s = string_of_ty symbols t in
             let size = Vm_layout.stack_size t + 3 in
+            let t_s = string_of_ty symbols t in
+
+            let items =
+              if List.nth vals (size - 1) = `Int 1 then
+                let completed, _ = build_ast symbols (drop_n vals 2) t in
+                App ((noloc, noty, Var (`Sym "`Done")), completed)
+              else Var (`Sym "`Pending")
+            in
+
+            let fib = (noloc, noty, Var (`Sym ("Fiber " ^ t_s))) in
+
             let rest = drop_n vals size in
-            (Var (`Sym ("(Fiber " ^ t_s ^ ")")), rest)
+            (App (fib, (noloc, noty, items)), rest)
         | TTupSparse _ -> failwith "unreachable")
   in
   let node = (noloc, noty, expr) in

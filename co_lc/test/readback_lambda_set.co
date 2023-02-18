@@ -8,3 +8,6 @@ let f = \n ->
   else \w -> w + x + y + z
 in
 f 5
+
+> +eval -print
+> lam2 {x, 5, y, 6, z, 7}
