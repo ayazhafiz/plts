@@ -33,8 +33,7 @@ add 5 6
 > 
 > add: {
 > % Stack relative to frame pointer:
-> %   -6  #return
-> %   -5  
+> %   -5  #return
 > %   -4  m
 > %   -3  @old_pc
 > %   -2  @old_fp
@@ -43,8 +42,6 @@ add 5 6
 >   sp-add 0
 > start1:
 >   push fp[-4]
->   store-into fp[-6]
->   push &lam
 >   store-into fp[-5]
 >   ret
 > }
@@ -60,12 +57,11 @@ add 5 6
 > start:
 >   sp-add 1
 >   push 6
->   sp-add 2
+>   sp-add 1
 >   push 5
->   push &add
->   call
+>   call add
 >   sp-sub 1
->   call
+>   call lam
 >   sp-sub 2
 >   store-into fp[-4]
 >   ret

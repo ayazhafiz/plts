@@ -40,8 +40,7 @@ stat child
 > start2:
 >   sp-add 1
 >   push 10
->   push &child
->   call
+>   call child
 >   sp-sub 1
 >   store-into fp[-4]
 >   ret
@@ -65,8 +64,7 @@ stat child
 > @main:
 >   sp-add 9
 > start:
->   push &spawn_wrapper
->   spawn 0 1
+>   spawn spawn_wrapper 0 1
 >   store-into fp[3]
 >   store-into fp[2]
 >   store-into fp[1]

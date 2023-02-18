@@ -17,7 +17,10 @@ let rec stack_size t =
               lambda_set
           in
           let max_captures_size = List.fold_left max 0 captures_sizes in
-          1 + max_captures_size
+          (* if the lambda set is unary, no need for a bit to represent where to
+              dispatch *)
+          let bit_size = if List.length lambda_set > 1 then 1 else 0 in
+          bit_size + max_captures_size
       | TFiber t ->
           (* {bit, return_value, stkidx, stkdirty}
               1    t             1       1

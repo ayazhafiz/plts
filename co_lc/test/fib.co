@@ -119,8 +119,7 @@ let result = exec {runFib, 0, 0} in
 >   push fp[2]
 >   push fp[3]
 >   push fp[4]
->   push &exec
->   call
+>   call exec
 >   sp-sub 6
 >   store-into fp[-10]
 >   store-into fp[-11]
@@ -157,15 +156,13 @@ let result = exec {runFib, 0, 0} in
 >   push 2
 >   push fp[-4]
 >   sub
->   push &fib
->   call
+>   call fib
 >   sp-sub 1
 >   sp-add 1
 >   push 1
 >   push fp[-4]
 >   sub
->   push &fib
->   call
+>   call fib
 >   sp-sub 1
 >   add
 >   store-into fp[-5]
@@ -185,8 +182,7 @@ let result = exec {runFib, 0, 0} in
 > start3:
 >   sp-add 1
 >   push 20
->   push &fib
->   call
+>   call fib
 >   sp-sub 1
 >   store-into fp[-4]
 >   ret
@@ -212,8 +208,7 @@ let result = exec {runFib, 0, 0} in
 > @main:
 >   sp-add 10
 > start:
->   push &spawn_wrapper
->   spawn 0 1
+>   spawn spawn_wrapper 0 1
 >   store-into fp[3]
 >   store-into fp[2]
 >   store-into fp[1]
@@ -225,8 +220,7 @@ let result = exec {runFib, 0, 0} in
 >   push fp[1]
 >   push fp[2]
 >   push fp[3]
->   push &exec
->   call
+>   call exec
 >   sp-sub 6
 >   store-into fp[9]
 >   store-into fp[8]

@@ -31,8 +31,7 @@ fact 10
 >   push 1
 >   push fp[-4]
 >   sub
->   push &fact
->   call
+>   call fact
 >   sp-sub 1
 >   push fp[-4]
 >   mul
@@ -53,8 +52,7 @@ fact 10
 > start:
 >   sp-add 1
 >   push 10
->   push &fact
->   call
+>   call fact
 >   sp-sub 1
 >   store-into fp[-4]
 >   ret

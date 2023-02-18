@@ -107,9 +107,8 @@ let eval instrs label_tbl main_fiber main_size =
           Fiber.push_int !fiber 0;
           (* Continue on the parent fiber *)
           go !parent_pc
-    | Spawn { args_size; ret_size } ->
+    | Spawn { proc; args_size; ret_size } ->
         (* Grab the arguments and pc for the fiber *)
-        let proc = Fiber.pop_label !fiber in
         let child_pc = List.assoc proc label_tbl in
         let arg = Fiber.pop_block !fiber args_size in
         (* Setup and associate the new child fiber *)
@@ -179,9 +178,7 @@ let eval instrs label_tbl main_fiber main_size =
         let isz = Fiber.pop_int !fiber = 0 in
         let j = if isz then List.assoc l label_tbl else i + 1 in
         go j
-    | Call ->
-        (* TODO pop args on return *)
-        let proc = Fiber.pop_label !fiber in
+    | Call proc ->
         Fiber.setup_new_frame !fiber ~pc:(i + 1);
         let j = List.assoc proc label_tbl in
         go j

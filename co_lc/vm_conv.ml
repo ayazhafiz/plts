@@ -30,7 +30,7 @@ module T = Ty_solve.T
 module Ctx = struct
   open Vm_op
 
-  type name = [ `FpOffset of int | `Proc of label ]
+  type name = [ `FpOffset of int ]
 
   type t = {
     new_label : string -> label;
@@ -54,8 +54,7 @@ module Ctx = struct
 
        This way we can handle shadowing without any prior alpha-conversion pass.
     *)
-    mutable names :
-      (symbol * (int * Ast.ty * [ `FpOffset of int | `Proc of label ])) list;
+    mutable names : (symbol * (int * Ast.ty * [ `FpOffset of int ])) list;
   }
 
   let new_ctx () =
@@ -100,25 +99,36 @@ module Ctx = struct
     let depth = current_depth c in
     c.names <- (x, (depth, ty, `FpOffset n)) :: c.names
 
-  let add_proc_name c x proc =
-    let depth = current_depth c in
-    (* don't care about the types of procedures here *)
-    c.names <- (x, (depth, T.unit, `Proc proc)) :: c.names
-
-  let lookup c x : name =
+  let lookup_help c x =
     let current_depth = current_depth c in
     match List.assoc_opt x c.names with
-    | Some (depth, _, `FpOffset n) when current_depth = depth -> `FpOffset n
-    | Some (_, _, `Proc l) -> `Proc l
+    | Some (depth, _, `FpOffset n) when current_depth = depth ->
+        `Found (`FpOffset n)
     | Some (_, _, `FpOffset _) ->
         let (`Label proc) = current_proc c in
         let (`Sym x) = x in
-        failwith
-          (Printf.sprintf "%s found in %s, but it's at a lower depth" x proc)
+        `FoundButLowerDepth (x, proc)
     | None ->
         let (`Label proc) = current_proc c in
         let (`Sym x) = x in
+        `NotFound (x, proc)
+
+  let lookup c x =
+    match lookup_help c x with
+    | `Found off -> off
+    | `FoundButLowerDepth (x, proc) ->
+        failwith
+          (Printf.sprintf "%s found in %s, but it's at a lower depth" x proc)
+    | `NotFound (x, proc) ->
         failwith (Printf.sprintf "%s not found in %s" x proc)
+
+  let lookup_opt c x =
+    match lookup_help c x with
+    | `Found off -> Some off
+    | `FoundButLowerDepth (x, proc) ->
+        failwith
+          (Printf.sprintf "%s found in %s, but it's at a lower depth" x proc)
+    | `NotFound _ -> None
 
   let new_bb c label =
     let proc_bbs, _ = Hashtbl.find c.program (current_proc c) in
@@ -145,9 +155,9 @@ module Ctx = struct
   let return_local = `Sym "#return"
 
   (** Creates a new procedure and enters it.
-    Returns the target of the return value. *)
+      Returns the target of the return value. *)
   let enter_proc c proc_label ~arg:(arg_ty, arg_name)
-      ~captures:(captures, captures_stksize) ~ret =
+      ~captures:(captures, closure_stksize) ~ret =
     assert (not (Hashtbl.mem c.program proc_label));
     (* arrange the entry of the proc as follows:
 
@@ -185,11 +195,11 @@ module Ctx = struct
        old_sp
        --- < new frame pointer = new stack pointer
 
-       so, the arg starts at at fp[-3 - captures_stksize - argstksize]
+       so, the arg starts at at fp[-3 - closure_stksize - argstksize]
     *)
     let depth = current_depth c in
     let arg_stksize = stack_size arg_ty in
-    let captures_offset = -3 - captures_stksize in
+    let captures_offset = -3 - closure_stksize in
 
     let _off =
       List.fold_left
@@ -200,7 +210,7 @@ module Ctx = struct
       @@ List.rev captures
     in
 
-    let arg_offset = -3 - captures_stksize - arg_stksize in
+    let arg_offset = -3 - closure_stksize - arg_stksize in
     c.names <- (arg_name, (depth, arg_ty, `FpOffset arg_offset)) :: c.names;
 
     (* add a local for the return value *)
@@ -225,9 +235,6 @@ module Ctx = struct
     let rec popper locals = function
       | (x, (d, ty, `FpOffset n)) :: rest when d = depth ->
           popper ((x, (ty, `FpOffset n)) :: locals) rest
-      | (x, (d, ty, `Proc n)) :: rest ->
-          let debug_frame, l = popper locals rest in
-          (debug_frame, (x, (d, ty, `Proc n)) :: l)
       | l ->
           let debug_frame : Vm_debug.debug_frame = { locals } in
           (debug_frame, l)
@@ -353,13 +360,6 @@ let load_name ctx name t target =
       let stksize = stack_size t in
       push_from ctx (`FpOffset name) stksize;
       `Stack
-  | `Proc p, (`Any | `Stack) ->
-      Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label p));
-      `Stack
-  | `Proc p, `FpOffset target ->
-      Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label p));
-      store_into ctx (`FpOffset target) 1;
-      `FpOffset target
 
 let load_access ctx (target_tup : target) t idx (target_access : opt_target) =
   (*
@@ -451,22 +451,18 @@ let or_stack target =
 let as_opt target : opt_target =
   match target with `Stack -> `Stack | `FpOffset n -> `FpOffset n
 
-let rec compile_proc ctx rec_name proc_name (t_x, x) ~captures body =
+let rec compile_proc ctx proc_name (t_x, x) ~captures body =
   let t_body = Ast.xty body in
-  (match rec_name with
-  | Some name -> Ctx.add_proc_name ctx name proc_name
-  | None -> ());
   let return_target =
     Ctx.enter_proc ctx proc_name ~arg:(t_x, x) ~ret:t_body ~captures
   in
   (* compile the body into the special return local *)
-  let _ = compile_expr ctx None body return_target in
+  let _ = compile_expr ctx body return_target in
   Ctx.push ctx Vm_op.Ret;
   Ctx.exit_proc ctx proc_name
 
-and compile_proc_expr ctx rec_name proc_name t_proc (t_x, x) ~captures body
-    target =
-  compile_proc ctx rec_name proc_name (t_x, x) ~captures body;
+and compile_proc_expr ctx proc_name t_proc (t_x, x) ~captures body target =
+  compile_proc ctx proc_name (t_x, x) ~captures body;
   (* leave behind the proc to call *)
   let has_captures = snd captures > 0 in
   match (has_captures, target) with
@@ -474,14 +470,13 @@ and compile_proc_expr ctx rec_name proc_name t_proc (t_x, x) ~captures body
       (* Return the proc reference directly *)
       `NonCapturingProc proc_name
   | false, _ ->
-      Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label proc_name));
       let target = or_stack target in
       store_from_stack ctx target t_proc;
       target
   | true, target ->
       (* load the captures and symbol into the target *)
       let closure_target = or_stack target in
-      let captures, captures_stksize = captures in
+      let captures, closure_stksize = captures in
       let captures = List.rev captures in
       let target =
         List.fold_left
@@ -496,9 +491,9 @@ and compile_proc_expr ctx rec_name proc_name t_proc (t_x, x) ~captures body
         List.fold_left (fun n (_, t) -> n + stack_size t) 0 captures
       in
 
-      let needed_padding = captures_stksize - loaded_size in
+      let needed_padding = closure_stksize - loaded_size in
       let padding_lits = List.init needed_padding (fun _ -> `Int 0) in
-      let target =
+      let _ =
         List.fold_left
           (fun target lit ->
             let _ = compile_lit ctx lit (as_opt target) in
@@ -506,16 +501,22 @@ and compile_proc_expr ctx rec_name proc_name t_proc (t_x, x) ~captures body
           target padding_lits
       in
 
-      Ctx.push ctx (Vm_op.Push (Vm_op.locator_of_label proc_name));
-      let _ = store_from_stack_sized ctx target 1 in
+      (* TODO store bit as neeed *)
       closure_target
 
-and compile_expr ctx rec_name e target =
-  let rec go ?(rec_name = None) (_, t, e) (target : opt_target) =
+and compile_expr ctx e target =
+  let rec go (_, t, e) (target : opt_target) =
     match e with
-    | Ast.Var x ->
-        let target_x = Ctx.lookup ctx x in
-        load_name ctx target_x t target
+    | Ast.Var x -> (
+        match Ctx.lookup_opt ctx x with
+        | Some target_x -> load_name ctx target_x t target
+        | None -> (
+            (* this must be a non-capturing proc *)
+            match get_content t with
+            | Ast.TFn _ ->
+                assert (stack_size t = 0);
+                `Stack
+            | _ -> assert false))
     | Ast.Lit l -> compile_lit ctx l target
     | Ast.Tup es ->
         let target = or_stack target in
@@ -528,11 +529,11 @@ and compile_expr ctx rec_name e target =
             es target
         in
         target
-    | Ast.Let (kind, (_, t_x, x), e, rest) ->
+    | Ast.Let (_, (_, t_x, x), e, rest) ->
         let target_x, reserved_x =
           match get_content t_x with
           | Ast.TFn _ ->
-              let has_captures = stack_size t_x > 1 in
+              let has_captures = stack_size t_x > 0 in
               let target =
                 if not has_captures then `Any
                   (* This is a non-capturing proc; we don't need to allocate a
@@ -548,15 +549,13 @@ and compile_expr ctx rec_name e target =
               in
               (target, Some reserved_local)
         in
-        let rec_name = if kind = `Rec then Some x else None in
-        let stored_x = go ~rec_name e target_x in
+        let stored_x = go e target_x in
         (match stored_x with
-        | `NonCapturingProc name ->
+        | `NonCapturingProc _ ->
             (* If we compiled a binding to a non-capturing proc, be sure to
                associate the binding name to that proc, without any additional
                storage. *)
-            assert (Option.is_none reserved_x);
-            Ctx.add_proc_name ctx x name
+            assert (Option.is_none reserved_x)
         | `FpOffset _ ->
             (* Fill in the reserved slot with the actual name now that we're
                going to compile the rest of the program. *)
@@ -574,9 +573,9 @@ and compile_expr ctx rec_name e target =
               List.assoc lam lambda_set
           | _ -> failwith "not a function"
         in
-        let captures_stksize = stack_size t - 1 in
-        compile_proc_expr ctx rec_name proc t (t_x, x)
-          ~captures:(captures, captures_stksize)
+        let closure_stksize = stack_size t in
+        compile_proc_expr ctx proc t (t_x, x)
+          ~captures:(captures, closure_stksize)
           e target
     | Ast.App (fn, arg) ->
         (* call:
@@ -587,23 +586,26 @@ and compile_expr ctx rec_name e target =
         *)
         let t_fn = Ast.xty fn in
         let fn_stksize = stack_size t_fn in
-        let t_ret =
+        let t_ret, lambda_set =
           match get_content t_fn with
-          | Ast.TFn (_, _, ret) -> ret
+          | Ast.TFn (_, lambda_set, ret) -> (ret, lambda_set)
           | _ -> failwith "not a function"
         in
         (* Allocate space for the return value *)
         Ctx.push ctx (Vm_op.SpAdd (stack_size t_ret));
-        (* Push the arg, and function, then call *)
+        (* Push the arg, and any closure data, then call *)
         let _ = go arg `Stack in
         let _ = go fn `Stack in
-        Ctx.push ctx Vm_op.Call;
+
+        (* TODO handle non-unary lambda sets *)
+        assert (List.length lambda_set = 1);
+        let fn = Ctx.label_of_sym @@ fst @@ List.hd lambda_set in
+
+        Ctx.push ctx (Vm_op.Call fn);
         (* After the call, rollback whatever space we allocated for the captures
            and arguments, so that the return value is on the top of the stack.
-
-           -1 for the proc label, which was already popped during the call.
         *)
-        let allocated_arg_space = stack_size (Ast.xty arg) + fn_stksize - 1 in
+        let allocated_arg_space = stack_size (Ast.xty arg) + fn_stksize in
         Ctx.push ctx (Vm_op.SpSub allocated_arg_space);
         (* Store the return value into the target. *)
         let ret_target = or_stack target in
@@ -662,13 +664,13 @@ and compile_expr ctx rec_name e target =
         in
         let arg = (T.unit, `Sym "") in
         let _ =
-          compile_proc_expr ctx None proc_name t_spawn_wrapper arg
-            ~captures:([], 0) body `Stack
+          compile_proc_expr ctx proc_name t_spawn_wrapper arg ~captures:([], 0)
+            body `Stack
         in
         (* Call spawn, then store the returned fiber into the target. *)
         let args_size = 0 (* TODO material once closures are supported *) in
         let ret_size = stack_size t_body in
-        Ctx.push ctx (Vm_op.Spawn { args_size; ret_size });
+        Ctx.push ctx (Vm_op.Spawn { proc = proc_name; args_size; ret_size });
         let fiber_target = or_stack target in
         let t_fiber = ref @@ Ast.Content (Ast.TFiber t_body) in
         store_from_stack ctx fiber_target t_fiber;
@@ -727,7 +729,7 @@ and compile_expr ctx rec_name e target =
         assert (done_target = pending_target);
         done_target
   in
-  go ~rec_name e target
+  go e target
 
 let compile : Ast.program -> Vm_op.program =
  fun program ->
@@ -736,7 +738,7 @@ let compile : Ast.program -> Vm_op.program =
   let ret_ty = Ast.xty program in
   let ret_size = stack_size ret_ty in
   let captures = ([], 0) in
-  compile_proc ctx None main (T.unit, `Sym "") ~captures program;
+  compile_proc ctx main (T.unit, `Sym "") ~captures program;
   let procs = Ctx.collapse_into_procs ctx in
   let main_proc = Hashtbl.find procs main in
   Hashtbl.remove procs main;

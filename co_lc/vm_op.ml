@@ -3,9 +3,8 @@
 open Vm_debug
 
 type label = [ `Label of string ] [@@deriving show]
-type locator = [ `Imm of int | `FpOffset of int | label ]
+type locator = [ `Imm of int | `FpOffset of int ]
 
-let locator_of_label (`Label s : label) : locator = `Label s
 let main = `Label "@main"
 
 type op =
@@ -15,10 +14,9 @@ type op =
   | Add
   | Mul
   | Yield
-  | Spawn of { args_size : int; ret_size : int }
+  | Spawn of { proc : label; args_size : int; ret_size : int }
       (**
      call_args
-     fn
      ---
      spawn
   *)
@@ -29,7 +27,7 @@ type op =
   | SpSub of int
   | Jmp of label
   | Jmpz of label
-  | Call
+  | Call of label
   | Ret
 
 type basic_block = label * op list
@@ -59,7 +57,8 @@ let pp_op f op =
   | Add -> pp_print_string f "add"
   | Mul -> pp_print_string f "mul"
   | Yield -> pp_print_string f "yield"
-  | Spawn { args_size; ret_size } -> fprintf f "spawn %d %d" args_size ret_size
+  | Spawn { proc = `Label proc; args_size; ret_size } ->
+      fprintf f "spawn %s %d %d" proc args_size ret_size
   | Resume n -> fprintf f "resume %d" n
   | Push l ->
       fprintf f "push ";
@@ -69,7 +68,7 @@ let pp_op f op =
   | SpSub n -> fprintf f "sp-sub %d" n
   | Jmp (`Label l) -> fprintf f "jmp %s" l
   | Jmpz (`Label l) -> fprintf f "jmpz %s" l
-  | Call -> fprintf f "call"
+  | Call (`Label l) -> fprintf f "call %s" l
   | Ret -> fprintf f "ret");
   fprintf f "@]"
 

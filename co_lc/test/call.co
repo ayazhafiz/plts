@@ -36,11 +36,9 @@ addTo5AndDouble 10
 >   sp-add 1
 >   sp-add 1
 >   push fp[-4]
->   push &plus5
->   call
+>   call plus5
 >   sp-sub 1
->   push &double
->   call
+>   call double
 >   sp-sub 1
 >   store-into fp[-5]
 >   ret
@@ -74,8 +72,7 @@ addTo5AndDouble 10
 > start:
 >   sp-add 1
 >   push 10
->   push &addTo5AndDouble
->   call
+>   call addTo5AndDouble
 >   sp-sub 1
 >   store-into fp[-4]
 >   ret

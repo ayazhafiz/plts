@@ -11,7 +11,7 @@ exception Bad_stack of string
 
 let invalid_state s = raise (Bad_stack s)
 
-type value = [ `Int of int | `Label of Vm_op.label ] [@@deriving show]
+type value = [ `Int of int ] [@@deriving show]
 type word = value [@@deriving show]
 type block = word Array.t
 
@@ -100,15 +100,7 @@ let make ~ret ~arg =
   { stack; fp = ref fp; top = ref top }
 
 let pop { stack; _ } = Stack.pop stack
-
-let pop_int fiber =
-  match pop fiber with `Int n -> n | _ -> invalid_state "not an int"
-
-let pop_label fiber =
-  match pop fiber with
-  | `Label l -> l
-  | word -> invalid_state ("not a label: " ^ show_word word)
-
+let pop_int fiber = match pop fiber with `Int n -> n
 let pop_block { stack; _ } block_size = Stack.splice_off stack block_size
 
 let in_place_int { stack; _ } f =
@@ -119,7 +111,6 @@ let in_place_int { stack; _ } f =
   Stack.modify_top stack modifier
 
 let push_int { stack; _ } n = Stack.push stack (`Int n)
-let push_label { stack; _ } l = Stack.push stack (`Label l)
 let push_block { stack; _ } block = Stack.extend stack block
 
 let push_zeroed fiber n =
@@ -131,7 +122,6 @@ let push fiber = function
   | `FpOffset n ->
       let word = Stack.get fiber.stack @@ (!(fiber.fp) + n) in
       Stack.push fiber.stack word
-  | `Label l -> push_label fiber (`Label l)
 
 let store { stack; fp; _ } fp_offset =
   let idx = !fp + fp_offset in

@@ -31,15 +31,13 @@ fib 28
 >   push 2
 >   push fp[-4]
 >   sub
->   push &fib
->   call
+>   call fib
 >   sp-sub 1
 >   sp-add 1
 >   push 1
 >   push fp[-4]
 >   sub
->   push &fib
->   call
+>   call fib
 >   sp-sub 1
 >   add
 >   store-into fp[-5]
@@ -59,8 +57,7 @@ fib 28
 > start:
 >   sp-add 1
 >   push 28
->   push &fib
->   call
+>   call fib
 >   sp-sub 1
 >   store-into fp[-4]
 >   ret

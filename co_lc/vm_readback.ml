@@ -6,15 +6,7 @@ let show_value = Vm_fiber.show_value
 
 exception Bad_value of string
 
-let expect_int l =
-  match List.hd l with
-  | `Int n -> (n, List.tl l)
-  | v -> raise @@ Bad_value ("not an int: " ^ show_value v)
-
-let expect_label l =
-  match List.hd l with
-  | `Label n -> (n, List.tl l)
-  | v -> raise @@ Bad_value ("not a label: " ^ show_value v)
+let expect_int l = match List.hd l with `Int n -> (n, List.tl l)
 
 let rec build_ast symbols vals ty =
   let open Ast in
@@ -39,10 +31,7 @@ let rec build_ast symbols vals ty =
                 ([], vals) rev_ts
             in
             (Tup items, rest)
-        | TFn _ ->
-            (* TODO closure size *)
-            let `Label proc, rest = expect_label vals in
-            (Var (`Sym proc), rest)
+        | TFn _ -> failwith "todo readback closures"
         | TFiber t ->
             (* TODO: print pending/done state of fiber *)
             let t_s = string_of_ty symbols t in

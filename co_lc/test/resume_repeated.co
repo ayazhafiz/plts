@@ -54,8 +54,7 @@ exec child
 >   push fp[-5]
 >   push fp[-4]
 >   resume 1
->   push &exec
->   call
+>   call exec
 >   sp-sub 4
 >   store-into fp[-8]
 >   jmp join
@@ -114,8 +113,7 @@ exec child
 > start3:
 >   sp-add 1
 >   push 10
->   push &child
->   call
+>   call child
 >   sp-sub 1
 >   store-into fp[-4]
 >   ret
@@ -134,8 +132,7 @@ exec child
 > @main:
 >   sp-add 4
 > start:
->   push &spawn_wrapper
->   spawn 0 1
+>   spawn spawn_wrapper 0 1
 >   store-into fp[3]
 >   store-into fp[2]
 >   store-into fp[1]
@@ -145,8 +142,7 @@ exec child
 >   push fp[1]
 >   push fp[2]
 >   push fp[3]
->   push &exec
->   call
+>   call exec
 >   sp-sub 4
 >   store-into fp[-4]
 >   ret

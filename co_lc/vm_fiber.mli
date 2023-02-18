@@ -9,7 +9,7 @@ type block
 val empty_block : block
 (** Zero-sized [block]. *)
 
-type value = [ `Int of int | `Label of Vm_op.label ]
+type value = [ `Int of int ]
 
 val show_value : value -> string
 val vals_of_block : block -> value list
@@ -23,9 +23,6 @@ val pop : t -> word
 
 val pop_int : t -> int
 (** Pops an integer off the fiber's stack. *)
-
-val pop_label : t -> Vm_op.label
-(** Pops a label off the fiber's stack. *)
 
 val pop_block : t -> int -> block
 (** [pop_block fiber n] pops a [block] of n words off the top of the stack. *)
