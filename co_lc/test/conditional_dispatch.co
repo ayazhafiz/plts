@@ -99,10 +99,10 @@ let f3 = (f 3) 2 in
 > 
 > f: {
 > % Stack relative to frame pointer:
-> %   -11  #return
-> %   -10  
-> %    -9  
-> %    -8  
+> %   -11  #return.captures.0
+> %   -10  #return.captures.1
+> %    -9  #return.captures.2
+> %    -8  #return.lambda_tag
 > %    -7  n
 > %    -6  z
 > %    -5  y
@@ -169,9 +169,9 @@ let f3 = (f 3) 2 in
 > %    0  x
 > %    1  y
 > %    2  z
-> %    3  f
-> %    4  
-> %    5  
+> %    3  f.captures.0
+> %    4  f.captures.1
+> %    5  f.captures.2
 > %    6  f1
 > %    7  f2
 > %    8  f3

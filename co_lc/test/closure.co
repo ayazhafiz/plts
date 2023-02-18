@@ -33,7 +33,7 @@ add 5 6
 > 
 > add: {
 > % Stack relative to frame pointer:
-> %   -5  #return
+> %   -5  #return.captures.0
 > %   -4  m
 > %   -3  @old_pc
 > %   -2  @old_fp

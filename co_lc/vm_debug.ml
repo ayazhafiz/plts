@@ -12,9 +12,19 @@ let rec elaborate_local symbols (offset, (x, ty)) =
   | Link _ | Unbd _ -> failwith "unreachable"
   | Content c -> (
       match c with
-      | TInt | TBool | TFn _ ->
+      | TInt | TBool ->
           let x = Symbol.string_of symbols x in
           [ (offset, (x, ty)) ]
+      | TFn (_, lambda_set, _) ->
+          let captures_stksize = lambda_captures_stksize lambda_set in
+          let captures =
+            List.init captures_stksize (fun i ->
+                (Printf.sprintf "captures.%d" i, T.int))
+          in
+          let tag =
+            if List.length lambda_set > 1 then [ ("lambda_tag", T.int) ] else []
+          in
+          elaborate_struct symbols x offset (captures @ tag)
       | TTup ts ->
           let numbered_indices =
             List.rev @@ List.mapi (fun i t -> (string_of_int i, t)) ts
