@@ -69,7 +69,7 @@ type fresh_var = unit -> ty
 type parse_ctx = {
   fresh_var : fresh_var;
   symbols : Symbol.t;
-  opt_name : string option ref;
+  opt_name : symbol option ref;
 }
 
 (* extractions *)

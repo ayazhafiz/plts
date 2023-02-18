@@ -26,7 +26,7 @@ addTo5AndDouble 10
 > addTo5AndDouble: {
 > % Stack relative to frame pointer:
 > %   -5  #return
-> %   -4  n
+> %   -4  n1
 > %   -3  @old_pc
 > %   -2  @old_fp
 > %   -1  @old_sp

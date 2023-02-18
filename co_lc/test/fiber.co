@@ -53,15 +53,15 @@ stat child
 > %   -3  @old_pc
 > %   -2  @old_fp
 > %   -1  @old_sp
-> %    0  child.stkdirty
-> %    1  child.stkidx
-> %    2  child.return
-> %    3  child.bit
-> %    4  child.stkdirty
-> %    5  child.stkidx
-> %    6  child.return
-> %    7  child.bit
-> %    8  n
+> %    0  child1.stkdirty
+> %    1  child1.stkidx
+> %    2  child1.return
+> %    3  child1.bit
+> %    4  child2.stkdirty
+> %    5  child2.stkidx
+> %    6  child2.return
+> %    7  child2.bit
+> %    8  n1
 > @main:
 >   sp-add 9
 > start:

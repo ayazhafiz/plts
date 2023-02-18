@@ -11,7 +11,7 @@ let xv = Ast.xv
 
 let with_name c name f =
   let old_name = !(c.opt_name) in
-  c.opt_name := Some name;
+  c.opt_name := name;
   let r = f () in
   c.opt_name := old_name;
   r
@@ -69,11 +69,14 @@ expr:
   | binop=expr_binop { fun ctx -> binop ctx }
   | lets=expr_lets { fun c -> lets c }
   | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
-      let lambda_name = Option.value (!(ctx.opt_name)) ~default:"lam" in
-      let lambda_name = ctx.symbols.fresh_symbol lambda_name in
+      let lambda_name = match !(ctx.opt_name) with
+        | Some s -> s
+        | None -> ctx.symbols.fresh_symbol "lam"
+      in
       let loc_arg = fst arg in
-      let arg_sym = ctx.symbols.fresh_symbol_scoped (snd arg) in
-      let body = body ctx in
+      let arg_sym = ctx.symbols.fresh_symbol_named (snd arg) in
+      Symbol.enter_scope ctx.symbols (snd arg) arg_sym;
+      let body = with_name ctx None (fun () -> body ctx) in
       Symbol.exit_scope ctx.symbols (snd arg);
       let arg = (loc_arg, ctx.fresh_var (), arg_sym) in
       let loc = range lam (xloc body) in
@@ -91,7 +94,8 @@ expr:
       let pending = pending ctx in
 
       let loc_n = fst n in
-      let n_sym = ctx.symbols.fresh_symbol_scoped (snd n) in
+      let n_sym = ctx.symbols.fresh_symbol_named (snd n) in
+      Symbol.enter_scope ctx.symbols (snd n) n_sym;
       let done_body = done_body ctx in
       Symbol.exit_scope ctx.symbols (snd n);
       let n = (loc_n, ctx.fresh_var(), n_sym) in
@@ -129,8 +133,9 @@ expr_binop:
 expr_lets:
   | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
       let str_x = snd loc_x in
-      let e = with_name c str_x (fun () -> e c) in
-      let x_sym = c.symbols.fresh_symbol_scoped str_x in
+      let x_sym = c.symbols.fresh_symbol_named str_x in
+      let e = with_name c (Some x_sym) (fun () -> e c) in
+      Symbol.enter_scope c.symbols str_x x_sym;
       let body = body c in
       Symbol.exit_scope c.symbols str_x;
       let loc = range l (xloc body) in
@@ -139,8 +144,9 @@ expr_lets:
   }
   | l=LET REC loc_x=LOWER EQ e=expr IN body=expr { fun c ->
       let str_x = snd loc_x in
-      let x_sym = c.symbols.fresh_symbol_scoped str_x in
-      let e = with_name c str_x (fun () -> e c) in
+      let x_sym = c.symbols.fresh_symbol_named str_x in 
+      Symbol.enter_scope c.symbols str_x x_sym;
+      let e = with_name c (Some x_sym) (fun () -> e c) in
       let body = body c in
       Symbol.exit_scope c.symbols str_x;
       let loc = range l (xloc body) in

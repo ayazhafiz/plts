@@ -9,10 +9,15 @@ let rec stack_size t =
       | TBool -> 1
       | TTup ts -> List.fold_left ( + ) 0 @@ List.map stack_size ts
       | TTupSparse _ -> failwith "non-concrete tuple type"
-      | TFn _ ->
-          (* 1 word for the function name *)
-          (* TODO: closure data *)
-          1
+      | TFn (_, lambda_set, _) ->
+          let captures_sizes =
+            List.map
+              (fun (_, captures) ->
+                List.fold_left (fun n (_, t) -> n + stack_size t) 0 captures)
+              lambda_set
+          in
+          let max_captures_size = List.fold_left max 0 captures_sizes in
+          1 + max_captures_size
       | TFiber t ->
           (* {bit, return_value, stkidx, stkdirty}
               1    t             1       1

@@ -104,15 +104,35 @@ module T = struct
   let unit = ref @@ Content (TTup [])
 end
 
+let drop_immaterial_captures lst =
+  List.filter
+    (fun (_, t) ->
+      match !(unlink t) with
+      | Content (TFn (_, ls, _)) ->
+          let has_any_captures =
+            List.exists (fun (_, captures) -> List.length captures > 0) ls
+          in
+          has_any_captures
+      | _ -> true)
+    lst
+
 let infer symbols fresh_var =
   let unify = unify symbols in
   let union = SymbolSet.union in
-  let rec infer venv (_, t, e) : ty * SymbolSet.t =
+  let rec infer ?(rec_name = None) venv (_, t, e) : ty * SymbolSet.t =
+    let infer ?(rec_name = rec_name) = infer ~rec_name in
+
     let ty, free =
       match e with
       | Var x -> (
           match List.assoc_opt x venv with
-          | Some t -> (t, SymbolSet.singleton x)
+          | Some t ->
+              let free =
+                match rec_name with
+                | Some _ -> SymbolSet.empty
+                | None -> SymbolSet.singleton x
+              in
+              (t, free)
           | None ->
               failsolve
                 ("Variable " ^ Symbol.string_of symbols x ^ " not in scope"))
@@ -124,8 +144,12 @@ let infer symbols fresh_var =
           (ref @@ Content (TTup ts), SymbolSet.concat frees)
       | Let (kind, (_, t_x, x), e, b) ->
           let t_x', free_x =
-            let venv = match kind with `Rec -> (x, t_x) :: venv | _ -> venv in
-            infer venv e
+            let venv, rec_name =
+              match kind with
+              | `Rec -> ((x, t_x) :: venv, Some x)
+              | _ -> (venv, None)
+            in
+            infer ~rec_name venv e
           in
           unify t_x t_x';
           if kind == `Unit then unify t_x T.unit;
@@ -142,7 +166,10 @@ let infer symbols fresh_var =
 
           let free_xs = List.of_seq @@ SymbolSet.to_seq free in
           let free_tys = List.map (fun x -> List.assoc x venv) free_xs in
-          let lambda_set = [ (lam, List.combine free_xs free_tys) ] in
+          let captures =
+            drop_immaterial_captures @@ List.combine free_xs free_tys
+          in
+          let lambda_set = [ (lam, captures) ] in
 
           let t_fn = ref @@ Content (TFn (t_x, lambda_set, t_res)) in
           (t_fn, free)
