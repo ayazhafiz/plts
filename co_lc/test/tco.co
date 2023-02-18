@@ -37,8 +37,6 @@ in fact 10
 >   store-into fp[-4]
 >   sp-restore-fp
 >   jmp inner
-> join:
->   ret
 > }
 > 
 > fact: {

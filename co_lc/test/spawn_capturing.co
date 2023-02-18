@@ -89,8 +89,6 @@ stat child
 >   push 101
 >   store-into fp[-4]
 >   ret
-> join:
->   ret
 > }
 
 > +eval -print

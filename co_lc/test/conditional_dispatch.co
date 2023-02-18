@@ -144,10 +144,6 @@ let f3 = (f 3) 2 in
 >   push 2
 >   store-into fp[-8]
 >   ret
-> join1:
->   ret
-> join:
->   ret
 > }
 > 
 > @main: {

@@ -40,8 +40,6 @@ fib 28
 >   add
 >   store-into fp[-5]
 >   ret
-> join:
->   ret
 > }
 > 
 > @main: {

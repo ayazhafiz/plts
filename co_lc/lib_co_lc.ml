@@ -268,8 +268,11 @@ let process_one _file (lines, queries) (phase, emit) : compile_result =
 
 let hover_info lines lineco =
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Ast_parse.parse s in
-  let solve _s = Error (SolveErr "unimplemented") in
-  let hover (_tenv, symbols, program) =
+  let solve (fresh_var, symbols, e) =
+    Result.map_error (fun s -> SolveErr s)
+    @@ Ty_solve.infer_program fresh_var symbols e
+  in
+  let hover (symbols, program) =
     Service.hover_info symbols lineco program |> Option.to_result ~none:NoHover
   in
   let hover_info = unlines lines |> parse >>= solve >>= hover in

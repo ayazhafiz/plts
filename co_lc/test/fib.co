@@ -126,8 +126,6 @@ let result = exec {runFib, 0, 0} in
 >   store-into fp[-7]
 >   sp-restore-fp
 >   jmp exec
-> join1:
->   ret
 > }
 > 
 > fib: {
@@ -162,8 +160,6 @@ let result = exec {runFib, 0, 0} in
 >   sp-sub 1
 >   add
 >   store-into fp[-5]
->   ret
-> join:
 >   ret
 > }
 > 

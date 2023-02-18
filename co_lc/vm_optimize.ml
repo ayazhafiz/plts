@@ -54,15 +54,27 @@ let collapse_trivial_blocks : blocks pass =
       blocks
   in
 
-  let apply = function
-    | Jmp l -> (
-        match List.assoc_opt l trivial_blocks with
-        | Some None -> `Drop
-        | Some (Some op) -> `Replace op
-        | None -> `Nothing)
-    | _ -> `Nothing
+  let map_over_ops ops =
+    let rec apply_ops (changed, accu) = function
+      | [] -> (changed, List.rev accu)
+      | Jmp l :: rest -> (
+          match List.assoc_opt l trivial_blocks with
+          | Some None -> apply_ops (changed, accu) rest
+          | Some (Some op') -> apply_ops (changed, accu) (op' :: rest)
+          | None -> apply_ops (changed, Jmp l :: accu) rest)
+      | op :: rest -> apply_ops (changed, op :: accu) rest
+    in
+    apply_ops (false, []) ops
   in
-  map_over_blocks (map_over_ops apply) blocks
+  let rec apply_bbs (changed, accu) = function
+    | [] -> (changed, List.rev accu)
+    | (bb, _) :: rest when List.mem_assoc bb trivial_blocks ->
+        apply_bbs (true, accu) rest
+    | (bb, ops) :: rest ->
+        let ops_changed, new_ops = map_over_ops ops in
+        apply_bbs (changed || ops_changed, (bb, new_ops) :: accu) rest
+  in
+  apply_bbs (false, []) blocks
 
 let eliminate_trivial_instructions : blocks pass =
  fun _proc blocks ->

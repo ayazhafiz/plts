@@ -59,8 +59,6 @@ exec child
 >   store-into fp[-7]
 >   sp-restore-fp
 >   jmp exec
-> join:
->   ret
 > }
 > 
 > child: {

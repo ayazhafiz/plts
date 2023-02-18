@@ -50,8 +50,6 @@ incTo 7
 >   add
 >   store-into fp[-6]
 >   ret
-> join:
->   ret
 > }
 > 
 > @main: {

@@ -35,8 +35,6 @@ fact 10
 >   mul
 >   store-into fp[-5]
 >   ret
-> join:
->   ret
 > }
 > 
 > @main: {
