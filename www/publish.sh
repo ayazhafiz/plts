@@ -11,7 +11,7 @@ mv node_modules /tmp/node_modules
 dune build
 mv /tmp/node_modules node_modules
 yarn install
-cd www && yarn build
+cd www && yarn clean && yarn build
 rm -rf /tmp/plts
 cp -R public /tmp/plts && cd ..
 

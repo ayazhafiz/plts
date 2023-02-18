@@ -27,6 +27,14 @@ module.exports = {
       },
     },
     {
+      resolve: 'gatsby-source-filesystem',
+      options: {
+        name: 'co_lc',
+        path: path.resolve(__dirname, '../co_lc/'),
+        ignore: ['**/dune', '**/dune-project', '**/*.!(co)']
+      },
+    },
+    {
       resolve: `gatsby-plugin-mdx`,
       options: {
         defaultLayouts: {

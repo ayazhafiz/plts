@@ -1,143 +1,152 @@
 import type * as monaco from "monaco-editor";
 import * as React from "react";
-import ReactMarkdown from "react-markdown";
 import Playground from "../../components/playground";
-import type { Backend, LanguageRegistration } from "../../common/types";
+import type { Backend, BackendKind, BackendOverrides, LanguageRegistration, StringOptions } from "../../common/types";
 import { shapeBackend } from "../../common/util";
-import { compile, phases, emits } from "co_lc";
+import * as co_lc from "co_lc";
+import {graphql, useStaticQuery} from "gatsby";
 
-const examples = {
-  "Fibonacci": `
-let rec fib = \\n ->
-  yield;
-  if n < 2
-  then n
-  else (fib (n - 1)) + (fib (n - 2))
-in
-
-let rec exec = \\state ->
-  stat state.0
-  | \`Pending ->
-    let fib1 = resume state.0 in
-    exec {fib1, 0, state.2 + 1}
-  | \`Done n -> {state.0, n, state.2}
-
-in
-let runFib = spawn (fib 28) in
-let result = exec {runFib, 0, 0} in
-result
-`.trim(),
-};
-
-const fmtOptions: [["width", number]] = [["width", 55]];
-
-const backends: {
-  Infer: [Backend];
-}  = {
-  Infer: [
+function buildExamples() {
+  const allExamples = useStaticQuery(graphql`
     {
-      title: "Infer",
-      editorLanguage: "gtlc",
-      ...shapeBackend(infer, fmtOptions),
-    },
-  ],
-};
+      allFile(filter: { extension: { eq: "co" } }) {
+        nodes {
+          publicURL
+          relativePath
+        }
+      }
+    }
+  `);
 
-const builtin_docs = docs;
-const builtin_fns = builtin_docs.map((d) => d.name);
+  const examples: Record<string, string> = {};
+  for (const file of allExamples.allFile.nodes) {
+    const exampleName = file.relativePath.split("/").at(-1).split(".co")[0];
+    const [content, setContent] = React.useState("");
+    const base = process.env["HOST"];
+    fetch(new URL(file.publicURL, base))
+      .then((r) => r.text())
+      .then((s) => {
+        return co_lc.userProgram(s);
+      })
+      .then(setContent)
+      .catch(() => {
+        console.log("failed to fetch", base, file.publicURL);
+      });
+    examples[exampleName] = content;
+  }
 
-const grammar = (
-  <ReactMarkdown
-    children={`
-**TODO**
-`.trim()}
-  />
-);
+  return examples;
+}
 
-const gtlcSyntax: monaco.languages.IMonarchLanguage = {
+function getBackends(
+  defaultEmit: string,
+  overrides: Record<string, BackendOverrides>,
+): Record<string, BackendKind> {
+  const backends: Record<string, BackendKind> = {};
+  for (const phase of co_lc.phases) {
+    let doit = (prog: string, emit: string) =>
+      co_lc.compile(prog, phase, emit);
+    let options: [[string, StringOptions]] = [
+      ["emit", { value: defaultEmit, options: co_lc.emits }],
+    ];
+
+    let backend: Backend = {
+      title: phase,
+      editorLanguage: overrides[phase]?.editorLanguage ?? 'co_lc',
+      ...shapeBackend(doit, options),
+    };
+
+    if (phase === 'ir') {
+      const evalP = 'eval';
+      let doEmit = (prog: string, emit: string) =>
+        co_lc.compile(prog, evalP, emit);
+      backends[phase] = [backend, {
+        title: evalP,
+        editorLanguage: overrides[phase]?.editorLanguage ?? 'co_lc',
+        ...shapeBackend(doEmit, options),
+      }];
+    } else {
+      backends[phase] = [backend];
+    }
+  }
+  return backends;
+}
+
+const coLcSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
-  builtin_types: ["nat", "bool", "?", "_"],
-  keywords: ["let", "in", "ref", "if", "then", "else", "\u03BB", "\\"].concat(builtin_fns),
-  symbols: /[_<>\\?\->.:=!;\u03BB]|(->)/,
+  keywords: ["let", "in", "yield", "spawn", "resume", "if", "then", "else", "stat", "\\"],
+  symbols: /[*\+_\{\}\|<>,\\?\->.:=!;\[\]+]|(->)/,
+  lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
     root: [
-      [/(Syntax error.*)/, "error"],
-      [/(Parse error.*)/, "error"],
-      [/`\(/, "infer", "@infer"],
-      [/`(nat|bool|\?)/, "infer"],
-      [/#[tf]/, "keyword"],
+      [/(.*error.*)/, "error"],
+      [/\d+/, "number"],
       [
-        /[a-z][a-zA-Z0-9_'\w$]*/,
+        /@lower/,
         {
           cases: {
-            "@builtin_types": "keyword.type",
             "@keywords": "keyword",
             "@default": "identifier",
           },
         },
       ],
-      [/\d+/, "number"],
+      [/`Pending|`Done/, "keyword"],
+      [/[A-Z][a-zA-Z0-9_'\w$]*/, "constructor"],
       { include: "@whitespace" },
+      [/: \s*/, "operator", "@type"],
       [/[()]/, "@brackets"],
       [
         /@symbols/,
         {
           cases: {
-            "@builtin_types": "keyword.type",
             "@keywords": "keyword",
             "@default": "operator",
           },
         },
       ],
     ],
-    infer: [
-      [/[^()]+/, "infer"],
-      [/\(/, "infer", "@push"],
-      [/\)/, "infer", "@pop"],
-    ],
     whitespace: [
-      [/(\uFF5C.*$)/, "annotation"],
       [/[ \t\r\n]+/, "white"],
-      [/(--.*$)/, "comment"],
+      [/#\s+[\^]+$/, "comment"],
+      [/#\s+[\^]+/, "comment", "@type"],
+      [/#.*$/, "comment"],
+    ],
+    type: [
+      [/\]$/, "keyword.type", "@popall"],
+      [/\]/, "keyword.type", "@pop"],
+      [/\[/, "keyword.type", "@push"],
+      [/\}$/, "keyword.type", "@popall"],
+      [/\}/, "keyword.type", "@pop"],
+      [/\{/, "keyword.type", "@push"],
+      [/,/, "keyword.type"],
+      [/;/, "keyword.type"],
+      [/[A-z][a-zA-Z]*$/, "tag", "@pop"],
+      [/[A-z][a-zA-Z]*\s/, "tag", "@pop"],
+      [/int/, "keyword.type"],
+      [/void/, "keyword.type"],
+      [/\s*$/, "@whitespace", "@pop"],
+      [/\s+/, "@whitespace"],
+      [/=/, "default", "@pop"],
     ],
   },
 };
 
-const liftIrSyntax: monaco.languages.IMonarchLanguage = {
+const vmSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
-  builtin_types: ["nat", "bool", "?", "Clos"],
   keywords: [
-    "fn",
-    "decl",
-    "apply",
-    "pack",
-    "let",
-    "in",
-    "if",
-    "then",
-    "else",
-    "\u03BB",
-    "\\",
-  ].concat(builtin_fns),
+  ],
   symbols: /[,;<>\\?\->.:=\u03BB]+/,
 
   tokenizer: {
     root: [
-      [/(Syntax error.*)/, "error"],
-      [/(Parse error.*)/, "error"],
-      [
-        /[a-zA-Z_'][a-zA-Z_'\w$]*/,
-        {
-          cases: {
-            "@builtin_types": "keyword.type",
-            "@keywords": "keyword",
-            "@default": "identifier",
-          },
-        },
-      ],
+      // Label definition
+      [/^[.a-zA-Z0-9_$?@].*:/, {token: 'type.identifier'}],
+      // instr
+      [/[a-z][-_a-z0-9]*/, {token: 'keyword', next: '@rest'}],
+      [/[<=]/, {token: 'keyword', next: '@rest'}],
       [/\d+/, "number"],
       { include: "@whitespace" },
       [/[{()}]/, "@brackets"],
@@ -145,55 +154,80 @@ const liftIrSyntax: monaco.languages.IMonarchLanguage = {
         /@symbols/,
         {
           cases: {
-            "@builtin_types": "keyword.type",
             "@keywords": "keyword",
             "@default": "operator",
           },
         },
       ],
     ],
+    rest: [
+        // pop at the beginning of the next line and rematch
+        [/^.*$/, {token: '@rematch', next: '@pop'}],
+
+        // brackets
+        [/[{}<>()[\]]/, '@brackets'],
+
+        // numbers
+        [/-?\d+/, 'number'],
+
+        // label reference
+        [/[a-z][-_a-zA-Z]*/, 'type.identifier'],
+
+        // whitespace
+        {include: '@whitespace'},
+    ],
     whitespace: [
       [/[ \t\r\n]+/, "white"],
-      [/(--.*$)/, "comment"],
+      [/(%.*$)/, "comment"],
     ],
   },
 };
 
-const languages: Record<"co_lc", LanguageRegistration> = {
+const languages: Record<"co_lc" | "vm", LanguageRegistration> = {
   co_lc: {
     syntax: coLcSyntax,
     hover: (m: typeof monaco) => (model: monaco.editor.ITextModel, pos: monaco.Position) => {
       const program = model.getValue();
-      const hover = getHover(program, pos.lineNumber, pos.column);
+      const hover = co_lc.hover(program, pos.lineNumber, pos.column);
       if (hover === null) return null;
       const {
         info,
-        range: { startPos, endPos },
+        range: { start, fin },
       } = hover;
       return {
-        range: new m.Range(startPos.line, startPos.col, endPos.line, endPos.col),
+        range: new m.Range(start.line, start.col, fin.line, fin.col),
         contents: info.map((value) => {
           return { value };
         }),
       };
     },
   },
-  liftIr: {
-    syntax: liftIrSyntax,
+  vm: {
+    syntax: vmSyntax,
   },
 };
 
-const GtlcPlayground = () => (
-  <Playground
+const CoLcPlayground = () => { 
+  const examples = buildExamples();
+
+  const backends = getBackends('print', {
+    'ir': {
+      editorLanguage: 'vm'
+    }
+  });
+
+  return (
+    <Playground
     title="co_lc Playground"
     language="co_lc"
     source="https://github.com/ayazhafiz/plts/tree/base/co_lc"
-    grammar={grammar}
-    languageRegistrations={languages}
+      grammar={`https://github.com/ayazhafiz/plts/blob/base/co_lc/ast_parser.mly`}
+      languageRegistrations={languages}
     backends={backends}
-    defaultBackend="Infer"
+    defaultBackend="ir"
     examples={examples}
-    defaultExample="Fibonacci"
-  />
-);
-export default GtlcPlayground;
+    defaultExample={"fib"}
+    />
+  )
+}
+export default CoLcPlayground;
