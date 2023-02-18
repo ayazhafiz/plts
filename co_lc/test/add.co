@@ -10,11 +10,7 @@
 > %   -2  @old_fp
 > %   -1  @old_sp
 > @main:
->   sp-add 0
-> start:
->   push 21
->   push 13
->   add
+>   push 34
 >   store-into fp[-4]
 >   ret
 > }

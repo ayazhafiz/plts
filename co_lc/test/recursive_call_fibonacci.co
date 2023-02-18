@@ -16,8 +16,6 @@ fib 28
 > %   -2  @old_fp
 > %   -1  @old_sp
 > fib:
->   sp-add 0
-> start1:
 >   push 2
 >   push fp[-4]
 >   <
@@ -25,7 +23,7 @@ fib 28
 > then:
 >   push fp[-4]
 >   store-into fp[-5]
->   jmp join
+>   ret
 > else:
 >   sp-add 1
 >   push 2
@@ -41,7 +39,7 @@ fib 28
 >   sp-sub 1
 >   add
 >   store-into fp[-5]
->   jmp join
+>   ret
 > join:
 >   ret
 > }
@@ -53,8 +51,6 @@ fib 28
 > %   -2  @old_fp
 > %   -1  @old_sp
 > @main:
->   sp-add 0
-> start:
 >   sp-add 1
 >   push 28
 >   call fib

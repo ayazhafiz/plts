@@ -19,8 +19,6 @@ stat child
 > %   -2  @old_fp
 > %   -1  @old_sp
 > child:
->   sp-add 0
-> start1:
 >   yield
 >   push 5
 >   push fp[-4]
@@ -36,8 +34,6 @@ stat child
 > %   -2  @old_fp
 > %   -1  @old_sp
 > spawn_wrapper:
->   sp-add 0
-> start2:
 >   sp-add 1
 >   push 10
 >   call child
@@ -88,12 +84,12 @@ stat child
 >   sp-sub 2
 >   push fp[8]
 >   store-into fp[-4]
->   jmp join
+>   ret
 > pending:
 >   sp-sub 3
 >   push 101
 >   store-into fp[-4]
->   jmp join
+>   ret
 > join:
 >   ret
 > }

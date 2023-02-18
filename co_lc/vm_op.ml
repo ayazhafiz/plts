@@ -3,7 +3,7 @@
 open Vm_debug
 
 type label = [ `Label of string ] [@@deriving show]
-type locator = [ `Imm of int | `FpOffset of int ]
+type locator = [ `Imm of int | `FpOffset of int ] [@@deriving show]
 
 let main = `Label "@main"
 
@@ -31,8 +31,10 @@ type op =
   | Jmprel1 (* jump relative to 1 + the integer on the top of the stack. *)
   | Call of label
   | Ret
+[@@deriving show]
 
-type basic_block = label * op list
+type basic_block = label * op list [@@deriving show]
+type blocks = basic_block list [@@deriving show]
 
 type proc = {
   name : label;

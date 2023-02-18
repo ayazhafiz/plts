@@ -44,8 +44,6 @@ let f3 = (f 3) 2 in
 > %   -2  @old_fp
 > %   -1  @old_sp
 > lam1:
->   sp-add 0
-> start3:
 >   push fp[-6]
 >   push fp[-5]
 >   add
@@ -66,8 +64,6 @@ let f3 = (f 3) 2 in
 > %   -2  @old_fp
 > %   -1  @old_sp
 > lam2:
->   sp-add 0
-> start4:
 >   push fp[-6]
 >   push fp[-5]
 >   add
@@ -88,8 +84,6 @@ let f3 = (f 3) 2 in
 > %   -2  @old_fp
 > %   -1  @old_sp
 > lam:
->   sp-add 0
-> start2:
 >   push fp[-6]
 >   push fp[-7]
 >   add
@@ -111,8 +105,6 @@ let f3 = (f 3) 2 in
 > %    -2  @old_fp
 > %    -1  @old_sp
 > f:
->   sp-add 0
-> start1:
 >   push 1
 >   push fp[-7]
 >   =
@@ -126,7 +118,7 @@ let f3 = (f 3) 2 in
 >   store-into fp[-9]
 >   push 0
 >   store-into fp[-8]
->   jmp join
+>   ret
 > else:
 >   push 2
 >   push fp[-7]
@@ -141,7 +133,7 @@ let f3 = (f 3) 2 in
 >   store-into fp[-9]
 >   push 1
 >   store-into fp[-8]
->   jmp join1
+>   ret
 > else1:
 >   push fp[-6]
 >   store-into fp[-11]
@@ -151,9 +143,9 @@ let f3 = (f 3) 2 in
 >   store-into fp[-9]
 >   push 2
 >   store-into fp[-8]
->   jmp join1
+>   ret
 > join1:
->   jmp join
+>   ret
 > join:
 >   ret
 > }

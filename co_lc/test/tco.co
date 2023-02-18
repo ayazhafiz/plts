@@ -18,8 +18,6 @@ in fact 10
 > %   -2  @old_fp
 > %   -1  @old_sp
 > inner:
->   sp-add 0
-> start2:
 >   push 0
 >   push fp[-4]
 >   =
@@ -27,7 +25,7 @@ in fact 10
 > then:
 >   push fp[-5]
 >   store-into fp[-6]
->   jmp join
+>   ret
 > else:
 >   push fp[-4]
 >   push fp[-5]
@@ -39,7 +37,6 @@ in fact 10
 >   store-into fp[-4]
 >   sp-restore-fp
 >   jmp inner
->   jmp join
 > join:
 >   ret
 > }
@@ -52,8 +49,6 @@ in fact 10
 > %   -2  @old_fp
 > %   -1  @old_sp
 > fact:
->   sp-add 0
-> start1:
 >   sp-add 1
 >   push 1
 >   push fp[-4]
@@ -70,8 +65,6 @@ in fact 10
 > %   -2  @old_fp
 > %   -1  @old_sp
 > @main:
->   sp-add 0
-> start:
 >   sp-add 1
 >   push 10
 >   call fact

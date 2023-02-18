@@ -98,7 +98,7 @@ let result = exec {runFib, 0, 0} in
 >   store-into fp[-11]
 >   store-into fp[-12]
 >   store-into fp[-13]
->   jmp join1
+>   ret
 > pending:
 >   sp-sub 3
 >   push fp[-7]
@@ -126,7 +126,6 @@ let result = exec {runFib, 0, 0} in
 >   store-into fp[-7]
 >   sp-restore-fp
 >   jmp exec
->   jmp join1
 > join1:
 >   ret
 > }
@@ -139,8 +138,6 @@ let result = exec {runFib, 0, 0} in
 > %   -2  @old_fp
 > %   -1  @old_sp
 > fib:
->   sp-add 0
-> start1:
 >   yield
 >   push 2
 >   push fp[-4]
@@ -149,7 +146,7 @@ let result = exec {runFib, 0, 0} in
 > then:
 >   push fp[-4]
 >   store-into fp[-5]
->   jmp join
+>   ret
 > else:
 >   sp-add 1
 >   push 2
@@ -165,7 +162,7 @@ let result = exec {runFib, 0, 0} in
 >   sp-sub 1
 >   add
 >   store-into fp[-5]
->   jmp join
+>   ret
 > join:
 >   ret
 > }
@@ -177,8 +174,6 @@ let result = exec {runFib, 0, 0} in
 > %   -2  @old_fp
 > %   -1  @old_sp
 > spawn_wrapper:
->   sp-add 0
-> start3:
 >   sp-add 1
 >   push 20
 >   call fib
