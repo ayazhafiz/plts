@@ -171,6 +171,9 @@ let eval instrs label_tbl main_fiber main_size =
     | SpSub n ->
         Fiber.sp_sub !fiber n;
         go (i + 1)
+    | SpRestoreFp ->
+        Fiber.reset_to_fp !fiber;
+        go (i + 1)
     | Jmp l ->
         let j = List.assoc l label_tbl in
         go j

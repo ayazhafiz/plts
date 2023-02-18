@@ -110,23 +110,22 @@ let result = exec {runFib, 0, 0} in
 >   store-into fp[3]
 >   store-into fp[2]
 >   store-into fp[1]
->   sp-add 6
 >   push 1
 >   push fp[-9]
 >   add
+>   store-into fp[-9]
 >   push 0
+>   store-into fp[-8]
 >   push fp[1]
 >   push fp[2]
 >   push fp[3]
 >   push fp[4]
->   call exec
->   sp-sub 6
->   store-into fp[-10]
->   store-into fp[-11]
->   store-into fp[-12]
->   store-into fp[-13]
->   store-into fp[-14]
->   store-into fp[-15]
+>   store-into fp[-4]
+>   store-into fp[-5]
+>   store-into fp[-6]
+>   store-into fp[-7]
+>   sp-restore-fp
+>   jmp exec
 >   jmp join1
 > join1:
 >   ret

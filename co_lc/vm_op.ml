@@ -25,6 +25,7 @@ type op =
   | Store of int  (** store-into fp[offset] *)
   | SpAdd of int
   | SpSub of int
+  | SpRestoreFp  (** restore to the frame pointer. Used for tail calls *)
   | Jmp of label
   | Jmpz of label
   | Jmprel1 (* jump relative to 1 + the integer on the top of the stack. *)
@@ -67,6 +68,7 @@ let pp_op f op =
   | Store n -> fprintf f "store-into fp[%d]" n
   | SpAdd n -> fprintf f "sp-add %d" n
   | SpSub n -> fprintf f "sp-sub %d" n
+  | SpRestoreFp -> fprintf f "sp-restore-fp"
   | Jmp (`Label l) -> fprintf f "jmp %s" l
   | Jmpz (`Label l) -> fprintf f "jmpz %s" l
   | Jmprel1 -> fprintf f "jmprel1"

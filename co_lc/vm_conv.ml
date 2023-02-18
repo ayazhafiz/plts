@@ -41,7 +41,7 @@ module Ctx = struct
       Hashtbl.t;
     (* stack of procs, basic blocks, and locals of frames we're currently compiling.
        the top of the stack is the procedure currently being compiled. *)
-    mutable procs_stack : label list;
+    mutable procs_stack : (label * symbol) list;
     mutable bbs_stack : op list ref list;
     (* the current frame pointer offset for the next local *)
     mutable fp_offsets_stack : int ref list;
@@ -74,7 +74,7 @@ module Ctx = struct
   let sym_of_label (`Label x) = `Sym x
   let current_depth c = List.length c.procs_stack
   let current_fp_offset c = List.hd c.fp_offsets_stack
-  let current_proc c = List.hd c.procs_stack
+  let current_proc c = fst @@ List.hd c.procs_stack
   let current_bb c = List.hd c.bbs_stack
 
   let add_local c x ty =
@@ -130,6 +130,8 @@ module Ctx = struct
           (Printf.sprintf "%s found in %s, but it's at a lower depth" x proc)
     | `NotFound _ -> None
 
+  let current_proc_argument c = lookup c @@ snd @@ List.hd c.procs_stack
+
   let new_bb c label =
     let proc_bbs, _ = Hashtbl.find c.program (current_proc c) in
     let bb_instrs = ref [] in
@@ -177,7 +179,7 @@ module Ctx = struct
     let debug_frame = ref (Vm_debug.new_debug_frame ()) in
     Hashtbl.add c.program proc_label (ref [ start_bb; entry_bb ], debug_frame);
     (* push on a new level for this proc *)
-    c.procs_stack <- proc_label :: c.procs_stack;
+    c.procs_stack <- (proc_label, arg_name) :: c.procs_stack;
     c.bbs_stack <- start_instrs :: c.bbs_stack;
     c.fp_offsets_stack <- ref 0 :: c.fp_offsets_stack;
 
@@ -251,6 +253,8 @@ module Ctx = struct
     c.procs_stack <- List.tl c.procs_stack;
     c.bbs_stack <- List.tl c.bbs_stack;
     c.fp_offsets_stack <- List.tl c.fp_offsets_stack
+
+  let return_target ctx = lookup ctx return_local
 
   (* Returns a hashmap of procs to their basic blocks, now immutable and in proper order. *)
   let collapse_into_procs { program; _ } : (label, proc) Hashtbl.t =
@@ -603,67 +607,98 @@ and compile_expr ctx e target =
           | Ast.TFn (_, lambda_set, ret) -> (ret, lambda_set)
           | _ -> failwith "not a function"
         in
-        (* Allocate space for the return value *)
-        Ctx.push ctx (Vm_op.SpAdd (stack_size t_ret));
-        (* Push the arg, and any closure data, then call *)
-        let _ = go arg `Stack in
-        let _ = go fn `Stack in
 
-        assert (List.length lambda_set > 0);
-
-        let consumed_lambda_tag_bit =
-          match lambda_set with
-          | [] -> assert false
-          | [ proc ] ->
-              (* Unary lambda set can dispatch immediately *)
-              let fn = Ctx.label_of_sym @@ fst proc in
-
-              Ctx.push ctx (Vm_op.Call fn);
-              0
-          | lams ->
-              (* More than one lambda; pull down the tag and build a jump table
-                 relative to the tag.
-                 The tag must already be at the top of the stack so immediately
-                 call jumprel. *)
-
-              (* Multiply the tag by 2, since that's the size of each jump block. *)
-              Ctx.push ctx (Vm_op.Push (`Imm 2));
-              Ctx.push ctx Vm_op.Mul;
-              (* Jump relative, and perform the appropriate call. *)
-              Ctx.push ctx Vm_op.Jmprel1;
-
-              (* Build each jump label *)
-              let lbl_join = Ctx.new_label ctx "join_call" in
-              List.iteri
-                (fun i (proc, _) ->
-                  let lbl =
-                    Ctx.new_label ctx ("call_" ^ string_of_int i ^ "_")
-                  in
-                  let fn = Ctx.label_of_sym proc in
-                  Ctx.new_bb ctx lbl;
-
-                  Ctx.push ctx (Vm_op.Call fn);
-                  Ctx.push ctx (Vm_op.Jmp lbl_join))
-                lams;
-              (* the rest of the procedure starts at the join *)
-              Ctx.new_bb ctx lbl_join;
-
-              1
+        let perform_tco =
+          target = Ctx.return_target ctx
+          && List.length lambda_set = 1
+          &&
+          let target_proc = Ctx.label_of_sym @@ fst @@ List.hd lambda_set in
+          target_proc = Ctx.current_proc ctx
         in
+        if perform_tco then (
+          (* TCO call.
+             NB: I believe the target function is immaterial, and does not need
+             to be re-evaluated here. The captures also cannot change. The only
+             place where this "goes wrong" is if the function expression resumes
+             a fiber, but that means that the resumed fiber is never reachable.
+             That does break user semantics, though.
 
-        (* After the call, rollback whatever space we allocated for the captures
-           and arguments, so that the return value is on the top of the stack.
+             So, we only need to
+             - load the argument into its position in the frame
+             - rollback the stack pointer to the start of the frame
+             - jump to start of frame
+          *)
+          let arg_target = Ctx.current_proc_argument ctx in
+          let _ = go arg arg_target in
+          Ctx.push ctx Vm_op.SpRestoreFp;
+          Ctx.push ctx (Vm_op.Jmp (Ctx.current_proc ctx));
+          Ctx.return_target ctx)
+        else (
+          (* Non-TCO call *)
 
-           If the lambda set was non-unary, we also already consumed one bit for
-           dispatching.
-        *)
-        let allocated_arg_space = stack_size (Ast.xty arg) + fn_stksize in
-        Ctx.push ctx
-          (Vm_op.SpSub (allocated_arg_space - consumed_lambda_tag_bit));
-        (* Store the return value into the target. *)
-        let ret_target = or_stack target in
-        store_from_stack ctx ret_target t;
-        ret_target
+          (* Allocate space for the return value *)
+          Ctx.push ctx (Vm_op.SpAdd (stack_size t_ret));
+          (* Push the arg, and any closure data, then call *)
+          let _ = go arg `Stack in
+          let _ = go fn `Stack in
+
+          assert (List.length lambda_set > 0);
+
+          (* If the lambda set is non-unary, we need to build a jump table for
+             dispatching. *)
+          let consumed_lambda_tag_bit =
+            match lambda_set with
+            | [] -> assert false
+            | [ proc ] ->
+                (* Unary lambda set can dispatch immediately *)
+                let fn = Ctx.label_of_sym @@ fst proc in
+
+                Ctx.push ctx (Vm_op.Call fn);
+                0
+            | lams ->
+                (* More than one lambda; pull down the tag and build a jump table
+                   relative to the tag.
+                   The tag must already be at the top of the stack so immediately
+                   call jumprel. *)
+
+                (* Multiply the tag by 2, since that's the size of each jump block. *)
+                Ctx.push ctx (Vm_op.Push (`Imm 2));
+                Ctx.push ctx Vm_op.Mul;
+                (* Jump relative, and perform the appropriate call. *)
+                Ctx.push ctx Vm_op.Jmprel1;
+
+                (* Build each jump label *)
+                let lbl_join = Ctx.new_label ctx "join_call" in
+                List.iteri
+                  (fun i (proc, _) ->
+                    let lbl =
+                      Ctx.new_label ctx ("call_" ^ string_of_int i ^ "_")
+                    in
+                    let fn = Ctx.label_of_sym proc in
+                    Ctx.new_bb ctx lbl;
+
+                    Ctx.push ctx (Vm_op.Call fn);
+                    Ctx.push ctx (Vm_op.Jmp lbl_join))
+                  lams;
+                (* the rest of the procedure starts at the join *)
+                Ctx.new_bb ctx lbl_join;
+
+                1
+          in
+
+          (* After the call, rollback whatever space we allocated for the captures
+             and arguments, so that the return value is on the top of the stack.
+
+             If the lambda set was non-unary, we also already consumed one bit for
+             dispatching.
+          *)
+          let allocated_arg_space = stack_size (Ast.xty arg) + fn_stksize in
+          Ctx.push ctx
+            (Vm_op.SpSub (allocated_arg_space - consumed_lambda_tag_bit));
+          (* Store the return value into the target. *)
+          let ret_target = or_stack target in
+          store_from_stack ctx ret_target t;
+          ret_target)
     | Ast.Binop (op, arg1, arg2) ->
         let _ = go arg2 `Stack in
         let _ = go arg1 `Stack in
