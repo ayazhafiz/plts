@@ -461,22 +461,30 @@ let rec compile_proc ctx proc_name (t_x, x) ~captures body =
   Ctx.push ctx Vm_op.Ret;
   Ctx.exit_proc ctx proc_name
 
-and compile_proc_expr ctx proc_name t_proc (t_x, x) ~captures body target =
-  compile_proc ctx proc_name (t_x, x) ~captures body;
+and compile_proc_expr ctx proc_name t_proc (t_x, x) lambda_set body target =
+  let { tag; captures; captures_stksize } =
+    callee_set_storage (Ctx.sym_of_label proc_name) lambda_set
+  in
+  compile_proc ctx proc_name (t_x, x)
+    ~captures:(captures, captures_stksize)
+    body;
   (* leave behind the proc to call *)
-  let has_captures = snd captures > 0 in
+  let has_captures = captures_stksize > 0 in
   match (has_captures, target) with
-  | false, `Any ->
+  | false, `Any when Option.is_none tag ->
       (* Return the proc reference directly *)
       `NonCapturingProc proc_name
   | false, _ ->
       let target = or_stack target in
-      store_from_stack ctx target t_proc;
+      (match tag with
+      | Some t ->
+          Ctx.push ctx (Vm_op.Push (`Imm t));
+          store_from_stack_sized ctx target 1
+      | None -> assert (stack_size t_proc = 0));
       target
   | true, target ->
       (* load the captures and symbol into the target *)
       let closure_target = or_stack target in
-      let captures, closure_stksize = captures in
       let captures = List.rev captures in
       let target =
         List.fold_left
@@ -491,9 +499,9 @@ and compile_proc_expr ctx proc_name t_proc (t_x, x) ~captures body target =
         List.fold_left (fun n (_, t) -> n + stack_size t) 0 captures
       in
 
-      let needed_padding = closure_stksize - loaded_size in
+      let needed_padding = captures_stksize - loaded_size in
       let padding_lits = List.init needed_padding (fun _ -> `Int 0) in
-      let _ =
+      let target =
         List.fold_left
           (fun target lit ->
             let _ = compile_lit ctx lit (as_opt target) in
@@ -501,7 +509,13 @@ and compile_proc_expr ctx proc_name t_proc (t_x, x) ~captures body target =
           target padding_lits
       in
 
-      (* TODO store bit as neeed *)
+      (* Store the lambda tag as neeed *)
+      (match tag with
+      | Some t ->
+          Ctx.push ctx (Vm_op.Push (`Imm t));
+          store_from_stack_sized ctx target 1
+      | None -> ());
+
       closure_target
 
 and compile_expr ctx e target =
@@ -532,17 +546,12 @@ and compile_expr ctx e target =
     | Ast.Let (_, (_, t_x, x), e, rest) ->
         let target_x, reserved_x =
           match get_content t_x with
-          | Ast.TFn _ ->
-              let has_captures = stack_size t_x > 0 in
-              let target =
-                if not has_captures then `Any
-                  (* This is a non-capturing proc; we don't need to allocate a
-                     local for it, because it can be passed around by-name. *)
-                else failwith "TODO"
-              in
-              (target, None)
+          | Ast.TFn _ when stack_size t_x = 0 ->
+              (* This is a non-capturing proc; we don't need to allocate a
+                 local for it, because it will be passed around by-name. *)
+              (`Any, None)
           | _ ->
-              (* non-proc must always be stored locally *)
+              (* non-proc or closure must always be stored locally *)
               let reserved_local = Ctx.reserve_local ctx t_x in
               let target =
                 match reserved_local.target with `FpOffset n -> `FpOffset n
@@ -567,16 +576,12 @@ and compile_expr ctx e target =
         end_target
     | Ast.Abs (lam, (_, t_x, x), e) ->
         let proc = Ctx.label_of_sym lam in
-        let captures =
-          match !(Ast.unlink t) with
-          | Ast.Content (Ast.TFn (_, lambda_set, _)) ->
-              List.assoc lam lambda_set
+        let lambda_set =
+          match get_content t with
+          | Ast.TFn (_, lambda_set, _) -> lambda_set
           | _ -> failwith "not a function"
         in
-        let closure_stksize = stack_size t in
-        compile_proc_expr ctx proc t (t_x, x)
-          ~captures:(captures, closure_stksize)
-          e target
+        compile_proc_expr ctx proc t (t_x, x) lambda_set e target
     | Ast.App (fn, arg) ->
         (* call:
            #return
@@ -597,16 +602,57 @@ and compile_expr ctx e target =
         let _ = go arg `Stack in
         let _ = go fn `Stack in
 
-        (* TODO handle non-unary lambda sets *)
-        assert (List.length lambda_set = 1);
-        let fn = Ctx.label_of_sym @@ fst @@ List.hd lambda_set in
+        assert (List.length lambda_set > 0);
 
-        Ctx.push ctx (Vm_op.Call fn);
+        let consumed_lambda_tag_bit =
+          match lambda_set with
+          | [] -> assert false
+          | [ proc ] ->
+              (* Unary lambda set can dispatch immediately *)
+              let fn = Ctx.label_of_sym @@ fst proc in
+
+              Ctx.push ctx (Vm_op.Call fn);
+              0
+          | lams ->
+              (* More than one lambda; pull down the tag and build a jump table
+                 relative to the tag.
+                 The tag must already be at the top of the stack so immediately
+                 call jumprel. *)
+
+              (* Multiply the tag by 2, since that's the size of each jump block. *)
+              Ctx.push ctx (Vm_op.Push (`Imm 2));
+              Ctx.push ctx Vm_op.Mul;
+              (* Jump relative, and perform the appropriate call. *)
+              Ctx.push ctx Vm_op.Jmprel1;
+
+              (* Build each jump label *)
+              let lbl_join = Ctx.new_label ctx "join_call" in
+              List.iteri
+                (fun i (proc, _) ->
+                  let lbl =
+                    Ctx.new_label ctx ("call_" ^ string_of_int i ^ "_")
+                  in
+                  let fn = Ctx.label_of_sym proc in
+                  Ctx.new_bb ctx lbl;
+
+                  Ctx.push ctx (Vm_op.Call fn);
+                  Ctx.push ctx (Vm_op.Jmp lbl_join))
+                lams;
+              (* the rest of the procedure starts at the join *)
+              Ctx.new_bb ctx lbl_join;
+
+              1
+        in
+
         (* After the call, rollback whatever space we allocated for the captures
            and arguments, so that the return value is on the top of the stack.
+
+           If the lambda set was non-unary, we also already consumed one bit for
+           dispatching.
         *)
         let allocated_arg_space = stack_size (Ast.xty arg) + fn_stksize in
-        Ctx.push ctx (Vm_op.SpSub allocated_arg_space);
+        Ctx.push ctx
+          (Vm_op.SpSub (allocated_arg_space - consumed_lambda_tag_bit));
         (* Store the return value into the target. *)
         let ret_target = or_stack target in
         store_from_stack ctx ret_target t;
@@ -617,6 +663,7 @@ and compile_expr ctx e target =
         let call =
           match op with
           | `Lt -> Vm_op.Lt
+          | `Eq -> Vm_op.Eq
           | `Add -> Vm_op.Add
           | `Sub -> Vm_op.Sub
           | `Mul -> Vm_op.Mul
@@ -658,14 +705,14 @@ and compile_expr ctx e target =
         *)
         let proc_name = Ctx.new_label ctx "spawn_wrapper" in
         let t_body = Ast.xty body in
+        let lambda_set = [ (Ctx.sym_of_label proc_name, []) ] in
         let t_spawn_wrapper =
-          let lambda_set = [ (Ctx.sym_of_label proc_name, []) ] in
           ref @@ Ast.Content (Ast.TFn (T.unit, lambda_set, t_body))
         in
         let arg = (T.unit, `Sym "") in
         let _ =
-          compile_proc_expr ctx proc_name t_spawn_wrapper arg ~captures:([], 0)
-            body `Stack
+          compile_proc_expr ctx proc_name t_spawn_wrapper arg lambda_set body
+            `Stack
         in
         (* Call spawn, then store the returned fiber into the target. *)
         let args_size = 0 (* TODO material once closures are supported *) in

@@ -27,6 +27,7 @@ type op =
   | SpSub of int
   | Jmp of label
   | Jmpz of label
+  | Jmprel1 (* jump relative to 1 + the integer on the top of the stack. *)
   | Call of label
   | Ret
 
@@ -68,6 +69,7 @@ let pp_op f op =
   | SpSub n -> fprintf f "sp-sub %d" n
   | Jmp (`Label l) -> fprintf f "jmp %s" l
   | Jmpz (`Label l) -> fprintf f "jmpz %s" l
+  | Jmprel1 -> fprintf f "jmprel1"
   | Call (`Label l) -> fprintf f "call %s" l
   | Ret -> fprintf f "ret");
   fprintf f "@]"
@@ -103,6 +105,8 @@ let pp_program symbols f procs =
       pp_proc symbols f proc)
     procs;
   fprintf f "@]"
+
+let string_of_op op = Util.with_buffer (fun f -> pp_op f op) Util.default_width
 
 let string_of_program ?(width = Util.default_width) symbols (program : program)
     =

@@ -184,7 +184,7 @@ let infer symbols fresh_var =
           let t2, free2 = infer venv e2 in
           let t_arg1, t_arg2, t_ret =
             match b with
-            | `Lt -> (T.int, T.int, T.bool)
+            | `Lt | `Eq -> (T.int, T.int, T.bool)
             | `Add | `Sub | `Mul -> (T.int, T.int, T.int)
           in
           unify t1 t_arg1;

@@ -48,6 +48,7 @@ let with_name c name f =
 %token <Surface.loc> TAG_DONE
 
 %token <Surface.loc> LT
+%token <Surface.loc> EQUALS
 %token <Surface.loc> PLUS
 %token <Surface.loc> MINUS
 %token <Surface.loc> MUL
@@ -195,7 +196,8 @@ expr_tup:
   }
 
 binop:
-  | LT    { `Lt }
-  | PLUS  { `Add }
-  | MINUS { `Sub }
-  | MUL   { `Mul }
+  | LT     { `Lt }
+  | EQUALS { `Eq }
+  | PLUS   { `Add }
+  | MINUS  { `Sub }
+  | MUL    { `Mul }

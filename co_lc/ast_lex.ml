@@ -50,6 +50,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "true" -> make lexbuf (fun i -> LITBOOL (i, true))
   | "false" -> make lexbuf (fun i -> LITBOOL (i, false))
   | "<" -> make lexbuf (fun i -> LT i)
+  | "==" -> make lexbuf (fun i -> EQUALS i)
   | "+" -> make lexbuf (fun i -> PLUS i)
   | "-" -> make lexbuf (fun i -> MINUS i)
   | "*" -> make lexbuf (fun i -> MUL i)

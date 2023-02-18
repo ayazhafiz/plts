@@ -178,6 +178,9 @@ let eval instrs label_tbl main_fiber main_size =
         let isz = Fiber.pop_int !fiber = 0 in
         let j = if isz then List.assoc l label_tbl else i + 1 in
         go j
+    | Jmprel1 ->
+        let rel = Fiber.pop_int !fiber in
+        go (i + 1 + rel)
     | Call proc ->
         Fiber.setup_new_frame !fiber ~pc:(i + 1);
         let j = List.assoc proc label_tbl in
