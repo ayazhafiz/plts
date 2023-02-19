@@ -33,8 +33,8 @@ let rec elaborate_local symbols (offset, (x, ty)) =
       | TFiber t ->
           let indices =
             [
-              ("stkdirty", T.int);
-              ("stkidx", T.int);
+              ("fibdirty", T.int);
+              ("fibidx", T.int);
               ("return", t);
               ("bit", T.int);
             ]

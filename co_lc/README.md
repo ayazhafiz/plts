@@ -53,11 +53,11 @@ pop args
 Coroutine repr:
 
 ```
-{bit, return_value, stkidx, stkdirty}
+{bit, return_value, fibidx, fibdirty}
 
 bit - 0=Pending, 1=Done
-stkidx is the stack this coroutine is running on
-stkdirty is a dirty integer marking the last yield point of the stack. this way
+fibidx is the stack this coroutine is running on
+fibdirty is a dirty integer marking the last yield point of the stack. this way
   we can check if someone is resuming a coroutine that has already completed.
   presently coroutines are not multi-shot.
 
@@ -90,7 +90,7 @@ Resume:
 - If coroutine is done, no-op 
 - If coroutine is pending
   - Find stack
-  - If stack missing or dirty integer != stkdirty, error
+  - If stack missing or dirty integer != fibdirty, error
   - Switch VM state and run until hit yield
 ```
 
@@ -161,8 +161,8 @@ exec:
   # stack
   #   state.2           -8
   #   state.1           -7
-  #   state.0.stkdirty  -6
-  #   state.0.stkidx    -5
+  #   state.0.fibdirty  -6
+  #   state.0.fibidx    -5
   #   state.0.return    -4
   #   state.0.bit       -3
   #   fp old
@@ -172,13 +172,13 @@ exec:
   #  ret - 4 (coroutine) + 1 + 1 = 6 bytes
   #    .2            0
   #    .1            1
-  #    .0.stkdirty   2
-  #    .0.stkidx     3
+  #    .0.fibdirty   2
+  #    .0.fibidx     3
   #    .0.return     4
   #    .0.bit        5
   #  fib1 - 4 bytes
-  #    .stkdirty     6
-  #    .stkidx       7
+  #    .fibdirty     6
+  #    .fibidx       7
   #    .return       8
   #    .bit          9
   #  state.2 + 1 - 1 byte
@@ -220,13 +220,13 @@ main:
   #  ret - 6 bytes
   #    .2            0
   #    .1            1
-  #    .0.stkdirty   2
-  #    .0.stkidx     3
+  #    .0.fibdirty   2
+  #    .0.fibidx     3
   #    .0.return     4
   #    .0.bit        5
   #  runFib - 4 bytes
-  #    .stkdirty     6
-  #    .stkidx       7
+  #    .fibdirty     6
+  #    .fibidx       7
   #    .return       8
   #    .bit          9
   sp-add 10

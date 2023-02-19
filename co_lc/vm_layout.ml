@@ -16,7 +16,7 @@ let rec stack_size t =
           let bit_size = if List.length lambda_set > 1 then 1 else 0 in
           bit_size + max_captures_size
       | TFiber t ->
-          (* {bit, return_value, stkidx, stkdirty}
+          (* {bit, return_value, fibidx, fibdirty}
               1    t             1       1
           *)
           1 + stack_size t + 1 + 1)

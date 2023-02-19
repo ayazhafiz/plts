@@ -57,21 +57,21 @@ let result = exec {runFib, 0, 0} in
 > % Stack relative to frame pointer:
 > %   -14  #return.2
 > %   -13  #return.1
-> %   -12  #return.0.stkdirty
-> %   -11  #return.0.stkidx
+> %   -12  #return.0.fibdirty
+> %   -11  #return.0.fibidx
 > %   -10  #return.0.return
 > %    -9  #return.0.bit
 > %    -8  state.2
 > %    -7  state.1
-> %    -6  state.0.stkdirty
-> %    -5  state.0.stkidx
+> %    -6  state.0.fibdirty
+> %    -5  state.0.fibidx
 > %    -4  state.0.return
 > %    -3  state.0.bit
 > %    -2  @old_pc
 > %    -1  @old_fp
 > %     0  n1
-> %     1  fib1.stkdirty
-> %     2  fib1.stkidx
+> %     1  fib1.fibdirty
+> %     2  fib1.fibidx
 > %     3  fib1.return
 > %     4  fib1.bit
 > exec:
@@ -181,14 +181,14 @@ let result = exec {runFib, 0, 0} in
 > %   -3  #return.0
 > %   -2  @old_pc
 > %   -1  @old_fp
-> %    0  runFib.stkdirty
-> %    1  runFib.stkidx
+> %    0  runFib.fibdirty
+> %    1  runFib.fibidx
 > %    2  runFib.return
 > %    3  runFib.bit
 > %    4  result.2
 > %    5  result.1
-> %    6  result.0.stkdirty
-> %    7  result.0.stkidx
+> %    6  result.0.fibdirty
+> %    7  result.0.fibidx
 > %    8  result.0.return
 > %    9  result.0.bit
 > @main:

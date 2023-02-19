@@ -778,8 +778,8 @@ and compile_expr ctx e target =
         let lbl_join = Ctx.new_label ctx "join" in
         (* Load fiber onto the stack:
 
-           stkdirty
-           stkidx
+           fibdirty
+           fibidx
            return_value
            bit          < stack top
 

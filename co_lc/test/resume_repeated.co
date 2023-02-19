@@ -24,8 +24,8 @@ exec child
 > exec: {
 > % Stack relative to frame pointer:
 > %   -7  #return
-> %   -6  fiber.stkdirty
-> %   -5  fiber.stkidx
+> %   -6  fiber.fibdirty
+> %   -5  fiber.fibidx
 > %   -4  fiber.return
 > %   -3  fiber.bit
 > %   -2  @old_pc
@@ -118,8 +118,8 @@ exec child
 > %   -3  #return
 > %   -2  @old_pc
 > %   -1  @old_fp
-> %    0  child1.stkdirty
-> %    1  child1.stkidx
+> %    0  child1.fibdirty
+> %    1  child1.fibidx
 > %    2  child1.return
 > %    3  child1.bit
 > @main:

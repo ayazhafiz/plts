@@ -45,12 +45,12 @@ stat child
 > %   -3  #return
 > %   -2  @old_pc
 > %   -1  @old_fp
-> %    0  child1.stkdirty
-> %    1  child1.stkidx
+> %    0  child1.fibdirty
+> %    1  child1.fibidx
 > %    2  child1.return
 > %    3  child1.bit
-> %    4  child2.stkdirty
-> %    5  child2.stkidx
+> %    4  child2.fibdirty
+> %    5  child2.fibidx
 > %    6  child2.return
 > %    7  child2.bit
 > %    8  n1

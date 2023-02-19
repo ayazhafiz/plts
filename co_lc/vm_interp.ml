@@ -95,8 +95,8 @@ let eval instrs label_tbl main_fiber main_size =
           (* We now need to put the fiber that just finished onto the parent
              fiber's stack. The stack layout is
 
-             stkdirty
-             stkidx
+             fibdirty
+             fibidx
              zeroed_return
              bit           < stack top
           *)
@@ -128,8 +128,8 @@ let eval instrs label_tbl main_fiber main_size =
         go child_pc
     | Resume return_size ->
         (*
-           stkdirty
-           stkidx
+           fibdirty
+           fibidx
            zeroed_return
            bit           < stack top
         *)
@@ -208,12 +208,12 @@ let eval instrs label_tbl main_fiber main_size =
               fiber_idx := parent_fiber_idx;
               fiber := parent_fiber;
               (*
-                 stkdirty
-                 stkidx
+                 fibdirty
+                 fibidx
                  zeroed_return
                  bit           < stack top
 
-                 stkdirty, stkidx are irrelevant since the fiber has completed.
+                 fibdirty, fibidx are irrelevant since the fiber has completed.
               *)
               Fiber.push_int !fiber (-1);
               Fiber.push_int !fiber (-1);

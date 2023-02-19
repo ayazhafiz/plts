@@ -51,8 +51,8 @@ stat child
 > %   -1  @old_fp
 > %    0  x
 > %    1  y
-> %    2  child1.stkdirty
-> %    3  child1.stkidx
+> %    2  child1.fibdirty
+> %    3  child1.fibidx
 > %    4  child1.return
 > %    5  child1.bit
 > %    6  n1
