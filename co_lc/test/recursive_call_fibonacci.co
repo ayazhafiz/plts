@@ -10,50 +10,48 @@ fib 28
 > +ir -print
 > fib: {
 > % Stack relative to frame pointer:
-> %   -5  #return
-> %   -4  n
-> %   -3  @old_pc
-> %   -2  @old_fp
-> %   -1  @old_sp
+> %   -4  #return
+> %   -3  n
+> %   -2  @old_pc
+> %   -1  @old_fp
 > fib:
 >   push 2
->   push fp[-4]
+>   push fp[-3]
 >   <
 >   jmpz else
 > then:
->   push fp[-4]
->   store-into fp[-5]
+>   push fp[-3]
+>   store-into fp[-4]
 >   ret
 > else:
 >   sp-add 1
 >   push 2
->   push fp[-4]
+>   push fp[-3]
 >   sub
 >   call fib
 >   sp-sub 1
 >   sp-add 1
 >   push 1
->   push fp[-4]
+>   push fp[-3]
 >   sub
 >   call fib
 >   sp-sub 1
 >   add
->   store-into fp[-5]
+>   store-into fp[-4]
 >   ret
 > }
 > 
 > @main: {
 > % Stack relative to frame pointer:
-> %   -4  #return
-> %   -3  @old_pc
-> %   -2  @old_fp
-> %   -1  @old_sp
+> %   -3  #return
+> %   -2  @old_pc
+> %   -1  @old_fp
 > @main:
 >   sp-add 1
 >   push 28
 >   call fib
 >   sp-sub 1
->   store-into fp[-4]
+>   store-into fp[-3]
 >   ret
 > }
 

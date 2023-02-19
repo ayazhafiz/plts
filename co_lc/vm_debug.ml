@@ -62,9 +62,8 @@ let fill_out (offset, (x, ty)) =
 
 let pp_debug_frame symbols f { locals } =
   let locals =
-    (`Sym "@old_pc", (T.int, `FpOffset (-3)))
-    :: (`Sym "@old_fp", (T.int, `FpOffset (-2)))
-    :: (`Sym "@old_sp", (T.int, `FpOffset (-1)))
+    (`Sym "@old_pc", (T.int, `FpOffset (-2)))
+    :: (`Sym "@old_fp", (T.int, `FpOffset (-1)))
     :: locals
   in
   let by_offset =

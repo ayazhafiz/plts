@@ -19,7 +19,6 @@
       --- < stack top on call
       old_pc
       old_fp
-      old_sp
       --- < new frame pointer = new stack pointer on enter
 *)
 
@@ -194,14 +193,13 @@ module Ctx = struct
        ---
        old_pc
        old_fp
-       old_sp
        --- < new frame pointer = new stack pointer
 
-       so, the arg starts at at fp[-3 - closure_stksize - argstksize]
+       so, the arg starts at at fp[-2 - closure_stksize - argstksize]
     *)
     let depth = current_depth c in
     let arg_stksize = stack_size arg_ty in
-    let captures_offset = -3 - closure_stksize in
+    let captures_offset = -2 - closure_stksize in
 
     let _off =
       List.fold_left
@@ -212,7 +210,7 @@ module Ctx = struct
       @@ List.rev captures
     in
 
-    let arg_offset = -3 - closure_stksize - arg_stksize in
+    let arg_offset = -2 - closure_stksize - arg_stksize in
     c.names <- (arg_name, (depth, arg_ty, `FpOffset arg_offset)) :: c.names;
 
     (* add a local for the return value *)

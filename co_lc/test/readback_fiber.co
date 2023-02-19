@@ -13,5 +13,5 @@ let f2 = spawn (child2 (x + y)) in
 {f1, f2}
 
 > +eval -print
-> {Fiber {int; int} (`Done {30, 35}),
+> {Fiber {int; int} (`Done {10, 20}),
 >   Fiber {int; int} `Pending}

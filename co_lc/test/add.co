@@ -5,13 +5,12 @@
 > +ir -print
 > @main: {
 > % Stack relative to frame pointer:
-> %   -4  #return
-> %   -3  @old_pc
-> %   -2  @old_fp
-> %   -1  @old_sp
+> %   -3  #return
+> %   -2  @old_pc
+> %   -1  @old_fp
 > @main:
 >   push 34
->   store-into fp[-4]
+>   store-into fp[-3]
 >   ret
 > }
 

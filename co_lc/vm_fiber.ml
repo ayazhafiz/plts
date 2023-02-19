@@ -83,13 +83,11 @@ let make ~ret ~arg =
       args (block)
       END_pc
       END_fp
-      END_sp
       --- current frame
     *)
   Stack.extend stack (Array.make ret debug_word);
   let top = Stack.len stack in
   Stack.extend stack arg;
-  Stack.push stack 0;
   Stack.push stack 0;
   Stack.push stack top;
   let fp = Stack.len stack in
@@ -135,13 +133,10 @@ let setup_new_frame fiber ~pc =
     ...args (set elsewhere)
     old_pc
     old_fp
-    old_sp
     --- new frame
   *)
-  let old_sp = Stack.len fiber.stack in
   push_int fiber pc;
   push_int fiber !(fiber.fp);
-  push_int fiber old_sp;
   fiber.fp := Stack.len fiber.stack
 
 let reset_to_fp { stack; fp; _ } = Stack.truncate stack !fp
@@ -152,15 +147,12 @@ let restore_old_frame fiber =
     --- wanted result
     old_pc
     old_fp
-    old_sp
     --- current frame
   *)
-  let old_sp = pop_int fiber in
   let old_fp = pop_int fiber in
   let old_pc = pop_int fiber in
-  Stack.truncate fiber.stack old_sp;
   fiber.fp := old_fp;
-  if old_sp = !(fiber.top) then
+  if old_fp = !(fiber.top) then
     let ret_val = Stack.splice_off fiber.stack !(fiber.top) in
     `Done ret_val
   else `Pc old_pc
