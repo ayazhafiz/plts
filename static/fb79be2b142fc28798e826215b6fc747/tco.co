@@ -1,0 +1,72 @@
+# +ir -print
+# +eval -print
+let fact = \n -> 
+  let rec inner = \t ->
+    if t.0 == 0 then t.1
+    else inner {t.0 - 1, t.1 * t.0}
+  in
+  inner {n, 1}
+in fact 10
+
+> +ir -print
+> inner: {
+> % Stack relative to frame pointer:
+> %   -5  #return
+> %   -4  t.1
+> %   -3  t.0
+> %   -2  @old_pc
+> %   -1  @old_fp
+> inner:
+>   push 0
+>   push fp[-3]
+>   =
+>   jmpz else
+> then:
+>   push fp[-4]
+>   store-into fp[-5]
+>   ret
+> else:
+>   push fp[-3]
+>   push fp[-4]
+>   mul
+>   store-into fp[-4]
+>   push 1
+>   push fp[-3]
+>   sub
+>   store-into fp[-3]
+>   sp-restore-fp
+>   jmp inner
+> }
+> 
+> fact: {
+> % Stack relative to frame pointer:
+> %   -4  #return
+> %   -3  n
+> %   -2  @old_pc
+> %   -1  @old_fp
+> fact:
+>   sp-add 1
+>   push 1
+>   push fp[-3]
+>   call inner
+>   sp-sub 2
+>   store-into fp[-4]
+>   ret
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -3  #return
+> %   -2  @old_pc
+> %   -1  @old_fp
+> @main:
+>   sp-add 1
+>   push 10
+>   call fact
+>   sp-sub 1
+>   store-into fp[-3]
+>   ret
+> }
+
+> +eval -print
+> 3628800

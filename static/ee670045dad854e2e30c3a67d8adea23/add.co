@@ -1,0 +1,18 @@
+# +ir -print
+# +eval -print
+13 + 21
+
+> +ir -print
+> @main: {
+> % Stack relative to frame pointer:
+> %   -3  #return
+> %   -2  @old_pc
+> %   -1  @old_fp
+> @main:
+>   push 34
+>   store-into fp[-3]
+>   ret
+> }
+
+> +eval -print
+> 34

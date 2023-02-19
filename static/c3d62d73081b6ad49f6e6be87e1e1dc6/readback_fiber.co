@@ -1,0 +1,17 @@
+# +eval -print
+let child1 = \n ->
+  {n, n + 5}
+in
+let child2 = \n ->
+  yield;
+  {n, n + 5}
+in
+let x = 10 in
+let y = 20 in
+let f1 = spawn (child1 (x + y)) in
+let f2 = spawn (child2 (x + y)) in
+{f1, f2}
+
+> +eval -print
+> {Fiber {int; int} (`Done {10, 20}),
+>   Fiber {int; int} `Pending}

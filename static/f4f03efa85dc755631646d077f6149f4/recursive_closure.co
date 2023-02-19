@@ -1,0 +1,78 @@
+# +solve -elab
+# +ir -print
+# +eval -print
+let inc = 2 in
+let rec incTo = \n ->
+#       ^^^^^
+  if n == 0 then 0
+  else inc + (incTo (n - 1))
+in
+incTo 7
+
+> +solve -elab
+> let inc = 2 in
+> let rec incTo = \n ->
+> #       ^^^^^ int -[incTo {inc}]-> int
+>   if n == 0 then 0
+>   else inc + (incTo (n - 1))
+> in
+> incTo 7
+> 
+
+> +ir -print
+> incTo: {
+> % Stack relative to frame pointer:
+> %   -5  #return
+> %   -4  n
+> %   -3  inc
+> %   -3  incTo.captures.0
+> %   -2  @old_pc
+> %   -1  @old_fp
+> incTo:
+>   push 0
+>   push fp[-4]
+>   =
+>   jmpz else
+> then:
+>   push 0
+>   store-into fp[-5]
+>   ret
+> else:
+>   sp-add 1
+>   push 1
+>   push fp[-4]
+>   sub
+>   push fp[-3]
+>   call incTo
+>   sp-sub 2
+>   push fp[-3]
+>   add
+>   store-into fp[-5]
+>   ret
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -3  #return
+> %   -2  @old_pc
+> %   -1  @old_fp
+> %    0  inc
+> %    1  incTo.captures.0
+> @main:
+>   sp-add 2
+> start:
+>   push 2
+>   store-into fp[0]
+>   push fp[0]
+>   store-into fp[1]
+>   sp-add 1
+>   push 7
+>   push fp[1]
+>   call incTo
+>   sp-sub 2
+>   store-into fp[-3]
+>   ret
+> }
+
+> +eval -print
+> 14

@@ -1,0 +1,62 @@
+# +solve -elab
+# +ir -print
+# +eval -print
+let add = \m -> \n -> m + n in
+#   ^^^         ^^^^^^^^^^^
+add 5 6
+
+> +solve -elab
+> let add = \m -> \n -> m + n in
+> #               ^^^^^^^^^^^ int -[lam {m}]-> int
+> #   ^^^ int -[add {}]-> int -[lam {m}]-> int
+> add 5 6
+> 
+
+> +ir -print
+> lam: {
+> % Stack relative to frame pointer:
+> %   -5  #return
+> %   -4  n
+> %   -3  m
+> %   -2  @old_pc
+> %   -1  @old_fp
+> lam:
+>   push fp[-4]
+>   push fp[-3]
+>   add
+>   store-into fp[-5]
+>   ret
+> }
+> 
+> add: {
+> % Stack relative to frame pointer:
+> %   -4  #return.captures.0
+> %   -3  m
+> %   -2  @old_pc
+> %   -1  @old_fp
+> add:
+>   push fp[-3]
+>   store-into fp[-4]
+>   ret
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -3  #return
+> %   -2  @old_pc
+> %   -1  @old_fp
+> @main:
+>   sp-add 1
+>   push 6
+>   sp-add 1
+>   push 5
+>   call add
+>   sp-sub 1
+>   call lam
+>   sp-sub 2
+>   store-into fp[-3]
+>   ret
+> }
+
+> +eval -print
+> 11

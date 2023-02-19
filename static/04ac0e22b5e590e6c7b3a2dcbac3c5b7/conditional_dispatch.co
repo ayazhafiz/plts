@@ -1,0 +1,258 @@
+# +solve -elab
+# +ir -print
+# +eval -print
+let x = 5 in
+let y = 6 in
+let z = 7 in
+let f = \n ->
+#   ^
+  if n == 1 then \w -> w + x
+  else if n == 2 then \w -> w + x + y
+  else \w -> w + x + y + z
+in
+let f1 = (f 1) 2 in
+let f2 = (f 2) 2 in
+let f3 = (f 3) 2 in
+{f1, f2, f3}
+
+> +solve -elab
+> let x = 5 in
+> let y = 6 in
+> let z = 7 in
+> let f = \n ->
+> #   ^ int
+> #   ^   -[f {x, y, z}]-> int
+> #   ^                      -[lam {x} | lam1 {x, y} | lam2 {x, y, z}]-> int
+>   if n == 1 then \w -> w + x
+>   else if n == 2 then \w -> w + x + y
+>   else \w -> w + x + y + z
+> in
+> let f1 = (f 1) 2 in
+> let f2 = (f 2) 2 in
+> let f3 = (f 3) 2 in
+> {f1, f2, f3}
+> 
+
+> +ir -print
+> lam1: {
+> % Stack relative to frame pointer:
+> %   -7  #return
+> %   -6  w1
+> %   -5  y
+> %   -4  x
+> %   -2  @old_pc
+> %   -1  @old_fp
+> lam1:
+>   push fp[-5]
+>   push fp[-4]
+>   add
+>   push fp[-6]
+>   add
+>   store-into fp[-7]
+>   ret
+> }
+> 
+> lam2: {
+> % Stack relative to frame pointer:
+> %   -7  #return
+> %   -6  w2
+> %   -5  z
+> %   -4  y
+> %   -3  x
+> %   -2  @old_pc
+> %   -1  @old_fp
+> lam2:
+>   push fp[-5]
+>   push fp[-4]
+>   add
+>   push fp[-3]
+>   add
+>   push fp[-6]
+>   add
+>   store-into fp[-7]
+>   ret
+> }
+> 
+> lam: {
+> % Stack relative to frame pointer:
+> %   -7  #return
+> %   -6  w
+> %   -5  x
+> %   -2  @old_pc
+> %   -1  @old_fp
+> lam:
+>   push fp[-5]
+>   push fp[-6]
+>   add
+>   store-into fp[-7]
+>   ret
+> }
+> 
+> f: {
+> % Stack relative to frame pointer:
+> %   -10  #return.captures.0
+> %    -9  #return.captures.1
+> %    -8  #return.captures.2
+> %    -7  #return.lambda_tag
+> %    -6  n
+> %    -5  z
+> %    -4  y
+> %    -3  x
+> %    -2  @old_pc
+> %    -1  @old_fp
+> f:
+>   push 1
+>   push fp[-6]
+>   =
+>   jmpz else
+> then:
+>   push fp[-3]
+>   store-into fp[-10]
+>   push 0
+>   store-into fp[-9]
+>   push 0
+>   store-into fp[-8]
+>   push 0
+>   store-into fp[-7]
+>   ret
+> else:
+>   push 2
+>   push fp[-6]
+>   =
+>   jmpz else1
+> then1:
+>   push fp[-4]
+>   store-into fp[-10]
+>   push fp[-3]
+>   store-into fp[-9]
+>   push 0
+>   store-into fp[-8]
+>   push 1
+>   store-into fp[-7]
+>   ret
+> else1:
+>   push fp[-5]
+>   store-into fp[-10]
+>   push fp[-4]
+>   store-into fp[-9]
+>   push fp[-3]
+>   store-into fp[-8]
+>   push 2
+>   store-into fp[-7]
+>   ret
+> }
+> 
+> @main: {
+> % Stack relative to frame pointer:
+> %   -5  #return.2
+> %   -4  #return.1
+> %   -3  #return.0
+> %   -2  @old_pc
+> %   -1  @old_fp
+> %    0  x
+> %    1  y
+> %    2  z
+> %    3  f.captures.0
+> %    4  f.captures.1
+> %    5  f.captures.2
+> %    6  f1
+> %    7  f2
+> %    8  f3
+> @main:
+>   sp-add 9
+> start:
+>   push 5
+>   store-into fp[0]
+>   push 6
+>   store-into fp[1]
+>   push 7
+>   store-into fp[2]
+>   push fp[2]
+>   store-into fp[3]
+>   push fp[1]
+>   store-into fp[4]
+>   push fp[0]
+>   store-into fp[5]
+>   sp-add 1
+>   push 2
+>   sp-add 4
+>   push 1
+>   push fp[3]
+>   push fp[4]
+>   push fp[5]
+>   call f
+>   sp-sub 4
+>   push 2
+>   mul
+>   jmprel1
+> call_0_:
+>   call lam
+>   jmp join_call
+> call_1_:
+>   call lam1
+>   jmp join_call
+> call_2_:
+>   call lam2
+>   jmp join_call
+> join_call:
+>   sp-sub 4
+>   store-into fp[6]
+>   sp-add 1
+>   push 2
+>   sp-add 4
+>   push 2
+>   push fp[3]
+>   push fp[4]
+>   push fp[5]
+>   call f
+>   sp-sub 4
+>   push 2
+>   mul
+>   jmprel1
+> call_0_1:
+>   call lam
+>   jmp join_call1
+> call_1_1:
+>   call lam1
+>   jmp join_call1
+> call_2_1:
+>   call lam2
+>   jmp join_call1
+> join_call1:
+>   sp-sub 4
+>   store-into fp[7]
+>   sp-add 1
+>   push 2
+>   sp-add 4
+>   push 3
+>   push fp[3]
+>   push fp[4]
+>   push fp[5]
+>   call f
+>   sp-sub 4
+>   push 2
+>   mul
+>   jmprel1
+> call_0_2:
+>   call lam
+>   jmp join_call2
+> call_1_2:
+>   call lam1
+>   jmp join_call2
+> call_2_2:
+>   call lam2
+>   jmp join_call2
+> join_call2:
+>   sp-sub 4
+>   store-into fp[8]
+>   push fp[8]
+>   store-into fp[-5]
+>   push fp[7]
+>   store-into fp[-4]
+>   push fp[6]
+>   store-into fp[-3]
+>   ret
+> }
+
+> +eval -print
+> {7, 13, 20}
