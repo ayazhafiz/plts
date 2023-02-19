@@ -6,7 +6,7 @@ let show_value = Vm_fiber.show_value
 
 exception Bad_value of string
 
-let expect_int l = match List.hd l with `Int n -> (n, List.tl l)
+let expect_int l = match List.hd l with n -> (n, List.tl l)
 let noloc = Ast.noloc
 let noty = ref (Ast.Unbd (-1))
 
@@ -46,7 +46,7 @@ let rec build_ast symbols vals ty =
             let lambda, captures =
               if List.length lambda_set = 1 then List.hd lambda_set
               else
-                let (`Int bit) = List.nth vals (stksize - 1) in
+                let bit = List.nth vals (stksize - 1) in
                 List.nth lambda_set bit
             in
 
@@ -66,7 +66,7 @@ let rec build_ast symbols vals ty =
             let t_s = string_of_ty symbols t in
 
             let items =
-              if List.nth vals (size - 1) = `Int 1 then
+              if List.nth vals (size - 1) = 1 then
                 let completed, _ = build_ast symbols (drop_n vals 2) t in
                 App ((noloc, noty, Var (`Sym "`Done")), completed)
               else Var (`Sym "`Pending")

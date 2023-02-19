@@ -7,15 +7,11 @@
     stack representation is typed, when a production implementation likely would
     not implement it as such. *)
 
-exception Bad_stack of string
-
-let invalid_state s = raise (Bad_stack s)
-
-type value = [ `Int of int ] [@@deriving show]
+type value = int [@@deriving show]
 type word = value [@@deriving show]
 type block = word Array.t
 
-let debug_word = `Int 0xAAAAAAAA
+let debug_word = 0xAAAAAAAA
 let empty_block = Array.make 0 debug_word
 let vals_of_block words = Array.to_list words
 
@@ -93,28 +89,25 @@ let make ~ret ~arg =
   Stack.extend stack (Array.make ret debug_word);
   let top = Stack.len stack in
   Stack.extend stack arg;
-  Stack.push stack (`Int 0);
-  Stack.push stack (`Int 0);
-  Stack.push stack (`Int top);
+  Stack.push stack 0;
+  Stack.push stack 0;
+  Stack.push stack top;
   let fp = Stack.len stack in
   { stack; fp = ref fp; top = ref top }
 
 let pop { stack; _ } = Stack.pop stack
-let pop_int fiber = match pop fiber with `Int n -> n
+let pop_int fiber = match pop fiber with n -> n
 let pop_block { stack; _ } block_size = Stack.splice_off stack block_size
 
 let in_place_int { stack; _ } f =
-  let modifier = function
-    | `Int n -> `Int (f n)
-    | _ -> invalid_state "not an int"
-  in
+  let modifier = function n -> f n in
   Stack.modify_top stack modifier
 
-let push_int { stack; _ } n = Stack.push stack (`Int n)
+let push_int { stack; _ } n = Stack.push stack n
 let push_block { stack; _ } block = Stack.extend stack block
 
 let push_zeroed fiber n =
-  let block = Array.make n (`Int 0) in
+  let block = Array.make n 0 in
   push_block fiber block
 
 let push fiber = function

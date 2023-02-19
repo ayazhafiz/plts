@@ -9,7 +9,7 @@ type block
 val empty_block : block
 (** Zero-sized [block]. *)
 
-type value = [ `Int of int ]
+type value = int
 
 val show_value : value -> string
 val vals_of_block : block -> value list
