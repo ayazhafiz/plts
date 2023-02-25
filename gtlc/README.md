@@ -16,7 +16,7 @@ Flow:
 
 ## References
 
-References (boxed values) are implemented as in Siek and Taha's paper. However,
+References (mutable values) are implemented as in Siek and Taha's paper. However,
 there is no prior art (that I know of) relating gradually-typed references with
 type inference. The implemented type reference follows Siek and Vachharajani, 2008.
 We perform a modification of their algorithm to support references, namely to
