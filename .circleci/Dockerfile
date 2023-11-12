@@ -12,6 +12,7 @@ RUN opam install -y js_of_ocaml-compiler
 RUN opam install -y js_of_ocaml-ppx
 RUN opam install -y ppx_inline_test
 RUN opam install -y ppx_expect
+RUN opam install -y ppx_deriving
 RUN opam install -y ocamlgraph
 RUN sudo apt install -y libgmp-dev
 RUN opam install -y zarith
