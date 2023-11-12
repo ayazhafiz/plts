@@ -37,11 +37,11 @@
 (rule
   (mode (promote (into js)))
   (targets co_lc.js co_lc.d.ts)
-  (deps (glob_files js/prim.js))
+  (deps (glob_files prim.js))
   (action
     (progn
       (run %{bin:js_of_ocaml}
-           js/prim.js
+           prim.js
            %{dep:co_lc_js.bc}
            -o co_lc.js)
       (with-outputs-to co_lc.d.ts

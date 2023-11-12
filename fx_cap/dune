@@ -38,11 +38,11 @@
 (rule
   (mode (promote (into js)))
   (targets fx_cap.js fx_cap.d.ts)
-  (deps (glob_files js/prim.js))
+  (deps (glob_files prim.js))
   (action
     (progn
       (run %{bin:js_of_ocaml}
-           js/prim.js
+           prim.js
            %{dep:fx_cap_js.bc}
            -o fx_cap.js)
       (with-outputs-to fx_cap.d.ts

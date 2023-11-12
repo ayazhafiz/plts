@@ -1,5 +1,4 @@
 open Language
-open CamomileLibrary
 
 let with_buffer cb width =
   let open Format in
@@ -149,7 +148,7 @@ let pp_split f =
   let open Format in
   let rec go split =
     let result = string_of_split_result split in
-    let dashes = String.make (UTF8.length result) '-' in
+    let dashes = String.make (String.length result) '-' in
     let subsplits = subsplits_of_split split in
     fprintf f "@[<v 2>@[<v 0>%s %s" vbar result;
     fprintf f "@,%s %s %s@]" vbar dashes (name_of_split split);
@@ -166,7 +165,7 @@ let pp_derivation_tree f pretty tree =
   let open Format in
   let rec go tree =
     let result = string_of_derivation_result pretty tree in
-    let dashes = String.make (UTF8.length result) '-' in
+    let dashes = String.make (String.length result) '-' in
     let splits = splits_of_derivation tree in
     let subderivations = subderivations_of_derivation tree in
     fprintf f "@[<v 2>@[<v 0>%s %s" vbar result;
