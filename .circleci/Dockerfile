@@ -1,8 +1,6 @@
-FROM ocaml/opam
+FROM ocaml/opam:ubuntu-ocaml-4.14
 SHELL ["/bin/bash", "-c"]
 
-RUN opam switch create 4.14.0
-RUN opam switch set 4.14.0
 RUN opam pin strictly-annotated https://github.com/ayazhafiz/strictly-annotated.git
 RUN opam install -y dune
 RUN opam install -y menhir
