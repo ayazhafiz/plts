@@ -48,11 +48,6 @@ const config = {
     },
     {
       resolve: `gatsby-plugin-mdx`,
-      options: {
-        defaultLayouts: {
-          default: require.resolve('./src/components/md-wrapper.tsx'),
-        }
-      }
     },
   ],
 };

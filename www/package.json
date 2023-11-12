@@ -30,7 +30,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-helmet": "6.1.0",
-    "react-markdown": "latest",
+    "react-markdown": "^8.0.7",
     "styled-components": "^5.3.11",
     "styled-system": "^5.1.5",
     "tal": "0.0.0",
