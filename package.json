@@ -1,7 +1,9 @@
 {
   "name": "plts",
-  "packageManager": "yarn@3.2.1",
   "private": true,
+  "devDependencies": {
+    "typescript": "latest"
+  },
   "workspaces": [
     "www",
     "ft/js",
@@ -11,8 +13,5 @@
     "tiger/js",
     "cor/js",
     "co_lc/js"
-  ],
-  "devDependencies": {
-    "typescript": "latest"
-  }
+  ]
 }

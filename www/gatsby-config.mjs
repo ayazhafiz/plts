@@ -1,6 +1,11 @@
-const path = require('path');
+import path from "path"
+import {fileURLToPath} from "url"
+import {createRequire} from "module"
 
-module.exports = {
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const require = createRequire(import.meta.url)
+
+const config = {
   pathPrefix: process.env.PUBLISH ? '/plts' : '',
   flags: {
     DEV_SSR: false,
@@ -35,6 +40,13 @@ module.exports = {
       },
     },
     {
+      resolve: 'gatsby-source-filesystem',
+      options: {
+        name: 'pages',
+        path: path.resolve(__dirname, './src/pages/')
+      },
+    },
+    {
       resolve: `gatsby-plugin-mdx`,
       options: {
         defaultLayouts: {
@@ -44,3 +56,5 @@ module.exports = {
     },
   ],
 };
+
+export default config;

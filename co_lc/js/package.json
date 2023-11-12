@@ -1,10 +1,7 @@
 {
   "name": "co_lc",
-  "packageManager": "yarn@3.2.1",
+  "version": "0.0.0",
   "main": "co_lc.js",
   "module": "co_loc",
-  "types": "co_lc.d.ts",
-  "devDependencies": {
-    "www": "workspace:www"
-  }
+  "types": "co_lc.d.ts"
 }

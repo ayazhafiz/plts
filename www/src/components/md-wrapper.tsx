@@ -1,12 +1,12 @@
 import * as React from "react";
-import Helmet from "react-helmet";
-import { Box, ThemeProvider } from "@primer/react";
+import {Helmet} from "react-helmet";
+import {Box, ThemeProvider} from "@primer/react";
 
 const MdWrapper: React.FC<{
   children: React.ReactNode;
   title: string;
   margin: [number, number, number];
-}> = ({ title = "plts", children, margin = [4, 4, 10] }) => (
+}> = ({title = "plts", children, margin = [4, 4, 10]}) => (
   <>
     <Helmet>
       <title>{title}</title>

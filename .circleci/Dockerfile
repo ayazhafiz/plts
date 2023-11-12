@@ -36,5 +36,3 @@ ARG NODE_HOME=$HOME/bin/$NODE_PACKAGE
 ENV NODE_PATH $NODE_HOME/lib/node_modules
 ENV PATH $NODE_HOME/bin:$PATH
 RUN curl https://nodejs.org/dist/v$NODE_VERSION/$NODE_PACKAGE.tar.gz | tar -xzC $HOME/bin/
-RUN npm install -g yarn
-RUN yarn set version berry

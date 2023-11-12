@@ -1,6 +1,6 @@
 {
   "name": "tiger",
-  "packageManager": "yarn@3.0.2",
+  "version": "0.0.0",
   "main": "tiger.js",
   "module": "tiger",
   "types": "tiger.d.ts"

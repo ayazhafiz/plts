@@ -1,13 +1,29 @@
 import Revision from "../components/revision.tsx"
+import {Helmet} from "react-helmet";
+import {Box, ThemeProvider} from "@primer/react";
+
+export default function Layout({children}) {
+  return (<>
+    <Helmet>
+      <title>plts</title>
+      <link
+        rel="stylesheet"
+        href="https://unpkg.com/@primer/css/dist/primer.css"
+      />
+    </Helmet>
+    <ThemeProvider>
+      <Box className="markdown-body">
+        <Box m={[4, 4, 10]}>{children}</Box>
+      </Box>
+    </ThemeProvider>
+  </>);
+}
 
 # plts <Revision />
 
 Implementations of type systems and programming languages I find interesting.
 
 Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
-
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Introductory](#introductory)
 - [Flow Typing](#flow-typing)
@@ -17,8 +33,6 @@ Repository: [gh:ayazhafiz/plts](https://github.com/ayazhafiz/plts).
 - [Dependent Types](#dependent-types)
 - [Effects and Coroutines](#effects-and-coroutines)
 - [Roc](#roc)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Introductory
 
@@ -144,6 +158,11 @@ compiler.
 
     - [Playground][roc-easy-tags-pg]
 
+- [cor/compose_fx](https://github.com/ayazhafiz/cor/tree/base/experiments/compose_fx):
+    A demonstration of composable effects as designed in Roc.
+
+    - [Playground][roc-compose-fx-pg]
+
 [tiger-pg]: https://ayazhafiz.com/plts/playground/tiger
 [ft-pg]: https://ayazhafiz.com/plts/playground/ft
 [gtlc-pg]: https://ayazhafiz.com/plts/playground/gtlc
@@ -152,4 +171,5 @@ compiler.
 [uls-pg]: https://ayazhafiz.com/plts/playground/cor/uls
 [roc-refine-pg]: https://ayazhafiz.com/plts/playground/cor/refine
 [roc-easy-tags-pg]: https://ayazhafiz.com/plts/playground/cor/easy_tags
+[roc-compose-fx-pg]: https://ayazhafiz.com/plts/playground/cor/compose_fx
 [co_lc-pg]: https://ayazhafiz.com/plts/playground/co_lc
