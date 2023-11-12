@@ -21,15 +21,15 @@ jobs:
             - gatsby-cache
       - restore_cache:
           keys:
-            - node_modules-{{ checksum "yarn.lock" }}
+            - node_modules-{{ checksum "package-lock.json" }}
       - run:
           name: Build site
           command: |
             git submodule sync && git submodule update --init
             eval $(opam env)
             dune build
-            yarn install
-            cd www && yarn build
+            npm install
+            cd www && npm run build
             cp -R public /tmp/out && cd ..
           no_output_timeout: 20m
       - save_cache:
@@ -38,7 +38,7 @@ jobs:
             www/.cache
             www/public
       - save_cache:
-          key: node_modules-{{ checksum "yarn.lock" }}
+          key: node_modules-{{ checksum "package-lock.json" }}
           paths:
             node_modules
       - run: |
