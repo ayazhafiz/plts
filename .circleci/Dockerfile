@@ -29,7 +29,7 @@ RUN opam pin tiger https://github.com/ayazhafiz/tiger.git
 RUN sudo apt-get update && sudo apt-get install -y \
   ca-certificates \
   curl
-ARG NODE_VERSION=16.14.0
+ARG NODE_VERSION=20.5.0
 ARG NODE_PACKAGE=node-v$NODE_VERSION-linux-x64
 RUN mkdir $HOME/bin
 ARG NODE_HOME=$HOME/bin/$NODE_PACKAGE
