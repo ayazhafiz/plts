@@ -10,8 +10,8 @@ export PUBLISH=1
 mv node_modules /tmp/node_modules
 dune build
 mv /tmp/node_modules node_modules
-yarn install
-cd www && yarn clean && yarn build
+npm install
+cd www && npm run clean && npm run build
 rm -rf /tmp/plts
 cp -R public /tmp/plts && cd ..
 
