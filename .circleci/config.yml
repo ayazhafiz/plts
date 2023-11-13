@@ -16,12 +16,6 @@ jobs:
     resource_class: large
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - gatsby-cache
-      - restore_cache:
-          keys:
-            - node_modules-{{ checksum "package-lock.json" }}
       - run:
           name: Build site
           command: |
@@ -32,15 +26,6 @@ jobs:
             cd www && npm run build
             cp -R public /tmp/out && cd ..
           no_output_timeout: 20m
-      - save_cache:
-          key: gatsby-cache-{{epoch}}
-          paths:
-            www/.cache
-            www/public
-      - save_cache:
-          key: node_modules-{{ checksum "package-lock.json" }}
-          paths:
-            node_modules
       - run: |
           git reset --hard HEAD
           git config --global user.email "builds@circleci.com"
