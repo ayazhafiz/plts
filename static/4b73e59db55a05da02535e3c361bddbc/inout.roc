@@ -1,5 +1,6 @@
 # cor +parse -print
 # cor +can -print
+# cor +solve -elab
 # Task.roc
 Task v op : (v -> op) -> op
 
@@ -7,6 +8,7 @@ sig await : Task a op -> (a -> Task b op) -> Task b op
 let await = \fromResult -> \next ->
     \continue ->
         fromResult (\result ->
+#       ^^^^^^^^^^
             let inner = next result in
             inner continue)
 ;;
@@ -43,6 +45,7 @@ Op a : [
 
 sig main : Task {} (Op *)
 run main = await lineIn (\s -> lineOut s)
+#          ^^^^^          ^    ^^^^^^^
 ;;
 
 > cor-out +parse -print
@@ -134,3 +137,56 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > sig main : Task {} (Op '*)
 > run main = await lineIn \s -> lineOut s
+
+> cor-out +solve -elab
+> # Task.roc
+> Task v op : (v -> op) -> op
+> 
+> sig await : Task a op -> (a -> Task b op) -> Task b op
+> let await = \fromResult -> \next ->
+>     \continue ->
+>         fromResult (\result ->
+> #       ^^^^^^^^^^ Task 'a 'op
+>             let inner = next result in
+>             inner continue)
+> ;;
+> 
+> # StdinEffect.roc
+> OpIn a b : [
+>     StdinLine (Str -> OpIn a b),
+>     Done a,
+> ]b
+> 
+> # Stdin.roc
+> sig lineIn : Task Str (OpIn * *)
+> let lineIn = \toNext -> StdinLine (\s -> toNext s)
+> ;;
+> 
+> # StdoutEffect.roc
+> OpOut a b : [
+>     StdoutLine Str ({} -> OpOut a b),
+>     Done a,
+> ]b
+> 
+> # Stdout.roc
+> sig lineOut : Str -> Task {} (OpOut * *)
+> let lineOut = \s -> (\toNext -> StdoutLine s (\x -> toNext x))
+> ;;
+> 
+> # Platform
+> # really, we want a syntax like [Done a](OpIn a)(OpOut a) here
+> Op a : [
+>     StdinLine (Str -> Op a),
+>     StdoutLine Str ({} -> Op a),
+>     Done a,
+> ]
+> 
+> sig main : Task {} (Op *)
+> run main = await lineIn (\s -> lineOut s)
+> #                              ^^^^^^^ Str -> Task {} (OpOut ?* ?*)
+> #                         ^ Str
+> #          ^^^^^ (Task Str (OpIn ?* ?*))
+> #          ^^^^^   -> (Str -> Task {} (OpOut ?* ?*))
+> #          ^^^^^        -> Task {} (Op '*)
+> ;;
+> 
