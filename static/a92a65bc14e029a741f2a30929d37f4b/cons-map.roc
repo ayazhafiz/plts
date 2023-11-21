@@ -1,5 +1,4 @@
 # cor +solve -elab
-# cor +ir -print
 List a : [ Nil, Cons a (List a) ]
 
 sig map : (a -> b) -> List a -> List b
@@ -7,6 +6,7 @@ sig map : (a -> b) -> List a -> List b
 let map = \f -> \xs ->
   let rec go = \xs ->
     when xs is
+#        ^^
       | Nil -> Nil
       | Cons x xs -> Cons (f x) (go xs)
     end
