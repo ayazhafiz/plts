@@ -1,5 +1,6 @@
 # cor +solve -elab
 # cor +ir -print
+# cor +eval -print
 # Task.roc
 Task v op : (v -> op) -> op
 
@@ -54,7 +55,7 @@ run main_handler =
     let rec handle = \op -> when op is
 #           ^^^^^^
         | StdinLine f -> handle (f "hello")
-        | StdoutLine s f -> handle (f "")
+        | StdoutLine s f -> handle (f s)
         | Done x -> x
     end
     in
@@ -121,7 +122,7 @@ run main_handler =
 >     let rec handle = \op -> when op is
 > #           ^^^^^^ %(Op Str) -> Str
 >         | StdinLine f -> handle (f "hello")
->         | StdoutLine s f -> handle (f "")
+>         | StdoutLine s f -> handle (f s)
 >         | Done x -> x
 >     end
 >     in
@@ -510,8 +511,7 @@ run main_handler =
 >     let captures12: box<erased> = @get_struct_field<handle, 1>;
 >     let fnptr13: *fn = @get_struct_field<f1, 0>;
 >     let captures13: box<erased> = @get_struct_field<f1, 1>;
->     let var24: str = "";
->     let var25:
+>     let var24:
 >           box<
 >             %type_0 =
 >             [
@@ -519,8 +519,8 @@ run main_handler =
 >                `1 { { *fn, box<erased> } },
 >                `2 { str, { *fn, box<erased> } }
 >             ]>
->       = @call_indirect(fnptr13, captures13, var24);
->     @call_indirect(fnptr12, captures12, var25)
+>       = @call_indirect(fnptr13, captures13, s3);
+>     @call_indirect(fnptr12, captures12, var24)
 >   }
 >   } in join join;
 >   return join;
@@ -560,3 +560,7 @@ run main_handler =
 > global main_handler: str = @call_direct(main_handler_thunk);
 > 
 > entry main_handler;
+
+> cor-out +eval -print
+> main_handler = [104 101 108 108 111]
+>              > "hello"

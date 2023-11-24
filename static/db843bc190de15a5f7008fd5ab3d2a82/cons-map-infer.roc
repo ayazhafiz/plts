@@ -1,9 +1,6 @@
 # cor +solve -elab
 # cor +ir -print
-List a : [ Nil, Cons a (List a) ]
-
-sig map : (a -> b) -> List a -> List b
-#   ^^^
+# cor +eval -print
 let map = \f -> \xs ->
   let rec go = \xs ->
     when xs is
@@ -19,43 +16,45 @@ let map = \f -> \xs ->
 let mapper = \x -> A x;;
 #   ^^^^^^
 
-sig l : List Int
 let l = Cons 1 (Cons 2 Nil);;
 
 run main = map mapper l;;
+#   ^^^^   ^^^
 
 > cor-out +solve -elab
-> List a : [ Nil, Cons a (List a) ]
-> 
-> sig map : (a -> b) -> List a -> List b
-> #   ^^^ ('a -> 'b) -> %(List 'a1) -> %List 'b1
 > let map = \f -> \xs ->
 >   let rec go = \xs ->
 >     when xs is
-> #        ^^ %List 'a
+> #        ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
 >       | Nil -> Nil
 >       | Cons x xs -> Cons (f x) (go xs)
-> #                                   ^^ %List 'a
-> #              ^^ %List 'a
+> #                                   ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
+> #              ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
 >     end
 >   in go xs
-> #       ^^ %List 'a
+> #       ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
 > ;;
 > 
 > let mapper = \x -> A x;;
 > #   ^^^^^^ 'a -> [A 'a]'*
 > 
-> sig l : List Int
 > let l = Cons 1 (Cons 2 Nil);;
 > 
 > run main = map mapper l;;
+> #          ^^^ (Int -> [A Int]'a)
+> #          ^^^   -> [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
+> #          ^^^        -> [
+> #          ^^^             Cons [A Int]'a <..[Cons .. .., Nil]'*>,
+> #          ^^^             Nil
+> #          ^^^             ]'*
+> #   ^^^^ [Cons [A Int]'* <..[Cons .. .., Nil]'*>, Nil]'*
 > 
 
 > cor-out +ir -print
 > proc go1(
 >   captures_go: box<erased>,
 >    xs1: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>):
->   box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>   box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 > {
 >   let captures_box2: box<{ { *fn, box<erased> } }>
 >     = @ptr_cast(captures_go as box<{ { *fn, box<erased> } }>);
@@ -80,12 +79,12 @@ run main = map mapper l;;
 >     let var3: [ `0 { int } ] = @call_indirect(fnptr1, captures1, x);
 >     let fnptr2: *fn = @get_struct_field<go, 0>;
 >     let captures2: box<erased> = @get_struct_field<go, 1>;
->     let var4: box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>     let var4: box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 >       = @call_indirect(fnptr2, captures2, xs2);
 >     let struct1:
 >           {
 >            [ `0 { int } ],
->             box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>             box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 >            ,
 >           }
 >       = @make_struct{ var3, var4 };
@@ -93,7 +92,7 @@ run main = map mapper l;;
 >           [
 >              `0 {
 >                  [ `0 { int } ],
->                   box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>                   box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 >                  ,
 >                 },
 >              `1 {}
@@ -108,7 +107,7 @@ run main = map mapper l;;
 >           [
 >              `0 {
 >                  [ `0 { int } ],
->                   box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>                   box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 >                  ,
 >                 },
 >              `1 {}
@@ -123,7 +122,7 @@ run main = map mapper l;;
 > proc clos1(
 >   captures_1: box<erased>,
 >    xs: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>):
->   box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>   box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 > {
 >   let captures_box1: box<{ { *fn, box<erased> } }>
 >     = @ptr_cast(captures_1 as box<{ { *fn, box<erased> } }>);
@@ -137,7 +136,7 @@ run main = map mapper l;;
 >   let go: { *fn, box<erased> } = @make_struct{ fn_ptr_go, captures_go };
 >   let fnptr: *fn = @get_struct_field<go, 0>;
 >   let captures: box<erased> = @get_struct_field<go, 1>;
->   let var2: box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>   let var2: box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 >     = @call_indirect(fnptr, captures, xs);
 >   return var2;
 > }
@@ -198,7 +197,13 @@ run main = map mapper l;;
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<1, struct3>;
->   let var9: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
+>   let var9:
+>         box<
+>           %type_3 =
+>           [
+>              `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> },
+>              `1 {}
+>           ]>
 >     = @make_box(union2);
 >   let struct4: { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }
 >     = @make_struct{ var8, var9 };
@@ -206,7 +211,13 @@ run main = map mapper l;;
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<0, struct4>;
->   let var10: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
+>   let var10:
+>         box<
+>           %type_2 =
+>           [
+>              `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> },
+>              `1 {}
+>           ]>
 >     = @make_box(union3);
 >   let struct5: { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }
 >     = @make_struct{ var7, var10 };
@@ -224,14 +235,14 @@ run main = map mapper l;;
 >   = @call_direct(l_thunk);
 > 
 > proc main_thunk():
->   box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>   box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 > {
 >   let fnptr3: *fn = @get_struct_field<map1, 0>;
 >   let captures3: box<erased> = @get_struct_field<map1, 1>;
 >   let var12: { *fn, box<erased> } = @call_indirect(fnptr3, captures3, mapper1);
 >   let fnptr4: *fn = @get_struct_field<var12, 0>;
 >   let captures4: box<erased> = @get_struct_field<var12, 1>;
->   let var13: box<%type_2 = [ `0 { [ `0 { int } ], box<%type_2> }, `1 {} ]>
+>   let var13: box<%type_1 = [ `0 { [ `0 { int } ], box<%type_1> }, `1 {} ]>
 >     = @call_indirect(fnptr4, captures4, l1);
 >   return var13;
 > }
@@ -241,3 +252,7 @@ run main = map mapper l;;
 >   = @call_direct(main_thunk);
 > 
 > entry main;
+
+> cor-out +eval -print
+> main = [0 [0 1] [0 [0 2] [1]]]
+>      > Cons (A 1) (Cons (A 2) (Nil ))
