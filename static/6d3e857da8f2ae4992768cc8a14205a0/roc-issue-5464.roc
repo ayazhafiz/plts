@@ -11,10 +11,10 @@ Op a : [
 
 Task ok err op : ([ Ok ok, Err err ] -> op) -> op
 
-sig succeed : ok -> Task ok * (Op *)
+sig succeed : ok -> Task ok * *
 let succeed = \ok -> \toNext -> toNext (Ok ok);;
 
-sig fail : err -> Task * err (Op *)
+sig fail : err -> Task * err *
 let fail = \err-> \toNext -> toNext (Err err);;
 
 sig await : Task ok1 err op -> (ok1 -> Task ok2 err op) -> Task ok2 err op
@@ -41,7 +41,7 @@ let main =
         (\x -> await (inLine)
             (\firstName -> await (outLine "What's your last name?")
                 (\y -> await (inLine)
-                    (\lastName -> outLine (~str_concat firstName (~str_concat " " lastName))))))
+                    (\lastName -> outLine (~str_concat "Hello " firstName " " lastName "!")))))
 ;;
 
 run main_handler =
@@ -69,10 +69,10 @@ run main_handler =
 > 
 > Task ok err op : ([ Ok ok, Err err ] -> op) -> op
 > 
-> sig succeed : ok -> Task ok * (Op *)
+> sig succeed : ok -> Task ok * *
 > let succeed = \ok -> \toNext -> toNext (Ok ok);;
 > 
-> sig fail : err -> Task * err (Op *)
+> sig fail : err -> Task * err *
 > let fail = \err-> \toNext -> toNext (Err err);;
 > 
 > sig await : Task ok1 err op -> (ok1 -> Task ok2 err op) -> Task ok2 err op
@@ -99,7 +99,7 @@ run main_handler =
 >         (\x -> await (inLine)
 >             (\firstName -> await (outLine "What's your last name?")
 >                 (\y -> await (inLine)
->                     (\lastName -> outLine (~str_concat firstName (~str_concat " " lastName))))))
+>                     (\lastName -> outLine (~str_concat "Hello " firstName " " lastName "!")))))
 > ;;
 > 
 > run main_handler =
@@ -1430,11 +1430,13 @@ run main_handler =
 >   let outLine3: { *fn, box<erased> } = @get_struct_field<captures_stack40, 1>;
 >   let fnptr35: *fn = @get_struct_field<outLine3, 0>;
 >   let captures35: box<erased> = @get_struct_field<outLine3, 1>;
->   let var84: str = " ";
->   let var85: str = @call_kfn(str_concat, var84, lastName);
->   let var86: str = @call_kfn(str_concat, firstName, var85);
->   let var87: { *fn, box<erased> } = @call_indirect(fnptr35, captures35, var86);
->   return var87;
+>   let var84: str = "Hello ";
+>   let var85: str = " ";
+>   let var86: str = "!";
+>   let var87: str
+>     = @call_kfn(str_concat, var84, firstName, var85, lastName, var86);
+>   let var88: { *fn, box<erased> } = @call_indirect(fnptr35, captures35, var87);
+>   return var88;
 > }
 > 
 > proc clos39(captures_39: box<erased>, y: {}): { *fn, box<erased> }
@@ -1696,7 +1698,7 @@ run main_handler =
 >            `2 { str, { *fn, box<erased> } }
 >         ]
 >     = @make_union<0, struct15>;
->   let var94:
+>   let var95:
 >         box<
 >           %type_1 =
 >           [
@@ -1705,7 +1707,7 @@ run main_handler =
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
 >     = @make_box(union6);
->   return var94;
+>   return var95;
 > }
 > 
 > proc clos43(
@@ -1805,10 +1807,10 @@ run main_handler =
 >     let captures40: box<erased> = @get_struct_field<handle, 1>;
 >     let fnptr41: *fn = @get_struct_field<f, 0>;
 >     let captures41: box<erased> = @get_struct_field<f, 1>;
->     let var97: str = "stdin";
->     let var98: str = @call_kfn(itos, i);
->     let var99: str = @call_kfn(str_concat, var97, var98);
->     let var100:
+>     let var98: str = "stdin";
+>     let var99: str = @call_kfn(itos, i);
+>     let var100: str = @call_kfn(str_concat, var98, var99);
+>     let var101:
 >           box<
 >             %type_1 =
 >             [
@@ -1816,17 +1818,17 @@ run main_handler =
 >                `1 { { *fn, box<erased> } },
 >                `2 { str, { *fn, box<erased> } }
 >             ]>
->       = @call_indirect(fnptr41, captures41, var99);
->     let var101: { *fn, box<erased> }
->       = @call_indirect(fnptr40, captures40, var100);
->     let fnptr42: *fn = @get_struct_field<var101, 0>;
->     let captures42: box<erased> = @get_struct_field<var101, 1>;
->     let var102: int = 1;
->     let var103: int = @call_kfn(add, i, var102);
->     let var104: { *fn, box<erased> }
->       = @call_indirect(fnptr42, captures42, var103);
->     let fnptr43: *fn = @get_struct_field<var104, 0>;
->     let captures43: box<erased> = @get_struct_field<var104, 1>;
+>       = @call_indirect(fnptr41, captures41, var100);
+>     let var102: { *fn, box<erased> }
+>       = @call_indirect(fnptr40, captures40, var101);
+>     let fnptr42: *fn = @get_struct_field<var102, 0>;
+>     let captures42: box<erased> = @get_struct_field<var102, 1>;
+>     let var103: int = 1;
+>     let var104: int = @call_kfn(add, i, var103);
+>     let var105: { *fn, box<erased> }
+>       = @call_indirect(fnptr42, captures42, var104);
+>     let fnptr43: *fn = @get_struct_field<var105, 0>;
+>     let captures43: box<erased> = @get_struct_field<var105, 1>;
 >     let struct16:
 >           {
 >            box<
@@ -1847,12 +1849,12 @@ run main_handler =
 >              `2 { str, box<%type_0> }
 >           ]
 >       = @make_union<1, struct16>;
->     let var105:
+>     let var106:
 >           box<
 >             %type_0 =
 >             [ `0 {}, `1 { box<%type_0> }, `2 { str, box<%type_0> } ]>
 >       = @make_box(union7);
->     @call_indirect(fnptr43, captures43, var105)
+>     @call_indirect(fnptr43, captures43, var106)
 >   }
 >   2 -> {
 >     let payload9: { str, { *fn, box<erased> } } = @get_union_struct<inner1>;
@@ -1862,8 +1864,8 @@ run main_handler =
 >     let captures44: box<erased> = @get_struct_field<handle, 1>;
 >     let fnptr45: *fn = @get_struct_field<f1, 0>;
 >     let captures45: box<erased> = @get_struct_field<f1, 1>;
->     let var106: {} = @make_struct{};
->     let var107:
+>     let var107: {} = @make_struct{};
+>     let var108:
 >           box<
 >             %type_1 =
 >             [
@@ -1871,17 +1873,17 @@ run main_handler =
 >                `1 { { *fn, box<erased> } },
 >                `2 { str, { *fn, box<erased> } }
 >             ]>
->       = @call_indirect(fnptr45, captures45, var106);
->     let var108: { *fn, box<erased> }
->       = @call_indirect(fnptr44, captures44, var107);
->     let fnptr46: *fn = @get_struct_field<var108, 0>;
->     let captures46: box<erased> = @get_struct_field<var108, 1>;
->     let var109: int = 1;
->     let var110: int = @call_kfn(add, i, var109);
->     let var111: { *fn, box<erased> }
->       = @call_indirect(fnptr46, captures46, var110);
->     let fnptr47: *fn = @get_struct_field<var111, 0>;
->     let captures47: box<erased> = @get_struct_field<var111, 1>;
+>       = @call_indirect(fnptr45, captures45, var107);
+>     let var109: { *fn, box<erased> }
+>       = @call_indirect(fnptr44, captures44, var108);
+>     let fnptr46: *fn = @get_struct_field<var109, 0>;
+>     let captures46: box<erased> = @get_struct_field<var109, 1>;
+>     let var110: int = 1;
+>     let var111: int = @call_kfn(add, i, var110);
+>     let var112: { *fn, box<erased> }
+>       = @call_indirect(fnptr46, captures46, var111);
+>     let fnptr47: *fn = @get_struct_field<var112, 0>;
+>     let captures47: box<erased> = @get_struct_field<var112, 1>;
 >     let struct17:
 >           {
 >            str,
@@ -1903,12 +1905,12 @@ run main_handler =
 >              `2 { str, box<%type_0> }
 >           ]
 >       = @make_union<2, struct17>;
->     let var112:
+>     let var113:
 >           box<
 >             %type_0 =
 >             [ `0 {}, `1 { box<%type_0> }, `2 { str, box<%type_0> } ]>
 >       = @make_box(union8);
->     @call_indirect(fnptr47, captures47, var112)
+>     @call_indirect(fnptr47, captures47, var113)
 >   }
 >   } in join join4;
 >   return join4;
@@ -1997,8 +1999,8 @@ run main_handler =
 >     = @make_box(captures_stack_43);
 >   let captures_43: box<erased> = @ptr_cast(captures_box_43 as box<erased>);
 >   let fn_ptr_43: *fn = @make_fn_ptr<clos43>;
->   let var96: { *fn, box<erased> } = @make_struct{ fn_ptr_43, captures_43 };
->   return var96;
+>   let var97: { *fn, box<erased> } = @make_struct{ fn_ptr_43, captures_43 };
+>   return var97;
 > }
 > 
 > proc handle1(
@@ -2047,8 +2049,8 @@ run main_handler =
 >     = @make_box(captures_stack_42);
 >   let captures_42: box<erased> = @ptr_cast(captures_box_42 as box<erased>);
 >   let fn_ptr_42: *fn = @make_fn_ptr<clos42>;
->   let var95: { *fn, box<erased> } = @make_struct{ fn_ptr_42, captures_42 };
->   return var95;
+>   let var96: { *fn, box<erased> } = @make_struct{ fn_ptr_42, captures_42 };
+>   return var96;
 > }
 > 
 > proc main_handler_thunk():
@@ -2068,7 +2070,7 @@ run main_handler =
 >   let captures_box_41: box<{}> = @make_box(captures_stack_41);
 >   let captures_41: box<erased> = @ptr_cast(captures_box_41 as box<erased>);
 >   let fn_ptr_41: *fn = @make_fn_ptr<clos41>;
->   let var88: { *fn, box<erased> } = @make_struct{ fn_ptr_41, captures_41 };
+>   let var89: { *fn, box<erased> } = @make_struct{ fn_ptr_41, captures_41 };
 >   let op:
 >         box<
 >           %type_1 =
@@ -2077,7 +2079,7 @@ run main_handler =
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
->     = @call_indirect(fnptr36, captures36, var88);
+>     = @call_indirect(fnptr36, captures36, var89);
 >   let captures_stack_handle: {} = @make_struct{};
 >   let captures_box_handle: box<{}> = @make_box(captures_stack_handle);
 >   let captures_handle: box<erased>
@@ -2087,13 +2089,13 @@ run main_handler =
 >     = @make_struct{ fn_ptr_handle, captures_handle };
 >   let fnptr37: *fn = @get_struct_field<handle, 0>;
 >   let captures37: box<erased> = @get_struct_field<handle, 1>;
->   let var89: { *fn, box<erased> } = @call_indirect(fnptr37, captures37, op);
->   let fnptr38: *fn = @get_struct_field<var89, 0>;
->   let captures38: box<erased> = @get_struct_field<var89, 1>;
->   let var90: int = 0;
->   let var91: { *fn, box<erased> } = @call_indirect(fnptr38, captures38, var90);
->   let fnptr39: *fn = @get_struct_field<var91, 0>;
->   let captures39: box<erased> = @get_struct_field<var91, 1>;
+>   let var90: { *fn, box<erased> } = @call_indirect(fnptr37, captures37, op);
+>   let fnptr38: *fn = @get_struct_field<var90, 0>;
+>   let captures38: box<erased> = @get_struct_field<var90, 1>;
+>   let var91: int = 0;
+>   let var92: { *fn, box<erased> } = @call_indirect(fnptr38, captures38, var91);
+>   let fnptr39: *fn = @get_struct_field<var92, 0>;
+>   let captures39: box<erased> = @get_struct_field<var92, 1>;
 >   let struct14: {} = @make_struct{};
 >   let union5:
 >         [
@@ -2107,10 +2109,10 @@ run main_handler =
 >            `2 { str, box<%type_0> }
 >         ]
 >     = @make_union<0, struct14>;
->   let var92:
+>   let var93:
 >         box<%type_0 = [ `0 {}, `1 { box<%type_0> }, `2 { str, box<%type_0> } ]>
 >     = @make_box(union5);
->   let var93:
+>   let var94:
 >         [
 >            `0 {
 >                [ `0 { [] }, `1 { {} } ],
@@ -2120,8 +2122,8 @@ run main_handler =
 >                ,
 >               }
 >         ]
->     = @call_indirect(fnptr39, captures39, var92);
->   return var93;
+>     = @call_indirect(fnptr39, captures39, var93);
+>   return var94;
 > }
 > 
 > global main_handler:
@@ -2141,8 +2143,9 @@ run main_handler =
 > cor-out +eval -print
 > main_handler = [0 [1 []]
 >                [2
->                [115 116 100 105 110 49 32 115 116
->                100 105 110 51]
+>                [72 101 108 108 111 32 115 116 100
+>                105 110 49 32 115 116 100 105 110
+>                51 33]
 >                [1
 >                [2
 >                [87 104 97 116 39 115 32 121 111
@@ -2154,7 +2157,7 @@ run main_handler =
 >                117 114 32 102 105 114 115 116 32
 >                110 97 109 101 63] [0]]]]]]]
 >              > Done (Ok {})
->                  (Stdout "stdin1 stdin3"
+>                  (Stdout "Hello stdin1 stdin3!"
 >                     (Stdin
 >                        (Stdout
 >                           "What's your last name?"
