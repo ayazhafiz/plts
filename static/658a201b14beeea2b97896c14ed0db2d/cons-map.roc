@@ -1,8 +1,12 @@
 # cor +solve -elab
 # cor +ir -print
 # cor +eval -print
+List a : [ Nil, Cons a (List a) ]
+
+sig map : (a -> b) -> List a -> List b
+#   ^^^
 let map = \f -> \xs ->
-  let rec go = \xs ->
+  let go = \xs ->
     when xs is
 #        ^^
       | Nil -> Nil
@@ -16,38 +20,36 @@ let map = \f -> \xs ->
 let mapper = \x -> A x;;
 #   ^^^^^^
 
+sig l : List Int
 let l = Cons 1 (Cons 2 Nil);;
 
 run main = map mapper l;;
-#   ^^^^   ^^^
 
 > cor-out +solve -elab
+> List a : [ Nil, Cons a (List a) ]
+> 
+> sig map : (a -> b) -> List a -> List b
+> #   ^^^ ('a -> 'b) -> %(List 'a1) -> %List 'b1
 > let map = \f -> \xs ->
->   let rec go = \xs ->
+>   let go = \xs ->
 >     when xs is
-> #        ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
+> #        ^^ %List 'a
 >       | Nil -> Nil
 >       | Cons x xs -> Cons (f x) (go xs)
-> #                                   ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
-> #              ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
+> #                                   ^^ %List 'a
+> #              ^^ %List 'a
 >     end
 >   in go xs
-> #       ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
+> #       ^^ %List 'a
 > ;;
 > 
 > let mapper = \x -> A x;;
 > #   ^^^^^^ 'a -> [A 'a]'*
 > 
+> sig l : List Int
 > let l = Cons 1 (Cons 2 Nil);;
 > 
 > run main = map mapper l;;
-> #          ^^^ (Int -> [A Int]'a)
-> #          ^^^   -> [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
-> #          ^^^        -> [
-> #          ^^^             Cons [A Int]'a <..[Cons .. .., Nil]'*>,
-> #          ^^^             Nil
-> #          ^^^             ]'*
-> #   ^^^^ [Cons [A Int]'* <..[Cons .. .., Nil]'*>, Nil]'*
 > 
 
 > cor-out +ir -print
@@ -197,13 +199,7 @@ run main = map mapper l;;
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<1, struct3>;
->   let var9:
->         box<
->           %type_3 =
->           [
->              `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> },
->              `1 {}
->           ]>
+>   let var9: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
 >     = @make_box(union2);
 >   let struct4: { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }
 >     = @make_struct{ var8, var9 };
@@ -211,13 +207,7 @@ run main = map mapper l;;
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<0, struct4>;
->   let var10:
->         box<
->           %type_2 =
->           [
->              `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> },
->              `1 {}
->           ]>
+>   let var10: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
 >     = @make_box(union3);
 >   let struct5: { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }
 >     = @make_struct{ var7, var10 };

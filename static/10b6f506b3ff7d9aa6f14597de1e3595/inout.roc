@@ -52,8 +52,8 @@ run main_handler =
 #   ^^^^^^^^^^^^
     let op = main (\x -> Done x) in
 #       ^^
-    let rec handle = \op -> when op is
-#           ^^^^^^
+    let handle = \op -> when op is
+#       ^^^^^^
         | StdinLine f -> handle (f "hello")
         | StdoutLine s f -> handle (f s)
         | Done x -> x
@@ -119,8 +119,8 @@ run main_handler =
 > #   ^^^^^^^^^^^^ Str
 >     let op = main (\x -> Done x) in
 > #       ^^ %Op Str
->     let rec handle = \op -> when op is
-> #           ^^^^^^ %(Op Str) -> Str
+>     let handle = \op -> when op is
+> #       ^^^^^^ %(Op Str) -> Str
 >         | StdinLine f -> handle (f "hello")
 >         | StdoutLine s f -> handle (f s)
 >         | Done x -> x

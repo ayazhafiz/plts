@@ -48,8 +48,8 @@ run main_handler =
 #   ^^^^^^^^^^^^
     let op = main (\x -> Done x) in
 #       ^^
-    let rec handle = \op -> \i -> \t -> when op is
-#           ^^^^^^
+    let handle = \op -> \i -> \t -> when op is
+#       ^^^^^^
         | StdinLine f -> handle (f (~str_concat "stdin" (~itos i))) (~add i 1) (Stdin t)
         | StdoutLine s f -> handle (f {}) (~add i 1) (Stdout s t)
         | Done x -> Done x t
@@ -115,42 +115,42 @@ run main_handler =
 > #   ^^^^^^^^^^^^   ]'*
 >     let op = main (\x -> Done x) in
 > #       ^^ %Op [Err 'err, Ok {}]
->     let rec handle = \op -> \i -> \t -> when op is
-> #           ^^^^^^ %(Op [Err 'err, Ok {}])
-> #           ^^^^^^   -> Int
-> #           ^^^^^^        -> [
-> #           ^^^^^^             EntryPoint,
-> #           ^^^^^^             Stdin
-> #           ^^^^^^               <..[
-> #           ^^^^^^                    EntryPoint,
-> #           ^^^^^^                    Stdin ..,
-> #           ^^^^^^                    Stdout .. ..
-> #           ^^^^^^                    ]'a>,
-> #           ^^^^^^             Stdout Str
-> #           ^^^^^^               <..[
-> #           ^^^^^^                    EntryPoint,
-> #           ^^^^^^                    Stdin ..,
-> #           ^^^^^^                    Stdout .. ..
-> #           ^^^^^^                    ]'a>
-> #           ^^^^^^             ]'a
-> #           ^^^^^^             -> [
-> #           ^^^^^^                  Done [Err 'err, Ok {}]
-> #           ^^^^^^                    [
-> #           ^^^^^^                      EntryPoint,
-> #           ^^^^^^                      Stdin
-> #           ^^^^^^                        <..[
-> #           ^^^^^^                             EntryPoint,
-> #           ^^^^^^                             Stdin ..,
-> #           ^^^^^^                             Stdout .. ..
-> #           ^^^^^^                             ]'a>,
-> #           ^^^^^^                      Stdout Str
-> #           ^^^^^^                        <..[
-> #           ^^^^^^                             EntryPoint,
-> #           ^^^^^^                             Stdin ..,
-> #           ^^^^^^                             Stdout .. ..
-> #           ^^^^^^                             ]'a>
-> #           ^^^^^^                      ]'a
-> #           ^^^^^^                  ]'*
+>     let handle = \op -> \i -> \t -> when op is
+> #       ^^^^^^ %(Op [Err 'err, Ok {}])
+> #       ^^^^^^   -> Int
+> #       ^^^^^^        -> [
+> #       ^^^^^^             EntryPoint,
+> #       ^^^^^^             Stdin
+> #       ^^^^^^               <..[
+> #       ^^^^^^                    EntryPoint,
+> #       ^^^^^^                    Stdin ..,
+> #       ^^^^^^                    Stdout .. ..
+> #       ^^^^^^                    ]'a>,
+> #       ^^^^^^             Stdout Str
+> #       ^^^^^^               <..[
+> #       ^^^^^^                    EntryPoint,
+> #       ^^^^^^                    Stdin ..,
+> #       ^^^^^^                    Stdout .. ..
+> #       ^^^^^^                    ]'a>
+> #       ^^^^^^             ]'a
+> #       ^^^^^^             -> [
+> #       ^^^^^^                  Done [Err 'err, Ok {}]
+> #       ^^^^^^                    [
+> #       ^^^^^^                      EntryPoint,
+> #       ^^^^^^                      Stdin
+> #       ^^^^^^                        <..[
+> #       ^^^^^^                             EntryPoint,
+> #       ^^^^^^                             Stdin ..,
+> #       ^^^^^^                             Stdout .. ..
+> #       ^^^^^^                             ]'a>,
+> #       ^^^^^^                      Stdout Str
+> #       ^^^^^^                        <..[
+> #       ^^^^^^                             EntryPoint,
+> #       ^^^^^^                             Stdin ..,
+> #       ^^^^^^                             Stdout .. ..
+> #       ^^^^^^                             ]'a>
+> #       ^^^^^^                      ]'a
+> #       ^^^^^^                  ]'*
 >         | StdinLine f -> handle (f (~str_concat "stdin" (~itos i))) (~add i 1) (Stdin t)
 >         | StdoutLine s f -> handle (f {}) (~add i 1) (Stdout s t)
 >         | Done x -> Done x t
