@@ -1,0 +1,4 @@
+(library
+ (name deptypes2)
+ (inline_tests)
+ (preprocess (pps ppx_inline_test ppx_expect)))
