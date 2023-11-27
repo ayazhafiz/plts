@@ -29,7 +29,9 @@ run main = map mapper l;;
 > List a : [ Nil, Cons a (List a) ]
 > 
 > sig map : (a -> b) -> List a -> List b
-> #   ^^^ ('a -> 'b) -> %(List 'a1) -> %List 'b1
+> #   ^^^ ('a -'c-> 'b)
+> #   ^^^   -[map]-> %(List 'a1)
+> #   ^^^              -[lam1 ('a2 -'c-> 'b2)]-> %List 'b1
 > let map = \f -> \xs ->
 >   let go = \xs ->
 >     when xs is
@@ -44,7 +46,7 @@ run main = map mapper l;;
 > ;;
 > 
 > let mapper = \x -> A x;;
-> #   ^^^^^^ 'a -> [A 'a]'*
+> #   ^^^^^^ 'a -[mapper]-> [A 'a]'*
 > 
 > sig l : List Int
 > let l = Cons 1 (Cons 2 Nil);;

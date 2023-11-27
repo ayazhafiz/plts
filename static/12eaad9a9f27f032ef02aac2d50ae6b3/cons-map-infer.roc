@@ -37,19 +37,24 @@ run main = map mapper l;;
 > ;;
 > 
 > let mapper = \x -> A x;;
-> #   ^^^^^^ 'a -> [A 'a]'*
+> #   ^^^^^^ 'a -[mapper]-> [A 'a]'*
 > 
 > let l = Cons 1 (Cons 2 Nil);;
 > #   ^ [Cons Int [Cons Int [Nil]'*]'*]'*
 > 
 > run main = map mapper l;;
 > #                     ^ [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
-> #          ^^^ (Int -> [A Int]?a)
-> #          ^^^   -> [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
-> #          ^^^        -> [
-> #          ^^^             Cons [A Int]?a <..[Cons .. .., Nil]?*>,
-> #          ^^^             Nil
-> #          ^^^             ]?*
+> #          ^^^ (Int -[mapper]-> [A Int]?a)
+> #          ^^^   -[map]-> [
+> #          ^^^              Cons Int <..[Cons .. .., Nil]?*>,
+> #          ^^^              Nil
+> #          ^^^              ]?*
+> #          ^^^              -[lam1 (Int -[mapper]-> [A Int]?a)]-> 
+> #          ^^^              [
+> #          ^^^                Cons [A Int]?a
+> #          ^^^                  <..[Cons .. .., Nil]?*>,
+> #          ^^^                Nil
+> #          ^^^                ]?*
 > #   ^^^^ [Cons [A Int]?* <..[Cons .. .., Nil]?*>, Nil]?*
 > 
 
