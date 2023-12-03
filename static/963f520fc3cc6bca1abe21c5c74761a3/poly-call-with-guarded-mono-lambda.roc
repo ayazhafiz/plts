@@ -1,3 +1,4 @@
+# cor +mono -print
 # cor +ir -print
 # cor +eval -print
 
@@ -9,6 +10,24 @@ let poly = \x ->
 run main =
   A (poly 1) (poly "")
 ;;
+
+> cor-out +mono -print
+> specializations:
+>   let f1 = \-[f1]-> x1 x1
+>   
+>   let poly1 = \-[poly1]-> x
+>     let f1 = \x1 -[f1]-> x1 in
+>     A (f1 "") x
+>   
+>   let poly2 = \-[poly2]-> x
+>     let f1 = \x1 -[f1]-> x1 in
+>     A (f1 "") x
+>   
+>   let main = A (poly1 1) (poly2 "")
+>   
+>   
+> entry_points:
+>   main
 
 > cor-out +ir -print
 > proc f1(captures_: box<erased>, x1: str): str
