@@ -1,6 +1,6 @@
 import type * as monaco from "monaco-editor";
 import * as React from "react";
-import { LanguageRegistration } from "../../../common/types";
+import {LanguageRegistration} from "../../../common/types";
 import CorPlayground from "../../../components/cor";
 
 const uls = "uls";
@@ -9,7 +9,7 @@ const ulsSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   keywords: ["entry", "let", "in", "choice", "\\"],
-  symbols: /[_\{\}\|<>\\?\->.:=!;\[\]+]|(->)/,
+  symbols: /[_{}|<>\\?\->.:=!;[\]+]|(->)/,
   lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
@@ -26,7 +26,7 @@ const ulsSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
       [/[A-Z][a-zA-Z0-9_'\w$]*/, "constructor"],
-      { include: "@whitespace" },
+      {include: "@whitespace"},
       [/[()]/, "@brackets"],
       [/`\d+/, "tag"],
       [/~\d+/, "tag"],
@@ -54,7 +54,7 @@ const ulsSyntax: monaco.languages.IMonarchLanguage = {
     type: [
       [/\(\)$/, "keyword.type", "@popall"],
       [/\(\)/, "keyword.type"],
-      [/->|[\+,]/, "operator"],
+      [/->|[+,]/, "operator"],
       [/-\[/, "type"],
       [/\]->$/, "type", "@popall"],
       [/\]->/, "type"],
@@ -66,8 +66,8 @@ const ulsSyntax: monaco.languages.IMonarchLanguage = {
       ],
       [/[a-zA-Z][a-zA-Z0-9_']*$/, "type", "@popall"],
       [/[a-zA-Z][a-zA-Z0-9_']*/, "type"],
-      [/[()\[\]]$/, "@brackets", "@popall"],
-      [/[()\[\]]/, "@brackets"],
+      [/[()[\]]$/, "@brackets", "@popall"],
+      [/[()[\]]/, "@brackets"],
       [/[ \t]*$/, "@whitespace", "@popall"],
       [/[ \t]+/, "@whitespace"],
     ],
@@ -80,7 +80,7 @@ const languageRegistrations: Record<typeof uls, LanguageRegistration> = {
   },
 };
 
-const UlsPlayground: React.FC<{}> = ({}) =>
+const UlsPlayground: React.FC = () =>
   CorPlayground({
     experiment: uls,
     defaultPhase: "solve",

@@ -1,9 +1,9 @@
 import type * as monaco from "monaco-editor";
 import * as React from "react";
 import Playground from "../../components/playground";
-import { createHoverProvider } from "../../common/hover";
-import type { Backend, LanguageRegistration } from "../../common/types";
-import { promisify } from "../../common/util";
+import {createHoverProvider} from "../../common/hover";
+import type {Backend, LanguageRegistration} from "../../common/types";
+import {promisify} from "../../common/util";
 import ReactMarkdown from "react-markdown";
 import * as ho21 from "ho21";
 
@@ -42,14 +42,15 @@ const ho21Syntax: monaco.languages.IMonarchLanguage = {
   queries: ["??"],
   judgements: ["<:", ":>", "~=", "#", "\u227A", "\u227B", "\u2245"],
   operators: ["&", "|", "->", "\u2227", "\u2228", "\u2192"],
-  symbols: /[=><!~?:&|+\-*\/\^%#\u22A4\u22A5\u2227\u2228\u2192\u227A\u227B\u2245]+/,
+  symbols:
+    /[=><!~?:&|+\-*/^%#\u22A4\u22A5\u2227\u2228\u2192\u227A\u227B\u2245]+/,
 
   tokenizer: {
     root: [
       [/(Syntax error.*)/, "error"],
       [/(Parse error.*)/, "error"],
       [/[A-Z][a-zA-Z0-9_'\w$]*/, "type.identifier"],
-      { include: "@whitespace" },
+      {include: "@whitespace"},
       [/[()]/, "@brackets"],
       [
         /@symbols/,
@@ -73,15 +74,15 @@ const ho21Syntax: monaco.languages.IMonarchLanguage = {
 };
 
 const languageContent = [
-  { aliases: ["!", "⊥"], kind: "⊥", text: "The bottom type", binary: false },
-  { aliases: ["*", "⊤"], kind: "⊤", text: "The top type", binary: false },
+  {aliases: ["!", "⊥"], kind: "⊥", text: "The bottom type", binary: false},
+  {aliases: ["*", "⊤"], kind: "⊤", text: "The top type", binary: false},
   {
     aliases: ["&", "∧"],
     kind: "Operator",
     text: "An intersection type",
     binary: true,
   },
-  { aliases: ["|", "∨"], kind: "Operator", text: "A union type", binary: true },
+  {aliases: ["|", "∨"], kind: "Operator", text: "A union type", binary: true},
   {
     aliases: ["->", "→"],
     kind: "Operator",
@@ -122,7 +123,7 @@ const languageContent = [
 
 function getLanguageGrammarInfo() {
   const inputItems = languageContent.filter((lc) => !lc.outputOnly);
-  const itemDocs = inputItems.map(({ aliases, text, binary }) => {
+  const itemDocs = inputItems.map(({aliases, text, binary}) => {
     const examples = aliases
       .map((alias) => {
         const example = binary ? `A${alias}B` : alias;
@@ -138,25 +139,28 @@ function getLanguageGrammarInfo() {
   return `${listDocs}\n[Full Parser Specification](https://github.com/ayazhafiz/plts/blob/base/huang_oliveira_21/parser.mly)`;
 }
 
-const grammar = <ReactMarkdown children={getLanguageGrammarInfo()} />;
+const grammar = <ReactMarkdown>{getLanguageGrammarInfo()}</ReactMarkdown>;
 
 function ho21GetHoverContent(word: string) {
-  for (const { aliases, text } of languageContent) {
+  for (const {aliases, text} of languageContent) {
     for (const alias of aliases) {
       if (word === alias) {
         const content = [
           // {value: `**${kind}**`},
-          { value: text },
+          {value: text},
         ];
         if (aliases.length > 1) {
-          content.push({ value: `*Aliases*: ${aliases.join(", ")}` });
+          content.push({value: `*Aliases*: ${aliases.join(", ")}`});
         }
         return content;
       }
     }
   }
   if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
-    return [{ value: "**Primitive**" }, { value: `Type primitive \`${word}\`` }];
+    return [
+      {value: "**Primitive**"},
+      {value: `Type primitive \`${word}\``},
+    ];
   }
   return null;
 }

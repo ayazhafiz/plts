@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Label } from "@primer/react";
+import {Label} from "@primer/react";
 import styled from "styled-components";
 
 const Link = styled.a`
@@ -14,11 +14,11 @@ const Link = styled.a`
   }
 `;
 
-const Revision: React.FC<{}> = () => {
+const Revision: React.FC = () => {
   if (process.env["GATSBY_GIT_PORCELAIN"]) {
     const sha = process.env["GATSBY_GIT_SHA"];
     return (
-      <Label sx={{ verticalAlign: "middle" }} variant="accent">
+      <Label sx={{verticalAlign: "middle"}} variant="accent">
         <Link href={`https://github.com/ayazhafiz/plts/commit/${sha}`}>
           {sha}
         </Link>
@@ -26,7 +26,7 @@ const Revision: React.FC<{}> = () => {
     );
   } else {
     return (
-      <Label sx={{ verticalAlign: "middle" }} variant="attention">
+      <Label sx={{verticalAlign: "middle"}} variant="attention">
         devel
       </Label>
     );

@@ -1,6 +1,6 @@
 import type * as monaco from "monaco-editor";
 import * as React from "react";
-import { LanguageRegistration } from "../../../common/types";
+import {LanguageRegistration} from "../../../common/types";
 import CorPlayground from "../../../components/cor";
 
 const easyTags = "easy_tags";
@@ -15,7 +15,7 @@ const easyTagsSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   keywords: ["let", "in", "when", "is", "as"],
-  symbols: /[,_\{\}\|<>\\?\->.=!;\[\]+]|(->)/,
+  symbols: /[,_{}|<>\\?\->.=!;[\]+]|(->)/,
   lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
@@ -31,7 +31,7 @@ const easyTagsSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
       [/[A-Z][a-zA-Z0-9_'\w$]*/, "constructor"],
-      { include: "@whitespace" },
+      {include: "@whitespace"},
       [/[()]/, "@brackets"],
       [/`\d+/, "tag"],
       [/~\d+/, "tag"],
@@ -65,7 +65,7 @@ const languageRegistrations: Record<typeof easyTags, LanguageRegistration> = {
   },
 };
 
-const RefinePlayground: React.FC<{}> = ({}) =>
+const RefinePlayground: React.FC = () =>
   CorPlayground({
     experiment: easyTags,
     defaultPhase: "solve",
