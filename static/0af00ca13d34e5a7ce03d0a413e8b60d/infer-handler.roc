@@ -24,7 +24,7 @@ run main_handler =
 
 > cor-out +mono -print
 > specializations:
->   let handle2 = \op -[handle2]->
+>   let handle11 = \op -[handle11]->
 >     when op is
 >       | StdoutLines f -> handle (f {})
 >       | Donex -> Done x
@@ -32,7 +32,7 @@ run main_handler =
 >   
 >   let main_handler =
 >     let handle =
->       \op -[handle2]->
+>       \op -[handle11]->
 >         when op is
 >           | StdoutLines f -> handle (f {})
 >           | Donex -> Done x
@@ -45,15 +45,15 @@ run main_handler =
 >   main_handler
 
 > cor-out +ir -print
-> proc handle2(
+> proc handle11(
 >   captures_handle: box<erased>,
 >    op: [ `0 { int }, `1 { [], { *fn, box<erased> } } ]):
 >   [ `0 { int } ]
 > {
 >   let captures_box: box<{}> = @ptr_cast(captures_handle as box<{}>);
 >   let captures_stack: {} = @get_boxed<captures_box>;
->   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle2>;
->   let handle2: { *fn, box<erased> }
+>   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle11>;
+>   let handle: { *fn, box<erased> }
 >     = @make_struct{ rec_fn_ptr_handle, captures_handle };
 >   let discr: int = @get_union_id<op>;
 >   switch discr {
@@ -85,7 +85,7 @@ run main_handler =
 >   let captures_stack_: {} = @make_struct{};
 >   let captures_box_: box<{}> = @make_box(captures_stack_);
 >   let captures_: box<erased> = @ptr_cast(captures_box_ as box<erased>);
->   let fn_ptr_: *fn = @make_fn_ptr<handle2>;
+>   let fn_ptr_: *fn = @make_fn_ptr<handle11>;
 >   let handle: { *fn, box<erased> } = @make_struct{ fn_ptr_, captures_ };
 >   let fnptr2: *fn = @get_struct_field<handle, 0>;
 >   let captures2: box<erased> = @get_struct_field<handle, 1>;

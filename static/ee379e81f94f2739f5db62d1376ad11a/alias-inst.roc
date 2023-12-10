@@ -12,5 +12,5 @@ let main0 = \x -> x;;
 > 
 > sig main0 : X {}
 > let main0 = \x -> x;;
-> #   ^^^^^ {} -[main01]-> {}
+> #   ^^^^^ {} -[main0]-> {}
 > 
