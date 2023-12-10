@@ -7,23 +7,23 @@ import type {
   LanguageRegistration,
   StringOptions,
 } from "../common/types";
-import {shapeBackend} from "../common/util";
+import { shapeBackend } from "../common/util";
 import * as cor from "cor";
-import {useStaticQuery, graphql} from "gatsby";
+import { useStaticQuery, graphql } from "gatsby";
 
 function getBackends(
   lang: string,
   defaultEmit: string,
-  overrides: Record<string, BackendOverrides>
+  overrides: Record<string, BackendOverrides>,
 ): Record<string, [Backend]> {
   const backends: Record<string, [Backend]> = {};
   for (const phase of cor.phases) {
-    const doit = (prog: string, emit: string) =>
+    let doit = (prog: string, emit: string) =>
       cor.compile(prog, lang, phase, emit);
-    const options: [[string, StringOptions]] = [
-      ["emit", {value: defaultEmit, options: cor.emits}],
+    let options: [[string, StringOptions]] = [
+      ["emit", { value: defaultEmit, options: cor.emits }],
     ];
-    const backend: Backend = {
+    let backend: Backend = {
       title: phase,
       editorLanguage: overrides[phase]?.editorLanguage ?? lang,
       ...shapeBackend(doit, options),
@@ -40,12 +40,12 @@ function createHover(lang: string): LanguageRegistration["hover"] {
       const hover = cor.hover(program, lang, pos.lineNumber, pos.column);
       const {
         info,
-        range: {start, fin},
+        range: { start, fin },
       } = hover;
       return {
         range: new m.Range(start.line, start.col, fin.line, fin.col),
         contents: info.map((value) => {
-          return {value};
+          return { value };
         }),
       };
     };
@@ -55,7 +55,7 @@ const CorPlayground: React.FC<{
   experiment: string;
   defaultPhase: string;
   defaultEmit: string;
-  backendOverrides?: Record<string, BackendOverrides>;
+  backendOverrides?: Record<string, BackendOverrides>,
   languageRegistrations?: Record<string, LanguageRegistration>;
 }> = ({
   experiment,
@@ -64,11 +64,11 @@ const CorPlayground: React.FC<{
   backendOverrides = {},
   languageRegistrations = {},
 }) => {
-    if (languageRegistrations[experiment]) {
-      languageRegistrations[experiment].hover = createHover(experiment);
-    }
+  if (languageRegistrations[experiment]) {
+    languageRegistrations[experiment].hover = createHover(experiment);
+  }
 
-    const allExamples = useStaticQuery(graphql`
+  const allExamples = useStaticQuery(graphql`
     {
       allFile(filter: { extension: { eq: "roc" } }) {
         nodes {
@@ -79,44 +79,38 @@ const CorPlayground: React.FC<{
     }
   `);
 
-    const [examples, setExamples] = React.useState<Record<string, string>>({});
+  const examples: Record<string, string> = {};
+  for (const file of allExamples.allFile.nodes) {
+    if (file.relativePath.includes(`/${experiment}/`)) {
+      const exampleName = file.relativePath.split("/").at(-1).split(".roc")[0];
+      const [content, setContent] = React.useState("");
+      const base = process.env["HOST"];
+      fetch(new URL(file.publicURL, base))
+        .then((r) => r.text())
+        .then((s) => {
+          return cor.userProgram(s);
+        })
+        .then(setContent)
+        .catch(() => {
+          console.log("failed to fetch", base, file.publicURL);
+        });
+      examples[exampleName] = content;
+    }
+  }
 
-    React.useEffect(() => {
-      async function go() {
-        const newExamples: Record<string, string> = {};
-        for (const file of allExamples.allFile.nodes) {
-          if (file.relativePath.includes(`/${experiment}/`)) {
-            const exampleName = file.relativePath
-              .split("/")
-              .at(-1)
-              .split(".roc")[0];
-            const base = process.env["HOST"];
-            const s = await fetch(new URL(file.publicURL, base))
-              .then((r) => r.text())
-              .then((s) => {
-                return cor.userProgram(s);
-              });
-            newExamples[exampleName] = s;
-          }
-        }
-        setExamples(newExamples);
-      }
-      go();
-    }, [allExamples.allFile.nodes, experiment]);
-
-    return (
-      <Playground
-        title={`cor/${experiment} Playground`}
-        language={experiment}
-        source={`https://github.com/ayazhafiz/cor/tree/base/experiments/${experiment}`}
-        grammar={`https://github.com/ayazhafiz/cor/blob/base/experiments/${experiment}/parser.mly`}
-        languageRegistrations={languageRegistrations}
-        backends={getBackends(experiment, defaultEmit, backendOverrides)}
-        defaultBackend={defaultPhase}
-        examples={examples}
-        defaultExample={Object.keys(examples)[0]}
-      />
-    );
-  };
+  return (
+    <Playground
+      title={`cor/${experiment} Playground`}
+      language={experiment}
+      source={`https://github.com/ayazhafiz/cor/tree/base/experiments/${experiment}`}
+      grammar={`https://github.com/ayazhafiz/cor/blob/base/experiments/${experiment}/parser.mly`}
+      languageRegistrations={languageRegistrations}
+      backends={getBackends(experiment, defaultEmit, backendOverrides)}
+      defaultBackend={defaultPhase}
+      examples={examples}
+      defaultExample={Object.keys(examples)[0]}
+    />
+  );
+};
 
 export default CorPlayground;

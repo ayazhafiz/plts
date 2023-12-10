@@ -2,18 +2,10 @@ import type * as monaco from "monaco-editor";
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import Playground from "../../components/playground";
-import type {Backend, LanguageRegistration} from "../../common/types";
-import {C, TS} from "../../common/evaluator";
-import {shapeBackend, shapeBackendP} from "../../common/util";
-import {
-  infer,
-  irCompile,
-  cCompile,
-  tsCompile,
-  doEval,
-  docs,
-  getHover,
-} from "gtlc";
+import type { Backend, LanguageRegistration } from "../../common/types";
+import { C, TS } from "../../common/evaluator";
+import { shapeBackend, shapeBackendP } from "../../common/util";
+import { infer, irCompile, cCompile, tsCompile, doEval, docs, getHover } from "gtlc";
 
 const examples = {
   "Cast Error": `(λx. succ x) #t`,
@@ -65,8 +57,8 @@ const compileOptions: [["optimize", boolean], ["width", number]] = [
 const backends: {
   Infer: [Backend];
 } & {
-    [K in "Compiler IR" | "TypeScript" | "C"]: [Backend, Backend];
-  } = {
+  [K in "Compiler IR" | "TypeScript" | "C"]: [Backend, Backend];
+} = {
   Infer: [
     {
       title: "Infer",
@@ -122,8 +114,8 @@ const builtin_docs = docs;
 const builtin_fns = builtin_docs.map((d) => d.name);
 
 const grammar = (
-  <ReactMarkdown>
-    {`
+  <ReactMarkdown
+    children={`
 **Expressions**
 
 - \`x\`: variables
@@ -153,23 +145,21 @@ type defaults to the unknown type \`?\`. There is also the special type marker
 **Builtin Functions**
 
 ${builtin_docs
-        .map(({name, ty, doc}) => {
-          return `- \`${name}: ${ty}\`\n\t- ${doc}`;
-        })
-        .join("\n")}
+  .map(({ name, ty, doc }) => {
+    return `- \`${name}: ${ty}\`\n\t- ${doc}`;
+  })
+  .join("\n")}
 
 [Full Parser Specification](https://github.com/ayazhafiz/plts/blob/base/gtlc/parser.mly)
 `.trim()}
-  </ReactMarkdown>
+  />
 );
 
 const gtlcSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   builtin_types: ["nat", "bool", "?", "_"],
-  keywords: ["let", "in", "ref", "if", "then", "else", "\u03BB", "\\"].concat(
-    builtin_fns
-  ),
+  keywords: ["let", "in", "ref", "if", "then", "else", "\u03BB", "\\"].concat(builtin_fns),
   symbols: /[_<>\\?\->.:=!;\u03BB]|(->)/,
 
   tokenizer: {
@@ -190,7 +180,7 @@ const gtlcSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
       [/\d+/, "number"],
-      {include: "@whitespace"},
+      { include: "@whitespace" },
       [/[()]/, "@brackets"],
       [
         /@symbols/,
@@ -250,7 +240,7 @@ const liftIrSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
       [/\d+/, "number"],
-      {include: "@whitespace"},
+      { include: "@whitespace" },
       [/[{()}]/, "@brackets"],
       [
         /@symbols/,
@@ -273,28 +263,21 @@ const liftIrSyntax: monaco.languages.IMonarchLanguage = {
 const languages: Record<"gtlc" | "liftIr", LanguageRegistration> = {
   gtlc: {
     syntax: gtlcSyntax,
-    hover:
-      (m: typeof monaco) =>
-        (model: monaco.editor.ITextModel, pos: monaco.Position) => {
-          const program = model.getValue();
-          const hover = getHover(program, pos.lineNumber, pos.column);
-          if (hover === null) return null;
-          const {
-            info,
-            range: {startPos, endPos},
-          } = hover;
-          return {
-            range: new m.Range(
-              startPos.line,
-              startPos.col,
-              endPos.line,
-              endPos.col
-            ),
-            contents: info.map((value) => {
-              return {value};
-            }),
-          };
-        },
+    hover: (m: typeof monaco) => (model: monaco.editor.ITextModel, pos: monaco.Position) => {
+      const program = model.getValue();
+      const hover = getHover(program, pos.lineNumber, pos.column);
+      if (hover === null) return null;
+      const {
+        info,
+        range: { startPos, endPos },
+      } = hover;
+      return {
+        range: new m.Range(startPos.line, startPos.col, endPos.line, endPos.col),
+        contents: info.map((value) => {
+          return { value };
+        }),
+      };
+    },
   },
   liftIr: {
     syntax: liftIrSyntax,

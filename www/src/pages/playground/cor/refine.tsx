@@ -1,6 +1,6 @@
 import type * as monaco from "monaco-editor";
 import * as React from "react";
-import {BackendOverrides, LanguageRegistration} from "../../../common/types";
+import { BackendOverrides, LanguageRegistration } from "../../../common/types";
 import CorPlayground from "../../../components/cor";
 
 const refine = "refine";
@@ -9,7 +9,7 @@ const refineSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   keywords: ["let", "in", "when", "is", "as"],
-  symbols: /[,_{}|<>\\?\->.=!;[\]+]|(->)/,
+  symbols: /[,_\{\}\|<>\\?\->.=!;\[\]+]|(->)/,
   lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
@@ -25,7 +25,7 @@ const refineSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
       [/[A-Z][a-zA-Z0-9_'\w$]*/, "constructor"],
-      {include: "@whitespace"},
+      { include: "@whitespace" },
       [/[()]/, "@brackets"],
       [/`\d+/, "tag"],
       [/~\d+/, "tag"],
@@ -67,7 +67,7 @@ const irSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   keywords: ["let", "in", "when", "is", "as", "switch", "feed"],
-  symbols: /[,{}=;:]/,
+  symbols: /[,\{\}=;:]/,
   lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
@@ -86,7 +86,7 @@ const irSyntax: monaco.languages.IMonarchLanguage = {
       [/\d+/, "number"],
       [/@[a-z_]*/, "keyword"],
       [/ :\s*/, "operator", "@type"],
-      {include: "@whitespace"},
+      { include: "@whitespace" },
       [
         /@symbols/,
         {
@@ -97,7 +97,9 @@ const irSyntax: monaco.languages.IMonarchLanguage = {
         },
       ],
     ],
-    whitespace: [[/[ \t\r\n]+/, "white"]],
+    whitespace: [
+      [/[ \t\r\n]+/, "white"],
+    ],
     type: [
       [/\]$/, "keyword.type", "@popall"],
       [/\]/, "keyword.type", "@pop"],
@@ -117,16 +119,13 @@ const irSyntax: monaco.languages.IMonarchLanguage = {
   },
 };
 
-const languageRegistrations: Record<
-  typeof refine | "ir",
-  LanguageRegistration
-> = {
+const languageRegistrations: Record<typeof refine|"ir", LanguageRegistration> = {
   [refine]: {
     syntax: refineSyntax,
   },
   ir: {
     syntax: irSyntax,
-  },
+  }
 };
 
 const backendOverrides: Record<string, BackendOverrides> = {
@@ -135,7 +134,7 @@ const backendOverrides: Record<string, BackendOverrides> = {
   },
 };
 
-const RefinePlayground: React.FC = () =>
+const RefinePlayground: React.FC<{}> = ({}) =>
   CorPlayground({
     experiment: refine,
     defaultPhase: "solve",

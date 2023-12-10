@@ -9,7 +9,7 @@ const composeFxSyntax: monaco.languages.IMonarchLanguage = {
   defaultToken: "invalid",
 
   keywords: ["sig", "let", "run", "in", "\\"],
-  symbols: /[_{}|<>\\?\->.:=!;[\]+]|(->)/,
+  symbols: /[_\{\}\|<>\\?\->.:=!;\[\]+]|(->)/,
   lower: /[a-z][a-zA-Z0-9_'\w$]*/,
 
   tokenizer: {
@@ -54,7 +54,7 @@ const composeFxSyntax: monaco.languages.IMonarchLanguage = {
     type: [
       [/\(\)$/, "keyword.type", "@popall"],
       [/\(\)/, "keyword.type"],
-      [/->|[+,]/, "operator"],
+      [/->|[\+,]/, "operator"],
       [/-\[/, "type"],
       [/\]->$/, "type", "@popall"],
       [/\]->/, "type"],
@@ -66,8 +66,8 @@ const composeFxSyntax: monaco.languages.IMonarchLanguage = {
       ],
       [/[a-zA-Z][a-zA-Z0-9_']*$/, "type", "@popall"],
       [/[a-zA-Z][a-zA-Z0-9_']*/, "type"],
-      [/[()[\]]$/, "@brackets", "@popall"],
-      [/[()[\]]/, "@brackets"],
+      [/[()\[\]]$/, "@brackets", "@popall"],
+      [/[()\[\]]/, "@brackets"],
       [/[ \t]*$/, "@whitespace", "@popall"],
       [/[ \t]+/, "@whitespace"],
     ],
@@ -80,7 +80,7 @@ const languageRegistrations: Record<typeof compose_fx, LanguageRegistration> = {
   },
 };
 
-const ComposeFxPlayground: React.FC = () =>
+const ComposeFxPlayground: React.FC<{}> = ({}) =>
   CorPlayground({
     experiment: compose_fx,
     defaultPhase: "solve",

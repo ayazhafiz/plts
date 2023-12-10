@@ -1,10 +1,10 @@
 import type * as monaco from "monaco-editor";
 import * as React from "react";
 import Playground from "../../components/playground";
-import type {Backend} from "../../common/types";
-import {promisify} from "../../common/util";
+import type { Backend } from "../../common/types";
+import { promisify } from "../../common/util";
 import * as tiger from "tiger";
-import {ASM_SYNTAX} from "../../common/syntax/asm";
+import { ASM_SYNTAX } from "../../common/syntax/asm";
 
 const examples = {
   "Eight Queens": `
@@ -103,9 +103,8 @@ const tigerSyntax: monaco.languages.IMonarchLanguage = {
     "exit",
   ],
   operators: [":=", "+", "-", "*", "/", "|", "&"],
-  symbols: /[=><!~?:&|+\-*/^%]+/,
-  escapes:
-    /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
+  symbols: /[=><!~?:&|+\-*\/\^%]+/,
+  escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
 
   tokenizer: {
     root: [
@@ -126,24 +125,20 @@ const tigerSyntax: monaco.languages.IMonarchLanguage = {
       [
         /[a-z_$][\w$]*/,
         {
-          cases: {
-            "@builtin_types": "keyword",
-            "@keywords": "keyword",
-            "@default": "identifier",
-          },
+          cases: { "@builtin_types": "keyword", "@keywords": "keyword", "@default": "identifier" },
         },
       ],
 
       // whitespace
-      {include: "@whitespace"},
+      { include: "@whitespace" },
 
       // delimiters and operators
-      [/[{}()[\]]/, "@brackets"],
+      [/[{}()\[\]]/, "@brackets"],
       [/[<>](?!@symbols)/, "@brackets"],
-      [/@symbols/, {cases: {"@operators": "operator", "@default": ""}}],
+      [/@symbols/, { cases: { "@operators": "operator", "@default": "" } }],
 
       // numbers
-      [/\d*\.\d+([eE][-+]?\d+)?/, "number.float"],
+      [/\d*\.\d+([eE][\-+]?\d+)?/, "number.float"],
       [/0[xX][0-9a-fA-F]+/, "number.hex"],
       [/\d+/, "number"],
 
@@ -152,7 +147,7 @@ const tigerSyntax: monaco.languages.IMonarchLanguage = {
 
       // strings
       [/"([^"\\]|\\.)*$/, "string.invalid"], // non-teminated string
-      [/"/, {token: "string.quote", bracket: "@open", next: "@string"}],
+      [/"/, { token: "string.quote", bracket: "@open", next: "@string" }],
 
       // characters
       [/'[^\\']'/, "string"],
@@ -160,16 +155,16 @@ const tigerSyntax: monaco.languages.IMonarchLanguage = {
       [/'/, "string.invalid"],
     ],
     comment: [
-      [/[^/*]+/, "comment"],
+      [/[^\/*]+/, "comment"],
       [/\/\*/, "comment", "@push"], // nested comment
       ["\\*/", "comment", "@pop"],
-      [/[/*]/, "comment"],
+      [/[\/*]/, "comment"],
     ],
     string: [
       [/[^\\"]+/, "string"],
       [/@escapes/, "string.escape"],
       [/\\./, "string.escape.invalid"],
-      [/"/, {token: "string.quote", bracket: "@close", next: "@pop"}],
+      [/"/, { token: "string.quote", bracket: "@close", next: "@pop" }],
     ],
     whitespace: [
       [/[ \t\r\n]+/, "white"],
