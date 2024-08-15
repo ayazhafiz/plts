@@ -1,6 +1,6 @@
 import Revision from "../components/revision.tsx"
 import {Helmet} from "react-helmet";
-import {Box, ThemeProvider} from "@primer/react";
+import {Box, ThemeProvider, BaseStyles} from "@primer/react";
 
 export default function Layout({children}) {
   return (<>
@@ -12,9 +12,11 @@ export default function Layout({children}) {
       />
     </Helmet>
     <ThemeProvider>
-      <Box className="markdown-body">
-        <Box m={[4, 4, 10]}>{children}</Box>
-      </Box>
+      <BaseStyles>
+        <Box className="markdown-body">
+          <Box m={[4, 4, 10]}>{children}</Box>
+        </Box>
+      </BaseStyles>
     </ThemeProvider>
   </>);
 }
@@ -163,6 +165,12 @@ compiler.
 
     - [Playground][roc-compose-fx-pg]
 
+- [cor/lss](https://github.com/ayazhafiz/cor/tree/base/experiments/lss):
+    A demonstration of lambda-set specialization as implemented in Roc.
+    Supports composable effects, as in `compose_fx`.
+
+    - [Playground][roc-lss-pg]
+
 [tiger-pg]: https://ayazhafiz.com/plts/playground/tiger
 [ft-pg]: https://ayazhafiz.com/plts/playground/ft
 [gtlc-pg]: https://ayazhafiz.com/plts/playground/gtlc
@@ -172,4 +180,5 @@ compiler.
 [roc-refine-pg]: https://ayazhafiz.com/plts/playground/cor/refine
 [roc-easy-tags-pg]: https://ayazhafiz.com/plts/playground/cor/easy_tags
 [roc-compose-fx-pg]: https://ayazhafiz.com/plts/playground/cor/compose_fx
+[roc-lss-pg]: https://ayazhafiz.com/plts/playground/cor/lss
 [co_lc-pg]: https://ayazhafiz.com/plts/playground/co_lc

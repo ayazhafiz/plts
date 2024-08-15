@@ -11,7 +11,7 @@ import {
   TextInput,
 } from "@primer/react";
 import styled from "styled-components";
-import { space, SpaceProps } from "styled-system";
+import {space, SpaceProps} from "styled-system";
 import * as lz from "lz-string";
 import type {
   Result,
@@ -26,7 +26,7 @@ import Revision from "./revision";
 
 const ml = 3;
 
-const PgColumn: React.FC<{ children: React.ReactNode }> = (props) => (
+const PgColumn: React.FC<{children: React.ReactNode}> = (props) => (
   <Box
     display="flex"
     flex={1}
@@ -41,7 +41,6 @@ const PgColumn: React.FC<{ children: React.ReactNode }> = (props) => (
   </Box>
 );
 
-const Label = styled.label<SpaceProps>(space);
 const Select = styled.select<SpaceProps>(space);
 const Span = styled.span<SpaceProps>(space);
 
@@ -54,19 +53,19 @@ interface SelectorProps {
   forceSetValue: ForceSetValue;
 }
 
-class Selector extends React.Component<SelectorProps, { value: string }> {
+class Selector extends React.Component<SelectorProps, {value: string}> {
   constructor(props: SelectorProps) {
     super(props);
-    this.state = { value: props.defaultOption };
+    this.state = {value: props.defaultOption};
     props.forceSetValue((option) => {
-      this.setState({ value: option });
+      this.setState({value: option});
       return Promise.resolve();
     });
   }
 
   onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     this.props.onChange(e.target.value);
-    this.setState({ value: e.target.value });
+    this.setState({value: e.target.value});
   };
 
   override render() {
@@ -89,7 +88,7 @@ class Selector extends React.Component<SelectorProps, { value: string }> {
 
 type Editor = monaco.editor.IStandaloneCodeEditor;
 
-const EditorHeading: React.FC<{ children: React.ReactNode }> = ({
+const EditorHeading: React.FC<{children: React.ReactNode}> = ({
   children,
 }) => (
   <Box
@@ -102,18 +101,18 @@ const EditorHeading: React.FC<{ children: React.ReactNode }> = ({
   </Box>
 );
 
-const PopoverButton: React.FC<{ heading: string; body: React.ReactNode }> = ({
+const PopoverButton: React.FC<{heading: string; body: React.ReactNode}> = ({
   heading,
   body,
 }) => {
-  const { getDetailsProps } = useDetails({ closeOnOutsideClick: true });
+  const {getDetailsProps} = useDetails({closeOnOutsideClick: true});
 
   return (
     <Box position="relative">
-      <Details {...getDetailsProps()} sx={{ ml: ml, mb: "0px !important" }}>
+      <Details {...getDetailsProps()} sx={{ml: ml, mb: "0px !important"}}>
         <summary className="btn-link">{heading}</summary>
         <Popover open={true} caret="top-left">
-          <Popover.Content sx={{ mt: 2, pt: 3, pb: 0, width: "500px" }}>
+          <Popover.Content sx={{mt: 2, pt: 3, pb: 0, width: "500px"}}>
             {body}
           </Popover.Content>
         </Popover>
@@ -124,7 +123,7 @@ const PopoverButton: React.FC<{ heading: string; body: React.ReactNode }> = ({
 
 type OnDidBackendChange = (subscriber: () => Promise<"done">) => void;
 type OnDidInputChange = (
-  subscriber: (newInput: string) => Promise<"done">
+  subscriber: (newInput: string) => Promise<"done">,
 ) => void;
 
 const InputColumn = ({
@@ -162,7 +161,7 @@ const InputColumn = ({
         justifyContent="space-between"
       >
         <EditorHeading>
-          <Heading as="h1" sx={{ display: "inline-block" }}>
+          <Heading as="h1" sx={{display: "inline-block"}}>
             Input
           </Heading>
           <Selector
@@ -172,13 +171,13 @@ const InputColumn = ({
             forceSetValue={(_it: any) => {}}
           />
           {typeof grammar === "string" ? (
-            <Link sx={{ ml }} href={grammar}>
+            <Link sx={{ml}} href={grammar}>
               Language Grammar
             </Link>
           ) : (
             <PopoverButton heading="Language Grammar" body={grammar} />
           )}
-          <Link sx={{ ml }} href={source}>
+          <Link sx={{ml}} href={source}>
             Source
           </Link>
         </EditorHeading>
@@ -230,7 +229,7 @@ class BackendBlock extends React.Component<
   constructor(props: BackendBlockProps) {
     super(props);
 
-    const { getBackend, onDidBackendChange, onDidInputChange, registerEditor } =
+    const {getBackend, onDidBackendChange, onDidInputChange, registerEditor} =
       this.props;
 
     registerEditor(this.setHide);
@@ -243,7 +242,7 @@ class BackendBlock extends React.Component<
         title: backend.title,
         options: backend.options,
         info: backend.info ? backend.info : [],
-        result: { result: "", error: null },
+        result: {result: "", error: null},
         forceHide: false,
       };
     }
@@ -256,15 +255,14 @@ class BackendBlock extends React.Component<
     new Promise<void>((resolve) => this.setState(newState, resolve));
 
   setHide = async (forceHide: boolean) => {
-    await this.setStateAsync({ forceHide });
+    await this.setStateAsync({forceHide});
   };
 
   updateBackend = async (input?: string): Promise<"done"> => {
-    const { getBackend, getMonaco, getEditor } = this.props;
+    const {getBackend, getMonaco, getEditor} = this.props;
     const backend = getBackend();
     if (backend === null) {
       await this.setStateAsync(this.nullState);
-      console.debug("skipping setting backend identity", this.props.identity);
       return "done";
     }
     const monaco = getMonaco();
@@ -275,25 +273,24 @@ class BackendBlock extends React.Component<
     });
     monaco.editor.setModelLanguage(
       (await getEditor()).getModel()!,
-      backend.editorLanguage
+      backend.editorLanguage,
     );
     let done = await this.updateOutput(input);
-    console.debug("finished updating backend", this.state.title, "identity", this.props.identity);
     return done;
   };
 
   updateOutput = async (
-    input: string = this.lastKnownInput
+    input: string = this.lastKnownInput,
   ): Promise<"done"> => {
     this.lastKnownInput = input;
-    const { getBackend, getEditor } = this.props;
+    const {getBackend, getEditor} = this.props;
     const backend = getBackend();
-    const { options } = this.state;
+    const {options} = this.state;
     if (backend === null || options === null) return "done";
 
     const ed = await getEditor();
 
-    await this.setStateAsync({ result: "loading" });
+    await this.setStateAsync({result: "loading"});
     ed.setValue("");
 
     const optionValues = options.map(([_, v]) => {
@@ -308,12 +305,11 @@ class BackendBlock extends React.Component<
       ed.setValue(result.result);
       ed.trigger("playground", "editor.foldAllMarkerRegions", {});
     }
-    await this.setStateAsync({ result });
-    console.debug("finished updating output for input of length", input.length);
+    await this.setStateAsync({result});
     return "done";
   };
 
-  setOption = async (e: { checked: boolean; value: string }, i: number) => {
+  setOption = async (e: {checked: boolean; value: string}, i: number) => {
     let v = this.state.options![i][1];
     switch (typeof v) {
       case "boolean": {
@@ -330,13 +326,13 @@ class BackendBlock extends React.Component<
       }
     }
     this.state.options![i][1] = v;
-    await this.setStateAsync({ options: this.state.options });
+    await this.setStateAsync({options: this.state.options});
     writePersistentBackendOption(this.props.identity, this.state.options!);
     this.updateOutput();
   };
 
   override render() {
-    const { result, title, options, info, forceHide } = this.state;
+    const {result, title, options, info, forceHide} = this.state;
     const globalHide = forceHide || result === null;
     const isLoading = result === "loading";
     const hideError = globalHide || isLoading || result.error === null;
@@ -347,7 +343,7 @@ class BackendBlock extends React.Component<
     const createOptionsHtml = (
       opt: string,
       val: boolean | number | StringOptions,
-      i: number
+      i: number,
     ) => {
       switch (typeof val) {
         case "boolean": {
@@ -359,18 +355,14 @@ class BackendBlock extends React.Component<
                 checked={val}
                 onChange={(e) => this.setOption(e.target, i)}
               />
-              <Label htmlFor={opt} ml={2}>
-                {opt}
-              </Label>
             </>
           );
         }
         case "number": {
           return (
             <>
-              <Label htmlFor={opt}>{opt}</Label>
               <TextInput
-                sx={{ ml: 2, p: 0, px: 1 }}
+                sx={{ml: 2, p: 0, px: 1}}
                 id={opt}
                 type="number"
                 min={0}
@@ -386,12 +378,11 @@ class BackendBlock extends React.Component<
         case "object": {
           return (
             <>
-              <Label htmlFor={opt}>{opt}</Label>
               <Selector
                 options={val.options}
                 defaultOption={val.value}
                 onChange={(value: string) =>
-                  this.setOption({ checked: false, value }, i)
+                  this.setOption({checked: false, value}, i)
                 }
                 forceSetValue={(_it) => {}}
               />
@@ -404,18 +395,24 @@ class BackendBlock extends React.Component<
     };
     return (
       <Box
-        style={{ display: globalHide ? "none" : "flex" }}
+        style={{display: globalHide ? "none" : "flex"}}
         flex={this.props.prio}
         flexDirection="column"
       >
         <EditorHeading>
-          <Heading as="h1" sx={{ display: "inline-block" }}>
+          <Heading as="h1" sx={{display: "inline-block"}}>
             {titleTxt}
           </Heading>
           {optionsLst.map(([opt, val], i) => (
-            <Span key={i} ml={ml}>
+            <Box
+              key={i}
+              ml={ml}
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+            >
               {createOptionsHtml(opt, val, i)}
-            </Span>
+            </Box>
           ))}
           {info.map(([title, content], i) => (
             <PopoverButton key={i} heading={title} body={content} />
@@ -440,7 +437,7 @@ class BackendBlock extends React.Component<
           flexDirection="column"
           flex="1"
         >
-          {isLoading ? <Spinner size="medium" sx={{ ml }} /> : <></>}
+          {isLoading ? <Spinner size="medium" sx={{ml}} /> : <></>}
           <Box display={isLoading ? "none" : "flex"} flex="1">
             {this.props.children}
           </Box>
@@ -463,7 +460,7 @@ const editorOpts: monaco.editor.IStandaloneEditorConstructionOptions = {
 
 interface PlaygroundProps<
   Backends extends Record<string, BackendKind>,
-  Examples extends Record<string, string>
+  Examples extends Record<string, string>,
 > {
   title: string;
   language: string;
@@ -486,7 +483,7 @@ let persistentState: PersistentState;
 
 function writePersistentBackendOption(
   backendIdentity: number,
-  options: BackendOptions
+  options: BackendOptions,
 ) {
   persistentState.options![backendIdentity] = options;
   commitPersistentState();
@@ -494,7 +491,7 @@ function writePersistentBackendOption(
 
 function writePersistentState<K extends keyof PersistentState>(
   key: K,
-  value: PersistentState[K]
+  value: PersistentState[K],
 ) {
   persistentState[key] = value;
   commitPersistentState();
@@ -511,15 +508,15 @@ function commitPersistentState() {
     const queryParams = new URLSearchParams(window.location.search);
     queryParams.set(
       "input",
-      lz.compressToEncodedURIComponent(persistentState.input)
+      lz.compressToEncodedURIComponent(persistentState.input),
     );
     queryParams.set("backend", persistentState.backend);
     if (persistentState.options !== null) {
       queryParams.set(
         "options",
         lz.compressToEncodedURIComponent(
-          JSON.stringify(persistentState.options)
-        )
+          JSON.stringify(persistentState.options),
+        ),
       );
     }
     const curUrl = `${window.location.pathname}?${queryParams}`;
@@ -539,12 +536,11 @@ function loadPersistentState({
     const input = queryParams.get("input")
       ? lz.decompressFromEncodedURIComponent(queryParams.get("input")!)!
       : defaultInput;
-    console.info("default backend", defaultBackend);
     const backend = queryParams.get("backend") ?? defaultBackend;
     const options = queryParams.get("options")
       ? JSON.parse(
-          lz.decompressFromEncodedURIComponent(queryParams.get("options")!)!
-        )
+        lz.decompressFromEncodedURIComponent(queryParams.get("options")!)!,
+      )
       : null;
     persistentState = {
       input,
@@ -556,14 +552,13 @@ function loadPersistentState({
 
 class EditorCell {
   private readonly resolve: (ed: Editor) => void;
-  private readonly editor: Promise<Editor>
+  private readonly editor: Promise<Editor>;
 
   constructor() {
     let theResolve: (ed: Editor) => void = null!;
     this.editor = new Promise((resolve, _reject) => {
       theResolve = resolve;
     });
-    console.assert(theResolve !== null);
     this.resolve = theResolve;
   }
 
@@ -578,16 +573,18 @@ class EditorCell {
 
 class Playground<
   Backends extends Record<string, BackendKind>,
-  Examples extends Record<string, string>
+  Examples extends Record<string, string>,
 > extends React.Component<PlaygroundProps<Backends, Examples>> {
   private readonly editors: Record<
     string,
-    { kind: "input" | "output"; editor: EditorCell; setHide?: SetHide }
+    {kind: "input" | "output"; editor: EditorCell; setHide?: SetHide}
   > = {};
   private inputEditorId: string = "input-editor";
 
   private backend: BackendKind = this.props.backends[this.props.defaultBackend];
-  private readonly backendChangeSubscribers: Array<(input?: string) => Promise<"done">> = [];
+  private readonly backendChangeSubscribers: Array<
+    (input?: string) => Promise<"done">
+  > = [];
   private readonly inputChangeSubscribers: Array<
     (input: string) => Promise<"done">
   > = [];
@@ -605,7 +602,7 @@ class Playground<
   registerEditor = (
     editorId: string,
     kind: "input" | "output",
-    setHide?: SetHide
+    setHide?: SetHide,
   ) => {
     this.editors[editorId] = {
       kind,
@@ -629,7 +626,6 @@ class Playground<
   inputChange = async () => {
     const newInput = (await this.getEditor(this.inputEditorId)).getValue();
     writePersistentState("input", newInput);
-    console.debug("firing new input of length", newInput.length);
     return Promise.all(this.inputChangeSubscribers.map((s) => s(newInput)));
   };
 
@@ -666,16 +662,16 @@ class Playground<
         inherit: true,
         colors: {},
         rules: [
-          { token: "error", foreground: "ff0000" },
-          { token: "infer", foreground: "ea5c00", fontStyle: "italic" },
+          {token: "error", foreground: "ff0000"},
+          {token: "infer", foreground: "ea5c00", fontStyle: "italic"},
         ],
       });
 
       for (const [
         lang,
-        { syntax, hover, format, autoFormat },
+        {syntax, hover, format, autoFormat},
       ] of Object.entries(this.props.languageRegistrations)) {
-        monaco.languages.register({ id: lang });
+        monaco.languages.register({id: lang});
         monaco.languages.setMonarchTokensProvider(lang, syntax);
         if (hover) {
           monaco.languages.registerHoverProvider(lang, {
@@ -703,21 +699,20 @@ class Playground<
       for (const editorId of Object.keys(this.editors)) {
         const extraOpts: monaco.editor.IStandaloneEditorConstructionOptions =
           this.editors[editorId].kind === "output"
-            ? { readOnly: true }
-            : { language: this.props.language };
+            ? {readOnly: true}
+            : {language: this.props.language};
         const editor = monaco.editor.create(
           document.getElementById(editorId)!,
           {
             ...editorOpts,
             theme: "pgtheme",
             ...extraOpts,
-          }
+          },
         );
         this.editors[editorId].editor.set(editor);
 
         if (this.editors[editorId].kind === "input") {
           editor.setValue(persistentState.input);
-          console.info("set initial value of length", persistentState.input.length);
           editor.onDidChangeModelContent(this.inputChange);
         }
       }
@@ -732,12 +727,10 @@ class Playground<
 
       writePersistentState(
         "options",
-        this.backend.map((back) => back.options)
+        this.backend.map((back) => back.options),
       );
 
-      console.debug("firing initial backend change with input of length", persistentState.input.length);
       await this.backendChange(persistentState.input);
-      console.debug("backends initialized");
     });
   }
 
