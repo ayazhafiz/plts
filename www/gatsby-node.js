@@ -1,4 +1,6 @@
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+const webpack = require('webpack');
+const path = require('path');
 
 exports.onCreateWebpackConfig = ({
   stage,
@@ -8,11 +10,16 @@ exports.onCreateWebpackConfig = ({
   actions,
 }) => {
   actions.setWebpackConfig({
-    module: {
-      rules: [],
-    },
     plugins: [
       new MonacoWebpackPlugin({languages: ['c', 'typescript', 'javascript']}),
+      // Simple solution: Replace all node: imports with empty objects
+      new webpack.NormalModuleReplacementPlugin(
+        /^node:/,
+        (resource) => {
+          // Replace with an empty module
+          resource.request = path.resolve(__dirname, 'src/utils/empty-module.js');
+        }
+      ),
     ],
     resolve: {
       fallback: {
@@ -20,6 +27,7 @@ exports.onCreateWebpackConfig = ({
         fs: false,
         module: false,
         pnpapi: false,
+        node: false
       },
     },
   })

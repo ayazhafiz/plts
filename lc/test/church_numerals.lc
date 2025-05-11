@@ -1,0 +1,35 @@
+# +parse -print
+# +eval -print
+\f -> \x -> f (f (f x))
+
+> +parse -print
+> \f -> \x -> f (f (f x))
+
+> +eval -print
+> VM Instructions:
+> 0: GRAB
+> 1: GRAB
+> 2: ACCESS 1
+> 3: ACCESS 1
+> 4: ACCESS 1
+> 5: ACCESS 0
+> 6: APPLY
+> 7: APPLY
+> 8: APPLY
+> 9: HALT
+> 
+> 
+> Evaluation Result:
+> VClosure([0 env vars], [10 instrs])
+> 
+> JavaScript:
+> // Generated JavaScript from Lambda Calculus
+> 
+> function main() {
+>   return (function(f) { return (function(x) { return (env[1])((env[1])((env[1])(env[0]))); }); });
+> }
+> 
+> if (typeof module !== 'undefined' && module.exports) {
+>   module.exports = { main };
+> }
+> 

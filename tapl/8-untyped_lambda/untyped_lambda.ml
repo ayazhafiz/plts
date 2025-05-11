@@ -38,7 +38,7 @@ let openfile infile =
     | [] -> error Unknown ("Could not find " ^ infile)
     | d :: rest -> (
         let name = if d = "" then infile else d ^ "/" ^ infile in
-        try open_in name with Sys_error _ -> trynext rest )
+        try open_in name with Sys_error _ -> trynext rest)
   in
   trynext !searchpath
 
@@ -86,18 +86,13 @@ let main () =
   ()
 
 let () = set_max_boxes 1000
-
 let () = set_margin 67
 
 let res =
-  Printexc.catch
-    (fun () ->
-      try
-        main ();
-        0
-      with Exit x -> x)
-    ()
+  try
+    main ();
+    0
+  with Exit x -> x
 
 let () = print_flush ()
-
 let () = exit res

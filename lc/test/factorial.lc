@@ -1,0 +1,70 @@
+# +parse -print
+# +eval -print
+(\f -> (\x -> f (x x)) (\x -> f (x x)))
+(\fact -> \n -> (\t -> \f -> f) n (\x -> x) (n (\x -> x) fact (n (\x -> \y -> y))))
+
+> +parse -print
+> (\f -> (\x -> f (x x)) (\x1 -> f (x1 x1)))
+>   (\fact ->
+>      \n ->
+>        (((\t -> \f1 -> f1) n) (\x2 -> x2))
+>          (((n (\x3 -> x3)) fact)
+>             (n (\x4 -> \y -> y))))
+
+> +eval -print
+> VM Instructions:
+> 0: GRAB
+> 1: GRAB
+> 2: ACCESS 1
+> 3: ACCESS 0
+> 4: ACCESS 0
+> 5: APPLY
+> 6: APPLY
+> 7: GRAB
+> 8: ACCESS 1
+> 9: ACCESS 0
+> 10: ACCESS 0
+> 11: APPLY
+> 12: APPLY
+> 13: APPLY
+> 14: GRAB
+> 15: GRAB
+> 16: GRAB
+> 17: GRAB
+> 18: ACCESS 0
+> 19: ACCESS 0
+> 20: APPLY
+> 21: GRAB
+> 22: ACCESS 0
+> 23: APPLY
+> 24: ACCESS 0
+> 25: GRAB
+> 26: ACCESS 0
+> 27: APPLY
+> 28: ACCESS 1
+> 29: APPLY
+> 30: ACCESS 0
+> 31: GRAB
+> 32: GRAB
+> 33: ACCESS 0
+> 34: APPLY
+> 35: APPLY
+> 36: APPLY
+> 37: APPLY
+> 38: HALT
+> 
+> 
+> Evaluation Result:
+> VClosure([0 env vars], [39 instrs])
+> 
+> JavaScript:
+> // Generated JavaScript from Lambda Calculus
+> 
+> function main() {
+>   return ((function(f) { return ((function(x) { return (env[1])((env[0])(env[0])); }))((function(x1) { return (env[1])((env[0])(env[0])); })); }))((function(fact) { return (function(n) { return ((((function(t) { return (function(f1) { return env[0]; }); }))(env[0]))((function(x2) { return env[0]; })))((((env[0])((function(x3) { return env[0]; })))(env[1]))((env[0])((function(x4) { return (function(y) { return env[0]; }); })))); }); }));
+> }
+> 
+> if (typeof module !== 'undefined' && module.exports) {
+>   module.exports = { main };
+> }
+> 

@@ -1,0 +1,7 @@
+{
+  "name": "lc",
+  "version": "0.0.0",
+  "main": "lc.js",
+  "module": "lc",
+  "types": "lc.d.ts"
+}

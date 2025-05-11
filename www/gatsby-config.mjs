@@ -42,6 +42,14 @@ const config = {
     {
       resolve: 'gatsby-source-filesystem',
       options: {
+        name: 'lc',
+        path: path.resolve(__dirname, '../lc/'),
+        ignore: ['**/dune', '**/dune-project', '**/*.!(lc)']
+      },
+    },
+    {
+      resolve: 'gatsby-source-filesystem',
+      options: {
         name: 'pages',
         path: path.resolve(__dirname, './src/pages/')
       },

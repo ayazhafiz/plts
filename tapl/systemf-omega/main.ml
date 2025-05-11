@@ -28,7 +28,7 @@ let openfile infile =
     | [] -> failwith ("Could not find " ^ infile)
     | d :: rest -> (
         let name = if d = "" then infile else d ^ "/" ^ infile in
-        try open_in name with Sys_error _ -> trynext rest )
+        try open_in name with Sys_error _ -> trynext rest)
   in
   trynext !searchpath
 
@@ -107,7 +107,7 @@ let rec repl (ctx, store) =
           List.fold_left do_command (ctx, store) cmds
         with Failure f ->
           Printf.eprintf "%s\n" f;
-          (ctx, store) )
+          (ctx, store))
     | _ -> (ctx, store)
   in
   flush_all ();
@@ -123,20 +123,15 @@ let main () =
   | None -> repl (emptycontext, emptystore)
 
 let () = set_max_boxes 1000
-
 let () = set_margin 67
 
 let res =
-  Printexc.catch
-    (fun () ->
-      try
-        main ();
-        0
-      with Failure s ->
-        Printf.eprintf "Fatal error: %s" s;
-        1)
-    ()
+  try
+    main ();
+    0
+  with Failure s ->
+    Printf.eprintf "Fatal error: %s" s;
+    1
 
 let () = print_flush ()
-
 let () = exit res

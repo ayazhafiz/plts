@@ -1,0 +1,31 @@
+# +parse -print
+# +eval -print
+(\x -> x) (\y -> y)
+
+> +parse -print
+> (\x -> x) (\y -> y)
+
+> +eval -print
+> VM Instructions:
+> 0: GRAB
+> 1: ACCESS 0
+> 2: GRAB
+> 3: ACCESS 0
+> 4: APPLY
+> 5: HALT
+> 
+> 
+> Evaluation Result:
+> VClosure([0 env vars], [6 instrs])
+> 
+> JavaScript:
+> // Generated JavaScript from Lambda Calculus
+> 
+> function main() {
+>   return ((function(x) { return env[0]; }))((function(y) { return env[0]; }));
+> }
+> 
+> if (typeof module !== 'undefined' && module.exports) {
+>   module.exports = { main };
+> }
+> 

@@ -30,7 +30,7 @@ let openfile infile =
     | [] -> error Unknown ("Could not find " ^ infile)
     | d :: rest -> (
         let name = if d = "" then infile else d ^ "/" ^ infile in
-        try open_in name with Sys_error _ -> trynext rest )
+        try open_in name with Sys_error _ -> trynext rest)
   in
   trynext !searchpath
 
@@ -76,7 +76,7 @@ let prbindingty ctx b =
       pr ": ";
       match tyT_opt with
       | None -> printty ctx (typeof ctx t)
-      | Some tyT -> printty ctx tyT )
+      | Some tyT -> printty ctx tyT)
   | TyVarBinding -> ()
   | TyAbbBinding ty ->
       pr ":: ";
@@ -143,18 +143,13 @@ let main () =
   | None -> repl emptycontext
 
 let () = set_max_boxes 1000
-
 let () = set_margin 67
 
 let res =
-  Printexc.catch
-    (fun () ->
-      try
-        main ();
-        0
-      with Exit x -> x)
-    ()
+  try
+    main ();
+    0
+  with Exit x -> x
 
 let () = print_flush ()
-
 let () = exit res

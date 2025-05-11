@@ -1,0 +1,29 @@
+# +parse -print
+# +eval -print
+\t -> \f -> t
+
+> +parse -print
+> \t -> \f -> t
+
+> +eval -print
+> VM Instructions:
+> 0: GRAB
+> 1: GRAB
+> 2: ACCESS 1
+> 3: HALT
+> 
+> 
+> Evaluation Result:
+> VClosure([0 env vars], [4 instrs])
+> 
+> JavaScript:
+> // Generated JavaScript from Lambda Calculus
+> 
+> function main() {
+>   return (function(t) { return (function(f) { return env[1]; }); });
+> }
+> 
+> if (typeof module !== 'undefined' && module.exports) {
+>   module.exports = { main };
+> }
+> 

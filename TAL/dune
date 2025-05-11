@@ -30,7 +30,6 @@
   (action
     (progn
       (run %{bin:js_of_ocaml}
-           %{lib:zarith_stubs_js:biginteger.js}
            %{lib:zarith_stubs_js:runtime.js}
            prim.js
            %{dep:js.bc}
